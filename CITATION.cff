@@ -1,0 +1,12 @@
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Last"
+  given-names: "First"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "Python Package Template repository"
+version: 0.0.1
+doi: 10.5281/zenodo.1234
+date-released: 2025-07-23
+url: "https://github.com/biosustain/python_package"
