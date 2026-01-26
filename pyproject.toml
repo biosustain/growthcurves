@@ -1,8 +1,8 @@
 # ref: https://setuptools.pypa.io/en/stable/userguide/pyproject_config.html
-[project]
-authors = [{ name = "First Last", email = "first.last@gmail.com" }]
-description = "A small example package"
-name = "python_package"
+[growthcurves]
+authors = [{ name = "Henry Wobble", email = "heweb@dtu.dk" }, { name = "Samuel Bradley", email = "sambra@dtu.dk" }]
+description = "A package for fitting and analyzing microbial growth curves."
+name = "growthcurves"
 # This means: Load the version from the package itself.
 # See the section below: [tools.setuptools.dynamic]
 dynamic = [
@@ -23,13 +23,13 @@ license = "GPL-3.0-or-later" # https://choosealicense.com/licenses/gpl-3.0/
 # use requirements.txt instead of pyproject.toml for dependencies
 # https://stackoverflow.com/a/73600610/9684872
 # ! uncomment also dependencies in the dynamic section above
-# [tool.setuptools.dynamic]
-# dependencies = {file = ["requirements.txt"]}
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 
 [project.urls]
-"Bug Tracker" = "https://github.com/RasmussenLab/python_package/issues"
-"Homepage" = "https://github.com/RasmussenLab/python_package"
+"Bug Tracker" = "https://github.com/biosustain/growthcurves/issues"
+"Homepage" = "https://github.com/biosustain/growthcurves"
 
 [project.optional-dependencies]
 # Optional dependencies to locally build the documentation, also used for 
