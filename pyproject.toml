@@ -1,5 +1,5 @@
 # ref: https://setuptools.pypa.io/en/stable/userguide/pyproject_config.html
-[growthcurves]
+[project]
 authors = [{ name = "Henry Wobble", email = "heweb@dtu.dk" }, { name = "Samuel Bradley", email = "sambra@dtu.dk" }]
 description = "A package for fitting and analyzing microbial growth curves."
 name = "growthcurves"
@@ -73,4 +73,4 @@ profile = "black"
 # e.g. implemented using argparse
 # Then you can type: `python-package-hello -h` in the terminal
 [project.scripts]
-python-package-hello = "python_package.cli:main"
+python-package-hello = "growth_curves.cli:main"
