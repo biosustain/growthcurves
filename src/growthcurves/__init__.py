@@ -4,8 +4,8 @@ from importlib import metadata
 
 __version__ = metadata.version("growthcurves")
 
-from .mockup import hello_world, saved_world
+from . import models
 
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"
-__all__ = ["hello_world", "saved_world"]
+__all__ = ["models"]
