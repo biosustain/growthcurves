@@ -21,7 +21,7 @@ tutorial/tutorial
 :caption: "Reference"
 :hidden: true
 
-reference/python_package
+reference/growthcurves
 ```
 
 ```{toctree}
