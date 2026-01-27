@@ -2,11 +2,14 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: "Last"
-  given-names: "First"
-  orcid: "https://orcid.org/0000-0000-0000-0000"
-title: "Python Package Template repository"
+  - family-names: "Bradley"
+    given-names: "Samuel"
+    orcid: "https://orcid.org/0009-0001-3756-1392"
+  - family-names: "Wobble"
+    given-names: "Henry"
+    orcid: "https://orcid.org/0000-0001-8833-7617"
+title: "growthcurves"
 version: 0.0.1
 doi: 10.5281/zenodo.1234
-date-released: 2025-07-23
-url: "https://github.com/biosustain/python_package"
+date-released: 2026-01-31
+url: "https://github.com/biosustain/growthcurves"

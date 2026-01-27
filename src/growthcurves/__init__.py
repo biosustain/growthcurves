@@ -2,7 +2,7 @@
 # It is used to indicate that the directory in which it resides is a Python package
 from importlib import metadata
 
-__version__ = metadata.version("python_package")
+__version__ = metadata.version("growthcurves")
 
 from .mockup import hello_world, saved_world
 
