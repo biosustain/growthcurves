@@ -12,7 +12,6 @@ from scipy.signal import savgol_filter
 
 from .models import gompertz_model, logistic_model, richards_model, gaussian
 
-
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
