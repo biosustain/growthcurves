@@ -43,6 +43,8 @@ docs = [
   "jupytext",
   "sphinx-copybutton",
   "matplotlib",
+  "pandas",
+  "numpy",
 ]
 # local development options
 dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]
