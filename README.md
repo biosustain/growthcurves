@@ -1,50 +1,121 @@
-# Example Python package
+# growthcurves
 
-All design principles are explained in the [developing.md](developing.md) file.
-The Python package template was created by Jakob Nybo Nissen and Henry Webel.
+A Python package for fitting and analyzing microbial growth curves.
 
-## How to use
+Supports logistic, Gompertz, and Richards parametric models with automatic
+growth statistics extraction (specific growth rate, doubling time, phase
+boundaries) and a non-parametric sliding-window method.
 
-Can be used as GitHub template repository,
-see [GitHub documentation](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+## Installation
 
-You will need to find and replace occurences of
-
-- `python_package` -> `your_package_name`
-  - also the folder `src/python_package`
-- `RasmussenLab` -> `GitHub_user_name` (or `organization`)
-  with the name of your package and GitHub user name (or organization).
-
-- look for `First Last` to see where to replace with your name
-- choose a license, see [GitHub documentation](https://docs.github.com/en/repositories/creating-and-managing-repositories/licensing-a-repository)
-  and [Creative Commons](https://creativecommons.org/chooser/).
-  Replace [`LICENSE`](LICENSE) file with the license you choose.
-- Update the `CITATION.cff` file with your information.
-
-## Development environment
-
-Install package so that new code is picked up in a restared python interpreter:
-
+```bash
+pip install growthcurves
 ```
+
+For development:
+
+```bash
 pip install -e ".[dev]"
 ```
 
-## Basic usage
-
-> works using this template
+## Quick start
 
 ```python
-from python_package import hello_world
-print (python_package.__version__)
-print(hello_world(4))
+import growthcurves as gc
+import numpy as np
+
+# Example time series (hours) and OD measurements
+time = np.linspace(0, 24, 100)
+od = 0.01 + 1.5 / (1 + np.exp(-0.5 * (time - 10)))  # synthetic logistic data
+
+# Fit a model and extract growth statistics
+stats = gc.fitting_functions.fit_growth_model(time, od,model_type="logistic")
+
+print(f"Max OD:              {stats['max_od']:.3f}")
+print(f"Specific growth rate: {stats['specific_growth_rate']:.4f} h⁻¹")
+print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 ```
 
-## Readthedocs
+## Available models
 
-The documentation can be build using readthedocs automatically. See
-[project on Readthedocs](https://readthedocs.org/projects/rasmussenlab-python-package/)
-for the project based on this template. A new project needs
-to [be registered on ReadTheDocs](https://docs.readthedocs.com/platform/stable/intro/add-project.html).
+| Model    | Function                | Parameters         |
+| -------- | ----------------------- | ------------------ |
+| Logistic | `models.logistic_model` | K, y0, r, t0       |
+| Gompertz | `models.gompertz_model` | K, y0, mu_max, lam |
+| Richards | `models.richards_model` | K, y0, r, t0, nu   |
 
-- make sure to enable build from PRs in the settings (advanded settings)
-- checkout configuration file: [`.readthedocs.yaml`](.readthedocs.yaml)
+The Richards model generalizes both logistic (nu = 1) and Gompertz (nu → 0)
+growth curves via its shape parameter `nu`.
+
+### Logistic
+
+$$
+N(t) = y_0 + \frac{K - y_0}{1 + \exp\!\bigl[-r\,(t - t_0)\bigr]}
+$$
+
+| Parameter | Meaning                                         |
+| --------- | ----------------------------------------------- |
+| $K$       | Carrying capacity (maximum OD)                  |
+| $y_0$     | Baseline OD at $t=0$                            |
+| $r$       | Growth rate constant (h⁻¹); equals $\mu_{\max}$ |
+| $t_0$     | Inflection time                                 |
+
+### Gompertz (modified)
+
+$$
+N(t) = y_0 + (K - y_0)\,\exp\!\left[-\exp\!\left(\frac{\mu_{\max}\,e}{K - y_0}\,(\lambda - t) + 1\right)\right]
+$$
+
+| Parameter    | Meaning                            |
+| ------------ | ---------------------------------- |
+| $K$          | Carrying capacity (maximum OD)     |
+| $y_0$        | Baseline OD                        |
+| $\mu_{\max}$ | Maximum specific growth rate (h⁻¹) |
+| $\lambda$    | Lag time (h)                       |
+
+### Richards (generalized logistic)
+
+$$
+N(t) = y_0 + (K - y_0)\,\bigl[1 + \nu\,\exp\!\bigl(-r\,(t - t_0)\bigr)\bigr]^{-1/\nu}
+$$
+
+| Parameter | Meaning                                                                         |
+| --------- | ------------------------------------------------------------------------------- |
+| $K$       | Carrying capacity (maximum OD)                                                  |
+| $y_0$     | Baseline OD                                                                     |
+| $r$       | Growth rate constant (h⁻¹)                                                      |
+| $t_0$     | Inflection time                                                                 |
+| $\nu$     | Shape parameter ($\nu=1 \Rightarrow$ logistic; $\nu\to 0 \Rightarrow$ Gompertz) |
+
+The maximum specific growth rate for the Richards model is $\mu_{\max} = r\,/\,(1+\nu)^{1/\nu}$.
+
+### Derived growth statistics
+
+| Statistic            | Formula                            |
+| -------------------- | ---------------------------------- |
+| Specific growth rate | $\mu = \dfrac{1}{N}\dfrac{dN}{dt}$ |
+| Doubling time        | $t_d = \dfrac{\ln 2}{\mu_{\max}}$  |
+
+## Key features
+
+- **Parametric fitting** — fit logistic, Gompertz, or Richards models with automatic parameter estimation
+- **Sliding-window method** — non-parametric growth rate estimation via sliding window fits to log-tranformed data
+- **Growth statistics** — automatic extraction of max OD, specific growth rate (µ_max), doubling time, and exponential-phase boundaries
+- **Derivative analysis** — first and second derivatives with Savitzky-Golay smoothing
+- **No-growth detection** — automatic identification of non-growing samples
+- **Model comparison** — RMSE fit-quality metric for comparing fits
+
+## Documentation and tutorial
+
+An interactive tutorial notebook is available at
+[docs/tutorial/tutorial.ipynb](docs/tutorial/tutorial.ipynb). It covers model
+fitting, derivative analysis, parameter extraction, and cross-model comparison
+using a realistic microbial growth dataset.
+
+## Citation
+
+If you use this package, please cite it as described in [CITATION.cff](CITATION.cff).
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).
