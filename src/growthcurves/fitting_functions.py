@@ -10,7 +10,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from scipy.signal import savgol_filter
 
-from .models import gompertz_model, logistic_model, richards_model, gaussian
+from .models import gaussian, gompertz_model, logistic_model, richards_model
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -330,12 +330,14 @@ def detect_no_growth(
     Parameters:
         t: Time array
         y: OD values (baseline-corrected)
-        growth_stats: Optional dict of fitted growth statistics (from extract_stats_from_fit
-            or sliding_window_fit). If provided, growth rate is checked.
+        growth_stats: Optional dict of fitted growth statistics (from
+            extract_stats_from_fit or sliding_window_fit).
+            If provided, growth rate is checked.
         min_data_points: Minimum number of valid data points required (default: 5)
         min_signal_to_noise: Minimum ratio of max/min OD values (default: 5.0)
         min_od_increase: Minimum absolute OD increase required (default: 0.05)
-        min_growth_rate: Minimum specific growth rate to be considered growth (default: 1e-6)
+        min_growth_rate: Minimum specific growth rate to be considered growth
+                         (default: 1e-6)
 
     Returns:
         Dict with:
@@ -390,7 +392,9 @@ def detect_no_growth(
         checks["has_sufficient_od_increase"] = False
         return {
             "is_no_growth": True,
-            "reason": f"Insufficient OD increase ({od_increase:.4f} < {min_od_increase})",
+            "reason": (
+                f"Insufficient OD increase ({od_increase:.4f} < {min_od_increase})"
+            ),
             "checks": checks,
         }
 
