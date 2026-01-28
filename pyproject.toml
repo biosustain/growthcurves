@@ -1,6 +1,6 @@
 # ref: https://setuptools.pypa.io/en/stable/userguide/pyproject_config.html
 [project]
-authors = [{ name = "Henry Wobble", email = "heweb@dtu.dk" }, { name = "Samuel Bradley", email = "sambra@dtu.dk" }]
+authors = [{ name = "Henry Webel", email = "heweb@dtu.dk" }, { name = "Samuel Bradley", email = "sambra@dtu.dk" }]
 description = "A package for fitting and analyzing microbial growth curves."
 name = "growthcurves"
 # This means: Load the version from the package itself.
@@ -42,6 +42,7 @@ docs = [
   "sphinx-new-tab-link!=0.2.2",
   "jupytext",
   "sphinx-copybutton",
+  "matplotlib",
 ]
 # local development options
 dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]
