@@ -29,7 +29,8 @@ time = np.linspace(0, 24, 100)
 od = 0.01 + 1.5 / (1 + np.exp(-0.5 * (time - 10)))  # synthetic logistic data
 
 # Fit a model and extract growth statistics
-stats = gc.fitting_functions.fit_growth_model(time, od,model_type="logistic")
+fit_result = gc.fitting_functions.fit_model(time, od, model_type="logistic")
+stats = gc.fitting_functions.extract_stats_from_fit(fit_result)
 
 print(f"Max OD:              {stats['max_od']:.3f}")
 print(f"Specific growth rate: {stats['specific_growth_rate']:.4f} h⁻¹")

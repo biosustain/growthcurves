@@ -331,7 +331,7 @@ def detect_no_growth(
     Parameters:
         t: Time array
         y: OD values (baseline-corrected)
-        growth_stats: Optional dict of fitted growth statistics (from fit_growth_model
+        growth_stats: Optional dict of fitted growth statistics (from extract_stats_from_fit
             or sliding_window_fit). If provided, growth rate is checked.
         min_data_points: Minimum number of valid data points required (default: 5)
         min_signal_to_noise: Minimum ratio of max/min OD values (default: 5.0)
@@ -422,7 +422,7 @@ def is_no_growth(growth_stats):
     For more comprehensive checks including raw data analysis, use detect_no_growth().
 
     Parameters:
-        growth_stats: Dict from fit_growth_model or sliding_window_fit
+        growth_stats: Dict from extract_stats_from_fit or sliding_window_fit
 
     Returns:
         bool: True if no growth detected (empty stats or zero growth rate)
@@ -597,33 +597,6 @@ def fit_gaussian_to_derivative(t, dy, t_dense):
 # -----------------------------------------------------------------------------
 # Main API Functions
 # -----------------------------------------------------------------------------
-
-
-def fit_growth_model(t, y, model_type="logistic", lag_frac=0.15, exp_frac=0.15):
-    """
-    Fit a growth model and extract growth statistics.
-
-    Parameters:
-        t: Time array (hours)
-        y: OD values (baseline-corrected)
-        model_type: "logistic", "gompertz", or "richards"
-        lag_frac: Fraction of peak growth rate for lag phase detection
-        exp_frac: Fraction of peak growth rate for exponential phase end detection
-
-    Returns:
-        Dict containing:
-            - max_od: Maximum OD value (carrying capacity K)
-            - specific_growth_rate: Maximum specific growth rate mu_max (h^-1)
-            - doubling_time: Doubling time (hours)
-            - exp_phase_start: Time when lag phase ends (hours)
-            - exp_phase_end: Time when exponential phase ends (hours)
-            - time_at_umax: Time at maximum growth rate (hours)
-            - od_at_umax: OD at maximum growth rate
-            - fit_method: Method used for fitting
-            - model_rmse: Root mean square error of fit
-    """
-    fit_result = fit_model(t, y, model_type=model_type)
-    return extract_stats_from_fit(fit_result, lag_frac=lag_frac, exp_frac=exp_frac)
 
 
 def sliding_window_fit(
