@@ -145,8 +145,6 @@ def add_exponential_phase(
         opacity=opacity,
         layer="below",
         line_width=0,
-        annotation_text=name if row is None else "",
-        annotation_position="top left",
         row=row,
         col=col,
     )
@@ -160,9 +158,9 @@ def add_umax_marker(
     od_umax: float,
     mu_max: Optional[float] = None,
     scale: str = "linear",
-    marker_symbol: str = "star",
-    marker_size: int = 20,
-    marker_color: str = "red",
+    marker_symbol: str = "circle",
+    marker_size: int = 8,
+    marker_color: str = "green",
     vline_color: str = "red",
     vline_dash: str = "dash",
     vline_width: float = 1,
@@ -186,11 +184,11 @@ def add_umax_marker(
     scale : str, optional
         'linear' or 'log' - determines y-axis transformation (default: 'linear')
     marker_symbol : str, optional
-        Marker symbol (default: 'star')
+        Marker symbol (default: 'circle')
     marker_size : int, optional
-        Size of marker (default: 20)
+        Size of marker (default: 8)
     marker_color : str, optional
-        Color of marker (default: 'red')
+        Color of marker (default: 'green')
     vline_color : str, optional
         Color of vertical line (default: 'red')
     vline_dash : str, optional
@@ -336,10 +334,10 @@ def add_od_max_line(
     fig: go.Figure,
     od_max: float,
     scale: str = "linear",
-    line_color: str = "purple",
+    line_color: str = "red",
     line_dash: str = "dash",
-    line_width: float = 2,
-    line_opacity: float = 0.7,
+    line_width: float = 1,
+    line_opacity: float = 0.5,
     name: str = "ODmax",
     row: Optional[int] = None,
     col: Optional[int] = None,
@@ -356,13 +354,13 @@ def add_od_max_line(
     scale : str, optional
         'linear' or 'log' - determines y-axis transformation (default: 'linear')
     line_color : str, optional
-        Color of horizontal line (default: 'purple')
+        Color of horizontal line (default: 'red')
     line_dash : str, optional
         Dash style for horizontal line (default: 'dash')
     line_width : float, optional
-        Width of horizontal line (default: 2)
+        Width of horizontal line (default: 1)
     line_opacity : float, optional
-        Opacity of horizontal line (default: 0.7)
+        Opacity of horizontal line (default: 0.5)
     name : str, optional
         Legend name (default: 'ODmax')
     row : int, optional
@@ -391,8 +389,6 @@ def add_od_max_line(
         line_dash=line_dash,
         line_width=line_width,
         opacity=line_opacity,
-        annotation_text=name,
-        annotation_position="right",
         row=row,
         col=col,
     )
@@ -402,8 +398,7 @@ def add_od_max_line(
 
 def annotate_plot(
     fig: go.Figure,
-    exp_start: Optional[float] = None,
-    exp_end: Optional[float] = None,
+    phase_boundaries: Optional[Tuple[float, float]] = None,
     time_umax: Optional[float] = None,
     od_umax: Optional[float] = None,
     od_max: Optional[float] = None,
@@ -422,10 +417,9 @@ def annotate_plot(
     ----------
     fig : go.Figure
         Plotly figure to annotate
-    exp_start : float, optional
-        Start time of exponential phase. If provided with exp_end, adds shading.
-    exp_end : float, optional
-        End time of exponential phase. If provided with exp_start, adds shading.
+    phase_boundaries : tuple of (float, float), optional
+        Tuple of (exp_start, exp_end) defining the exponential phase boundaries.
+        If provided, adds shading for the exponential growth phase.
     time_umax : float, optional
         Time at maximum growth rate. If provided, adds vertical line.
     od_umax : float, optional
@@ -466,8 +460,7 @@ def annotate_plot(
     >>> fig = create_base_plot(time, data, scale="log")
     >>> fig = annotate_plot(
     ...     fig,
-    ...     exp_start=30,
-    ...     exp_end=60,
+    ...     phase_boundaries=(30, 60),
     ...     time_umax=45,
     ...     od_umax=0.25,
     ...     od_max=0.8,
@@ -478,8 +471,7 @@ def annotate_plot(
     >>> # Add only exponential phase, lines, and umax point (no fitted curve)
     >>> fig = annotate_plot(
     ...     fig,
-    ...     exp_start=30,
-    ...     exp_end=60,
+    ...     phase_boundaries=(30, 60),
     ...     time_umax=45,
     ...     od_umax=0.25,
     ...     od_max=0.8,
@@ -506,6 +498,12 @@ def annotate_plot(
                 else:
                     # Likely linear scale
                     scale = "linear"
+
+    # Extract exp_start and exp_end from phase_boundaries tuple
+    exp_start = None
+    exp_end = None
+    if phase_boundaries is not None and len(phase_boundaries) == 2:
+        exp_start, exp_end = phase_boundaries
 
     # Add exponential phase shading (if both start and end are provided)
     if exp_start is not None and exp_end is not None:
@@ -589,26 +587,46 @@ def annotate_plot(
                     col=col,
                 )
 
-    # Add vertical line at time_umax (if provided)
-    if time_umax is not None and np.isfinite(time_umax):
-        fig.add_vline(
-            x=time_umax,
-            line_color="red",
-            line_dash="dash",
-            line_width=1,
+    # Add vertical and horizontal lines from axes to umax point (if both coordinates provided)
+    if (
+        time_umax is not None
+        and od_umax is not None
+        and np.isfinite(time_umax)
+        and np.isfinite(od_umax)
+    ):
+        y_val = np.log(od_umax) if scale == "log" else od_umax
+
+        # Determine the y-axis minimum from existing data to properly anchor the vertical line
+        y_min = 0  # default for linear scale
+        if len(fig.data) > 0:
+            y_values = []
+            for trace in fig.data:
+                if trace.y is not None:
+                    y_values.extend([y for y in trace.y if y is not None and np.isfinite(y)])
+            if y_values:
+                y_min = min(y_values)
+
+        # Add vertical line from bottom of plot to umax point
+        fig.add_shape(
+            type="line",
+            x0=time_umax,
+            y0=y_min,
+            x1=time_umax,
+            y1=y_val,
+            line=dict(color="black", dash="dot", width=1),
             opacity=0.5,
             row=row,
             col=col,
         )
 
-    # Add horizontal line at od_umax (if provided)
-    if od_umax is not None and np.isfinite(od_umax):
-        y_val = np.log(od_umax) if scale == "log" else od_umax
-        fig.add_hline(
-            y=y_val,
-            line_color="red",
-            line_dash="dash",
-            line_width=1,
+        # Add horizontal line from y-axis to umax point
+        fig.add_shape(
+            type="line",
+            x0=0,
+            y0=y_val,
+            x1=time_umax,
+            y1=y_val,
+            line=dict(color="black", dash="dot", width=1),
             opacity=0.5,
             row=row,
             col=col,

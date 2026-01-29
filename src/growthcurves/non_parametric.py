@@ -171,8 +171,8 @@ def fit_non_parametric(
     t,
     y,
     umax_method="sliding_window",
-    lag_frac=0.15,
-    exp_frac=0.15,
+    exp_start=0.15,
+    exp_end=0.15,
     sg_window=11,
     sg_poly=1,
     window_points=15,
@@ -227,7 +227,7 @@ def fit_non_parametric(
     dy_idealized = fit_gaussian_to_derivative(t, dy_data, t_dense)
 
     # Calculate phase boundaries
-    lag_end, exp_end = calculate_phase_ends(t_dense, dy_idealized, lag_frac, exp_frac)
+    lag_end, exp_end = calculate_phase_ends(t_dense, dy_idealized, exp_start, exp_end)
 
     # Calculate Umax using specified method
     if umax_method == "sliding_window":
