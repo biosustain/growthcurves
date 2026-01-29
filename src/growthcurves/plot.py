@@ -256,7 +256,7 @@ def add_fitted_curve(
     y_fit: np.ndarray,
     name: str = "Fitted curve",
     color: str = "blue",
-    line_width: int = 2,
+    line_width: int = 5,
     window_start: Optional[float] = None,
     window_end: Optional[float] = None,
     scale: str = "linear",
@@ -279,7 +279,7 @@ def add_fitted_curve(
     color : str, optional
         Color of fitted curve (default: 'blue')
     line_width : int, optional
-        Width of fitted curve line (default: 2)
+        Width of fitted curve line (default: 5)
     window_start : float, optional
         Start of fitting window (if specified, only show curve in this range)
     window_end : float, optional
@@ -404,6 +404,7 @@ def annotate_plot(
     od_max: Optional[float] = None,
     umax_point: Optional[Tuple[float, float]] = None,
     fitted_model: Optional[Dict[str, Any]] = None,
+    scale: str = "linear",
     row: Optional[int] = None,
     col: Optional[int] = None,
 ) -> go.Figure:
@@ -439,6 +440,8 @@ def annotate_plot(
         For backward compatibility, also accepts:
         - 'window_start': start of fitting window (if fit_t_min not in params)
         - 'window_end': end of fitting window (if fit_t_max not in params)
+    scale : str, optional
+        Plot scale for annotations: 'linear' or 'log'. Defaults to 'linear'.
     row : int, optional
         Subplot row (for subplots)
     col : int, optional
@@ -454,7 +457,7 @@ def annotate_plot(
     >>> # Pass fit result directly (recommended)
     >>> spline_result = gc.non_parametric.fit_non_parametric(time, data, umax_method="spline")
     >>> fig = create_base_plot(time, data, scale="linear")
-    >>> fig = annotate_plot(fig, fitted_model=spline_result)  # Scale auto-detected
+    >>> fig = annotate_plot(fig, fitted_model=spline_result, scale="linear")
 
     >>> # Add all annotations including od_max line and umax point
     >>> fig = create_base_plot(time, data, scale="log")
@@ -465,8 +468,9 @@ def annotate_plot(
     ...     od_umax=0.25,
     ...     od_max=0.8,
     ...     umax_point=(45, 0.25),
-    ...     fitted_model=spline_result
-    ... )  # Scale auto-detected from figure
+    ...     fitted_model=spline_result,
+    ...     scale="log"
+    ... )
 
     >>> # Add only exponential phase, lines, and umax point (no fitted curve)
     >>> fig = annotate_plot(
@@ -475,30 +479,10 @@ def annotate_plot(
     ...     time_umax=45,
     ...     od_umax=0.25,
     ...     od_max=0.8,
-    ...     umax_point=(45, 0.25)
+    ...     umax_point=(45, 0.25),
+    ...     scale="linear"
     ... )
     """
-    # Auto-detect scale from existing figure data
-    # This ensures annotations match the existing plot scale
-    scale = "linear"  # default
-    if len(fig.data) > 0:
-        # Check the first trace to detect scale
-        first_trace_y = fig.data[0].y
-        if first_trace_y is not None and len(first_trace_y) > 0:
-            # If y-values are mostly negative and small (like log-transformed OD),
-            # it's likely in log scale
-            y_arr = np.asarray(first_trace_y)
-            valid_y = y_arr[np.isfinite(y_arr)]
-            if len(valid_y) > 0:
-                # Heuristic: log(OD) typically ranges from -5 to 1
-                # Linear OD typically ranges from 0 to 10
-                if np.max(valid_y) < 5 and np.min(valid_y) < 0:
-                    # Likely log scale
-                    scale = "log"
-                else:
-                    # Likely linear scale
-                    scale = "linear"
-
     # Extract exp_start and exp_end from phase_boundaries tuple
     exp_start = None
     exp_end = None
@@ -649,7 +633,7 @@ def annotate_plot(
                     x=[t_val],
                     y=[y_val],
                     mode="markers",
-                    marker=dict(size=8, color="green", symbol="circle"),
+                    marker=dict(size=15, color="green", symbol="circle"),
                     showlegend=False,
                 ),
                 row=row,
