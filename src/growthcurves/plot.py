@@ -4,13 +4,14 @@ Plotting functions for growth curve analysis using Plotly.
 This module provides modular functions for creating and annotating growth curve plots.
 """
 
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import plotly.graph_objects as go
-from typing import Optional, Dict, Any, Tuple
 
 from .models import (
-    logistic_model,
     gompertz_model,
+    logistic_model,
     richards_model,
     spline_from_params,
 )
@@ -602,7 +603,9 @@ def annotate_plot(
             y_values = []
             for trace in fig.data:
                 if trace.y is not None:
-                    y_values.extend([y for y in trace.y if y is not None and np.isfinite(y)])
+                    y_values.extend(
+                        [y for y in trace.y if y is not None and np.isfinite(y)]
+                    )
             if y_values:
                 y_min = min(y_values)
 

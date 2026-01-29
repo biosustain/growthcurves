@@ -10,15 +10,14 @@ import numpy as np
 
 from .models import spline_model
 from .utils import (
-    compute_rmse,
-    smooth,
     bad_fit_stats,
-    detect_no_growth,
-    is_no_growth,
-    fit_gaussian_to_derivative,
     calculate_phase_ends,
+    compute_rmse,
+    detect_no_growth,
+    fit_gaussian_to_derivative,
+    is_no_growth,
+    smooth,
 )
-
 
 # -----------------------------------------------------------------------------
 # Sliding Window Helpers
