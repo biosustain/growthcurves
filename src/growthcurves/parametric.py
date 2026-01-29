@@ -141,7 +141,7 @@ def fit_richards(t, y):
     }
 
 
-def fit_model(t, y, model_type="logistic"):
+def fit_parametric(t, y, model_type="logistic"):
     """
     Fit a growth model to data.
 
