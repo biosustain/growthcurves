@@ -214,7 +214,7 @@ def fit_non_parametric(
         return bad_fit_stats()
 
     # Maximum OD from raw data
-    max_od = float(np.max(y_raw))
+    # max_od = float(np.max(y_raw))
 
     # Smooth the data and calculate first derivative for phase detection
     y_smooth = smooth(y_raw, sg_window, sg_poly)
@@ -236,9 +236,9 @@ def fit_non_parametric(
             return None
 
         # Extract parameters
-        params = umax_result["params"]
-        mu_max = params["slope"]
-        time_at_umax = params["time_at_umax"]
+        # params = umax_result["params"]
+        # mu_max = params["slope"]
+        # time_at_umax = params["time_at_umax"]
 
         return {
             "params": {
@@ -262,16 +262,16 @@ def fit_non_parametric(
             return None
 
         # Extract parameters
-        params = umax_result["params"]
+        # params = umax_result["params"]
         # For spline, calculate mu_max from the derivative at time_at_umax
-        time_at_umax = params["time_at_umax"]
+        # time_at_umax = params["time_at_umax"]
 
         # Reconstruct spline to get mu_max
         y_log_exp = np.log(y_exp)
         s = spline_s if spline_s is not None else len(t_exp) * 0.1
         try:
             spline, _ = spline_model(t_exp, y_log_exp, s, k=3)
-            mu_max = float(spline.derivative()(time_at_umax))
+            # mu_max = float(spline.derivative()(time_at_umax))
         except Exception:
             return None
 
