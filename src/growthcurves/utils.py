@@ -7,6 +7,8 @@ derivative calculations, and RMSE computation.
 import numpy as np
 from scipy.signal import savgol_filter
 
+from .models import gaussian
+
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -20,8 +22,8 @@ no_fit_dictionary = {
     "exp_phase_end": np.nan,
     "time_at_umax": np.nan,
     "od_at_umax": np.nan,
-    "t_window_start": np.nan,
-    "t_window_end": np.nan,
+    "fit_t_min": np.nan,
+    "fit_t_max": np.nan,
     "fit_method": None,
     "model_rmse": np.nan,
 }
@@ -99,6 +101,356 @@ def smooth(y, window=11, poly=1, passes=2):
     for _ in range(passes):
         y = savgol_filter(y, w, p, mode="interp")
     return y
+
+
+def fit_gaussian_to_derivative(t, dy, t_dense):
+    """
+    Fit a symmetric Gaussian to first-derivative data and evaluate on t_dense.
+
+    Returns:
+        Array of fitted Gaussian values evaluated at t_dense.
+    """
+    t = np.asarray(t, dtype=float)
+    dy = np.asarray(dy, dtype=float)
+    t_dense = np.asarray(t_dense, dtype=float)
+
+    mask = np.isfinite(t) & np.isfinite(dy)
+    t_fit = t[mask]
+    dy_fit = dy[mask]
+
+    if len(t_fit) < 3 or np.ptp(t_fit) <= 0 or np.max(dy_fit) <= 0:
+        if len(t_fit) == 0:
+            return np.zeros_like(t_dense)
+        return np.interp(t_dense, t_fit, dy_fit, left=0.0, right=0.0)
+
+    amplitude_init = float(np.max(dy_fit))
+    center_init = float(t_fit[np.argmax(dy_fit)])
+    weights = np.maximum(dy_fit, 0)
+    if np.sum(weights) > 0:
+        sigma_init = float(
+            np.sqrt(np.sum(weights * (t_fit - center_init) ** 2) / np.sum(weights))
+        )
+    else:
+        sigma_init = float(np.ptp(t_fit) / 6.0)
+    sigma_init = max(sigma_init, np.ptp(t_fit) / 20.0)
+
+    p0 = [amplitude_init, center_init, sigma_init]
+    bounds = (
+        [0.0, float(t_fit.min()), 1e-6],
+        [np.inf, float(t_fit.max()), np.ptp(t_fit)],
+    )
+
+    try:
+        from scipy.optimize import curve_fit
+
+        params, _ = curve_fit(
+            gaussian, t_fit, dy_fit, p0=p0, bounds=bounds, maxfev=20000
+        )
+        return gaussian(t_dense, *params)
+    except Exception:
+        return np.interp(t_dense, t_fit, dy_fit, left=0.0, right=0.0)
+
+
+def calculate_phase_ends(t, dy, lag_frac=0.15, exp_frac=0.15):
+    """
+    Calculate lag and exponential phase end times from a first derivative curve.
+
+    Parameters:
+        t: Time array
+        dy: First derivative values (should be from fitted/idealized curve)
+        lag_frac: Fraction of peak derivative for lag phase end detection
+        exp_frac: Fraction of peak derivative for exponential phase end detection
+
+    Returns:
+        Tuple of (lag_end, exp_end) times.
+    """
+    if len(t) < 5 or np.ptp(t) <= 0:
+        return float(t[0]) if len(t) > 0 else np.nan, (
+            float(t[-1]) if len(t) > 0 else np.nan
+        )
+
+    dy = np.maximum(dy, 0)  # Only consider positive growth
+
+    peak_idx = np.argmax(dy)
+    peak_val = dy[peak_idx]
+
+    if peak_val <= 0:
+        return float(t[0]), float(t[-1])
+
+    lag_threshold = lag_frac * peak_val
+    exp_threshold = exp_frac * peak_val
+
+    lag_end = float(t[0])
+    above_lag = dy >= lag_threshold
+    if np.any(above_lag):
+        first_idx = int(np.argmax(above_lag))
+        if first_idx > 0:
+            t0, t1 = t[first_idx - 1], t[first_idx]
+            y0, y1 = dy[first_idx - 1], dy[first_idx]
+            frac = 0.0 if y1 == y0 else (lag_threshold - y0) / (y1 - y0)
+            lag_end = float(t0 + frac * (t1 - t0))
+        else:
+            lag_end = float(t[first_idx])
+
+    exp_end = float(t[-1])
+    after_peak = np.arange(len(t)) > peak_idx
+    below_exp = dy <= exp_threshold
+    exp_candidates = np.where(after_peak & below_exp)[0]
+    if len(exp_candidates) > 0:
+        idx = int(exp_candidates[0])
+        if idx > 0:
+            t0, t1 = t[idx - 1], t[idx]
+            y0, y1 = dy[idx - 1], dy[idx]
+            frac = 0.0 if y1 == y0 else (exp_threshold - y0) / (y1 - y0)
+            exp_end = float(t0 + frac * (t1 - t0))
+        else:
+            exp_end = float(t[idx])
+
+    return lag_end, max(exp_end, lag_end)
+
+
+# -----------------------------------------------------------------------------
+# Growth Statistics Extraction
+# -----------------------------------------------------------------------------
+
+
+def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
+    """
+    Extract growth statistics from parametric or non-parametric fit results.
+
+    Parameters:
+        fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
+        t: Time array (hours) used for fitting
+        y: OD values used for fitting
+        lag_frac: Fraction of peak growth rate for lag phase detection
+        exp_frac: Fraction of peak growth rate for exponential phase end detection
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    if fit_result is None:
+        return bad_fit_stats()
+
+    t = np.asarray(t, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    model_type = fit_result.get("model_type")
+    params = fit_result.get("params", {})
+
+    if model_type in {"logistic", "gompertz", "richards"}:
+        from .models import gompertz_model, logistic_model, richards_model
+
+        if model_type == "logistic":
+            y_fit = logistic_model(
+                t, params["K"], params["y0"], params["r"], params["t0"]
+            )
+        elif model_type == "gompertz":
+            y_fit = gompertz_model(
+                t, params["K"], params["y0"], params["mu_max_param"], params["lam"]
+            )
+        elif model_type == "richards":
+            y_fit = richards_model(
+                t, params["K"], params["y0"], params["r"], params["t0"], params["nu"]
+            )
+        else:
+            return bad_fit_stats()
+
+        # Calculate true specific growth rate from fitted curve
+        mu_max = calculate_specific_growth_rate(t, y_fit)
+
+        # Generate dense predictions for derivative calculation
+        t_dense = np.linspace(t.min(), t.max(), 500)
+
+        if model_type == "logistic":
+            y_dense = logistic_model(
+                t_dense, params["K"], params["y0"], params["r"], params["t0"]
+            )
+        elif model_type == "gompertz":
+            y_dense = gompertz_model(
+                t_dense, params["K"], params["y0"], params["mu_max_param"], params["lam"]
+            )
+        else:
+            y_dense = richards_model(
+                t_dense, params["K"], params["y0"], params["r"], params["t0"], params["nu"]
+            )
+
+        # Maximum OD (carrying capacity from fit)
+        max_od = float(params["K"])
+
+        # Calculate dN/dt for phase boundary detection (linear space)
+        dN_dt = np.gradient(y_dense, t_dense)
+
+        # Specific growth rate: mu = d(ln N)/dt
+        y_safe = np.maximum(y_dense, 1e-10)
+        mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+        # Find time of maximum specific growth rate
+        max_mu_idx = int(np.argmax(mu_dense))
+        time_at_umax = float(t_dense[max_mu_idx])
+        od_at_umax = float(y_dense[max_mu_idx])
+
+        if mu_max <= 0:
+            stats = bad_fit_stats()
+            stats["max_od"] = max_od
+            stats["fit_method"] = f"model_fitting_{model_type}"
+            return stats
+
+        # Phase boundaries based on derivative thresholds (linear space)
+        max_dN = np.max(dN_dt)
+        lag_threshold = lag_frac * max_dN
+        exp_threshold = exp_frac * max_dN
+
+        lag_idx = np.where(dN_dt >= lag_threshold)[0]
+        exp_phase_start = (
+            float(t_dense[lag_idx[0]]) if len(lag_idx) > 0 else float(t_dense[0])
+        )
+
+        exp_idx = np.where(
+            (dN_dt <= exp_threshold) & (np.arange(len(t_dense)) > max_mu_idx)
+        )[0]
+        exp_phase_end = (
+            float(t_dense[exp_idx[0]]) if len(exp_idx) > 0 else float(t_dense[-1])
+        )
+
+        # Doubling time based on mu_max (specific growth rate)
+        doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+        # RMSE in linear space
+        rmse = compute_rmse(y, y_fit)
+
+        return {
+            "max_od": max_od,
+            "specific_growth_rate": float(mu_max),
+            "doubling_time": float(doubling_time),
+            "exp_phase_start": exp_phase_start,
+            "exp_phase_end": max(exp_phase_end, exp_phase_start),
+            "time_at_umax": time_at_umax,
+            "od_at_umax": od_at_umax,
+            "fit_t_min": float(t.min()),
+            "fit_t_max": float(t.max()),
+            "fit_method": f"model_fitting_{model_type}",
+            "model_rmse": rmse,
+        }
+
+    if model_type in {"sliding_window", "spline"}:
+        from .models import spline_model
+
+        valid_mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
+        t_clean = t[valid_mask]
+        y_clean = y[valid_mask]
+
+        if len(t_clean) < 5 or np.ptp(t_clean) <= 0:
+            return bad_fit_stats()
+
+        y_smooth = smooth(y_clean, 11, 1)
+        dy_data = np.gradient(y_smooth, t_clean)
+        dy_data = np.maximum(dy_data, 0)
+
+        t_dense = np.linspace(t_clean.min(), t_clean.max(), 500)
+        dy_idealized = fit_gaussian_to_derivative(t_clean, dy_data, t_dense)
+        exp_start, exp_end = calculate_phase_ends(t_dense, dy_idealized, lag_frac, exp_frac)
+
+        if model_type == "sliding_window":
+            mu_max = params["slope"]
+        else:
+            exp_mask = (t_clean >= exp_start) & (t_clean <= exp_end)
+            t_exp = t_clean[exp_mask]
+            y_exp = y_clean[exp_mask]
+
+            if len(t_exp) < 5:
+                return bad_fit_stats()
+
+            y_log_exp = np.log(y_exp)
+            spline_s = params.get("spline_s", len(t_exp) * 0.1)
+
+            spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+            mu_max = float(spline.derivative()(params["time_at_umax"]))
+
+        doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+        max_od = float(np.max(y_clean))
+        time_at_umax = params["time_at_umax"]
+        od_at_umax = float(np.interp(time_at_umax, t, y))
+
+        if model_type == "sliding_window":
+            window_points = params.get("window_points", 15)
+            t_window_start = params.get("fit_t_min", np.nan)
+            t_window_end = params.get("fit_t_max", np.nan)
+
+            window_centers = []
+            window_indices = []
+            for i in range(len(t_clean) - window_points + 1):
+                window_centers.append(float(t_clean[i : i + window_points].mean()))
+                window_indices.append(i)
+
+            if len(window_centers) > 0:
+                best_idx = min(
+                    range(len(window_centers)),
+                    key=lambda i: abs(window_centers[i] - time_at_umax),
+                )
+
+                start_idx = window_indices[best_idx]
+                t_window = t_clean[start_idx : start_idx + window_points]
+                y_window = y_clean[start_idx : start_idx + window_points]
+                if len(t_window) > 0:
+                    t_window_start = float(t_window.min())
+                    t_window_end = float(t_window.max())
+
+                slope = params["slope"]
+                intercept = params["intercept"]
+                y_fit_window = np.exp(slope * t_window + intercept)
+
+                mask = (
+                    (y_window > 0)
+                    & np.isfinite(y_window)
+                    & np.isfinite(y_fit_window)
+                    & (y_fit_window > 0)
+                )
+                if mask.sum() > 0:
+                    y_log = np.log(y_window[mask])
+                    y_fit_log = np.log(y_fit_window[mask])
+                    rmse = float(np.sqrt(np.mean((y_log - y_fit_log) ** 2)))
+                else:
+                    rmse = np.nan
+            else:
+                rmse = np.nan
+
+        else:
+            exp_mask = (t_clean >= exp_start) & (t_clean <= exp_end)
+            t_exp = t_clean[exp_mask]
+            y_exp = y_clean[exp_mask]
+
+            y_log_exp = np.log(y_exp)
+            spline_s = params.get("spline_s", len(t_exp) * 0.1)
+            t_window_start = float(np.min(t_exp)) if len(t_exp) > 0 else np.nan
+            t_window_end = float(np.max(t_exp)) if len(t_exp) > 0 else np.nan
+
+            try:
+                spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+                y_log_fit = spline(t_exp)
+
+                mask = np.isfinite(y_log_exp) & np.isfinite(y_log_fit)
+                if mask.sum() > 0:
+                    rmse = float(np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2)))
+                else:
+                    rmse = np.nan
+            except Exception:
+                rmse = np.nan
+
+        return {
+            "max_od": max_od,
+            "specific_growth_rate": mu_max,
+            "doubling_time": doubling_time,
+            "exp_phase_start": exp_start,
+            "exp_phase_end": exp_end,
+            "time_at_umax": time_at_umax,
+            "od_at_umax": od_at_umax,
+            "fit_t_min": t_window_start,
+            "fit_t_max": t_window_end,
+            "fit_method": f"model_fitting_{model_type}",
+            "model_rmse": rmse,
+        }
+
+    return bad_fit_stats()
 
 
 # -----------------------------------------------------------------------------

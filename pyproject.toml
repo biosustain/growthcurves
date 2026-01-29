@@ -32,7 +32,7 @@ dependencies = {file = ["requirements.txt"]}
 "Homepage" = "https://github.com/biosustain/growthcurves"
 
 [project.optional-dependencies]
-# Optional dependencies to locally build the documentation, also used for 
+# Optional dependencies to locally build the documentation, also used for
 # readthedocs.
 docs = [
   "sphinx",
@@ -42,7 +42,7 @@ docs = [
   "sphinx-new-tab-link!=0.2.2",
   "jupytext",
   "sphinx-copybutton",
-  "matplotlib",
+  "plotly",
   "pandas",
   "numpy",
 ]

@@ -5,6 +5,7 @@ Gompertz, Gaussian) that operate in linear OD space (not log-transformed).
 """
 
 import numpy as np
+from scipy.interpolate import UnivariateSpline
 
 
 def logistic_model(t, K, y0, r, t0):
@@ -80,3 +81,53 @@ def gaussian(t, amplitude, center, sigma):
     """Symmetric Gaussian bell-shaped curve."""
     sigma = np.maximum(sigma, 1e-12)
     return amplitude * np.exp(-((t - center) ** 2) / (2 * sigma**2))
+
+
+def spline_model(t, y, spline_s=None, k=3):
+    """
+    Fit a smoothing spline to data.
+
+    Parameters:
+        t: Time array
+        y: Values array (e.g., log-transformed OD)
+        spline_s: Smoothing factor (None = automatic)
+        k: Spline degree (default: 3)
+
+    Returns:
+        Tuple of (spline, spline_s) where spline is a UnivariateSpline instance.
+    """
+    t = np.asarray(t, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    if spline_s is None:
+        spline_s = len(t) * 0.1
+
+    spline = UnivariateSpline(t, y, s=spline_s, k=k)
+    return spline, spline_s
+
+
+def spline_from_params(params):
+    """
+    Reconstruct a spline from stored parameters.
+
+    Parameters:
+        params: Dict containing 't_knots', 'spline_coeffs', and 'spline_k'
+
+    Returns:
+        UnivariateSpline or BSpline instance.
+    """
+    if "tck_t" in params and "tck_c" in params:
+        t_knots = np.asarray(params["tck_t"], dtype=float)
+        coeffs = np.asarray(params["tck_c"], dtype=float)
+        k = int(params.get("tck_k", params.get("spline_k", 3)))
+    else:
+        t_knots = np.asarray(params["t_knots"], dtype=float)
+        coeffs = np.asarray(params["spline_coeffs"], dtype=float)
+        k = int(params.get("spline_k", 3))
+
+    try:
+        return UnivariateSpline._from_tck((t_knots, coeffs, k))
+    except Exception:
+        from scipy.interpolate import BSpline
+
+        return BSpline(t_knots, coeffs, k)

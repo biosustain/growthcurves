@@ -6,9 +6,10 @@ __version__ = metadata.version("growthcurves")
 
 from . import models
 from . import utils
-from . import parametric_fitting
-from . import non_parametric_fitting
+from . import parametric
+from . import non_parametric
+from . import plot
 
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"
-__all__ = ["models", "utils", "parametric_fitting", "non_parametric_fitting"]
+__all__ = ["models", "utils", "parametric", "non_parametric", "plot"]
