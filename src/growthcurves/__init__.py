@@ -5,8 +5,10 @@ from importlib import metadata
 __version__ = metadata.version("growthcurves")
 
 from . import models
-from . import fitting_functions
+from . import utils
+from . import parametric_fitting
+from . import non_parametric_fitting
 
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"
-__all__ = ["models", "fitting_functions"]
+__all__ = ["models", "utils", "parametric_fitting", "non_parametric_fitting"]
