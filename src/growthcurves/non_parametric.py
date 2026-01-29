@@ -12,10 +12,7 @@ from .models import spline_model
 from .utils import (
     bad_fit_stats,
     calculate_phase_ends,
-    compute_rmse,
-    detect_no_growth,
     fit_gaussian_to_derivative,
-    is_no_growth,
     smooth,
 )
 
@@ -43,7 +40,8 @@ def fit_sliding_window(t, y_raw, window_points=15):
 
     Returns:
         Dict with model parameters:
-            - slope: Slope of the linear fit in log space (equals specific growth rate, h^-1)
+            - slope: Slope of the linear fit in log space
+                     (equals specific growth rate, h⁻¹)
             - intercept: Intercept of the linear fit in log space
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "sliding_window"
@@ -190,7 +188,8 @@ def fit_non_parametric(
         y: OD values (baseline-corrected, must be positive)
         umax_method: Method for calculating Umax ("sliding_window" or "spline")
         lag_frac: Fraction of peak growth rate for lag phase detection (default: 0.15)
-        exp_frac: Fraction of peak growth rate for exponential phase end detection (default: 0.15)
+        exp_frac: Fraction of peak growth rate for exponential phase end detection
+                  (default: 0.15)
         sg_window: Savitzky-Golay filter window size for smoothing (default: 11)
         sg_poly: Polynomial order for Savitzky-Golay filter (default: 1)
         window_points: Number of points in sliding window (for sliding_window method)
@@ -198,7 +197,8 @@ def fit_non_parametric(
 
     Returns:
         Dict containing:
-            - params: Model parameters (includes fit_t_min, fit_t_max, and other method-specific values)
+            - params: Model parameters (includes fit_t_min, fit_t_max, and other
+                      method-specific values)
             - model_type: Method used for fitting
     """
     t = np.asarray(t, dtype=float)

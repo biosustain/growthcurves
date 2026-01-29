@@ -9,12 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
-from .models import (
-    gompertz_model,
-    logistic_model,
-    richards_model,
-    spline_from_params,
-)
+from .models import gompertz_model, logistic_model, richards_model, spline_from_params
 
 
 def create_base_plot(
@@ -411,8 +406,8 @@ def annotate_plot(
     """
     Unified function to add multiple annotations to a plot.
 
-    Annotations are automatically added if the corresponding data is provided (not None).
-    To hide an annotation, simply don't pass that parameter or pass None.
+    Annotations are automatically added if the corresponding data is provided
+    (not None). To hide an annotation, simply don't pass that parameter or pass None.
 
     Parameters
     ----------
@@ -433,8 +428,10 @@ def annotate_plot(
     fitted_model : dict, optional
         Fit result dictionary from fit_model() or fit_non_parametric().
         Can be passed directly (recommended) or as a custom dictionary with:
-        - 'model_type': one of 'logistic', 'gompertz', 'richards', 'spline', 'sliding_window'
-        - 'params': model parameter dictionary (must include 'fit_t_min' and 'fit_t_max')
+        - 'model_type': one of 'logistic', 'gompertz', 'richards', 'spline',
+                        'sliding_window'
+        - 'params': model parameter dictionary (must include 'fit_t_min' and
+                    'fit_t_max')
         - 'name': legend name (optional, default based on model type)
 
         For backward compatibility, also accepts:
@@ -453,7 +450,8 @@ def annotate_plot(
     Examples
     --------
     >>> # Pass fit result directly (recommended)
-    >>> spline_result = gc.non_parametric.fit_non_parametric(time, data, umax_method="spline")
+    >>> spline_result = gc.non_parametric.fit_non_parametric(time, data,
+        umax_method="spline")
     >>> fig = create_base_plot(time, data, scale="linear")
     >>> fig = annotate_plot(fig, fitted_model=spline_result)  # Scale auto-detected
 
@@ -588,7 +586,8 @@ def annotate_plot(
                     col=col,
                 )
 
-    # Add vertical and horizontal lines from axes to umax point (if both coordinates provided)
+    # Add vertical and horizontal lines from axes to umax point
+    # (if both coordinates provided)
     if (
         time_umax is not None
         and od_umax is not None
@@ -597,7 +596,8 @@ def annotate_plot(
     ):
         y_val = np.log(od_umax) if scale == "log" else od_umax
 
-        # Determine the y-axis minimum from existing data to properly anchor the vertical line
+        # Determine the y-axis minimum from existing data to properly anchor the
+        # vertical line
         y_min = 0  # default for linear scale
         if len(fig.data) > 0:
             y_values = []
