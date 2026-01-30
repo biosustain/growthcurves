@@ -1,7 +1,7 @@
 """Parametric model fitting functions for growth curves.
 
-This module provides functions to fit parametric growth models (Richards, Logistic, Gompertz)
-and extract growth statistics from the fitted models.
+This module provides functions to fit parametric growth models (Richards, Logistic,
+Gompertz) and extract growth statistics from the fitted models.
 
 All models operate in linear OD space (not log-transformed).
 """

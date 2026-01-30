@@ -4,11 +4,7 @@ from importlib import metadata
 
 __version__ = metadata.version("growthcurves")
 
-from . import models
-from . import utils
-from . import parametric
-from . import non_parametric
-from . import plot
+from . import models, non_parametric, parametric, plot, utils
 
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"

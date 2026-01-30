@@ -10,13 +10,10 @@ import numpy as np
 
 from .models import spline_model
 from .utils import (
-    compute_rmse,
-    smooth,
     bad_fit_stats,
-    detect_no_growth,
-    is_no_growth,
-    fit_gaussian_to_derivative,
     calculate_phase_ends,
+    fit_gaussian_to_derivative,
+    smooth,
 )
 
 # -----------------------------------------------------------------------------
@@ -43,7 +40,8 @@ def fit_sliding_window(t, y_raw, window_points=15):
 
     Returns:
         Dict with model parameters:
-            - slope: Slope of the linear fit in log space (equals specific growth rate, h^-1)
+            - slope: Slope of the linear fit in log space
+                     (equals specific growth rate, h⁻¹)
             - intercept: Intercept of the linear fit in log space
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "sliding_window"
@@ -190,7 +188,8 @@ def fit_non_parametric(
         y: OD values (baseline-corrected, must be positive)
         umax_method: Method for calculating Umax ("sliding_window" or "spline")
         lag_frac: Fraction of peak growth rate for lag phase detection (default: 0.15)
-        exp_frac: Fraction of peak growth rate for exponential phase end detection (default: 0.15)
+        exp_frac: Fraction of peak growth rate for exponential phase end detection
+                  (default: 0.15)
         sg_window: Savitzky-Golay filter window size for smoothing (default: 11)
         sg_poly: Polynomial order for Savitzky-Golay filter (default: 1)
         window_points: Number of points in sliding window (for sliding_window method)
@@ -198,7 +197,8 @@ def fit_non_parametric(
 
     Returns:
         Dict containing:
-            - params: Model parameters (includes fit_t_min, fit_t_max, and other method-specific values)
+            - params: Model parameters (includes fit_t_min, fit_t_max, and other
+                      method-specific values)
             - model_type: Method used for fitting
     """
     t = np.asarray(t, dtype=float)
@@ -214,7 +214,7 @@ def fit_non_parametric(
         return bad_fit_stats()
 
     # Maximum OD from raw data
-    max_od = float(np.max(y_raw))
+    # max_od = float(np.max(y_raw))
 
     # Smooth the data and calculate first derivative for phase detection
     y_smooth = smooth(y_raw, sg_window, sg_poly)
@@ -236,9 +236,9 @@ def fit_non_parametric(
             return None
 
         # Extract parameters
-        params = umax_result["params"]
-        mu_max = params["slope"]
-        time_at_umax = params["time_at_umax"]
+        # params = umax_result["params"]
+        # mu_max = params["slope"]
+        # time_at_umax = params["time_at_umax"]
 
         return {
             "params": {
@@ -262,16 +262,16 @@ def fit_non_parametric(
             return None
 
         # Extract parameters
-        params = umax_result["params"]
+        # params = umax_result["params"]
         # For spline, calculate mu_max from the derivative at time_at_umax
-        time_at_umax = params["time_at_umax"]
+        # time_at_umax = params["time_at_umax"]
 
         # Reconstruct spline to get mu_max
         y_log_exp = np.log(y_exp)
         s = spline_s if spline_s is not None else len(t_exp) * 0.1
         try:
             spline, _ = spline_model(t_exp, y_log_exp, s, k=3)
-            mu_max = float(spline.derivative()(time_at_umax))
+            # mu_max = float(spline.derivative()(time_at_umax))
         except Exception:
             return None
 
