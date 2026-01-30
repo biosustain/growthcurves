@@ -10,7 +10,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .models import gompertz_model, logistic_model, richards_model
-from .utils import validate_data
+from .utils import validate_data, extract_stats_from_fit
 
 # -----------------------------------------------------------------------------
 # Model Fitting Functions
@@ -140,7 +140,7 @@ def fit_richards(t, y):
     }
 
 
-def fit_parametric(t, y, model_type="logistic"):
+def fit_parametric(t, y, model="logistic"):
     """
     Fit a growth model to data.
 
@@ -157,7 +157,7 @@ def fit_parametric(t, y, model_type="logistic"):
         "gompertz": fit_gompertz,
         "richards": fit_richards,
     }
-    fit_func = fit_funcs.get(model_type)
+    fit_func = fit_funcs.get(model)
 
     result = fit_func(t, y)
     if result is not None:
