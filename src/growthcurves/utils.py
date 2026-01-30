@@ -9,7 +9,6 @@ from scipy.signal import savgol_filter
 
 from .models import gaussian
 
-
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -267,11 +266,20 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
             )
         elif model_type == "gompertz":
             y_dense = gompertz_model(
-                t_dense, params["K"], params["y0"], params["mu_max_param"], params["lam"]
+                t_dense,
+                params["K"],
+                params["y0"],
+                params["mu_max_param"],
+                params["lam"],
             )
         else:
             y_dense = richards_model(
-                t_dense, params["K"], params["y0"], params["r"], params["t0"], params["nu"]
+                t_dense,
+                params["K"],
+                params["y0"],
+                params["r"],
+                params["t0"],
+                params["nu"],
             )
 
         # Maximum OD (carrying capacity from fit)
@@ -348,7 +356,9 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 
         t_dense = np.linspace(t_clean.min(), t_clean.max(), 500)
         dy_idealized = fit_gaussian_to_derivative(t_clean, dy_data, t_dense)
-        exp_start, exp_end = calculate_phase_ends(t_dense, dy_idealized, lag_frac, exp_frac)
+        exp_start, exp_end = calculate_phase_ends(
+            t_dense, dy_idealized, lag_frac, exp_frac
+        )
 
         if model_type == "sliding_window":
             mu_max = params["slope"]
@@ -430,7 +440,9 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 
                 mask = np.isfinite(y_log_exp) & np.isfinite(y_log_fit)
                 if mask.sum() > 0:
-                    rmse = float(np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2)))
+                    rmse = float(
+                        np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2))
+                    )
                 else:
                     rmse = np.nan
             except Exception:

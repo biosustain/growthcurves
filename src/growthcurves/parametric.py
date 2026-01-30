@@ -12,7 +12,6 @@ from scipy.optimize import curve_fit
 from .models import gompertz_model, logistic_model, richards_model
 from .utils import validate_data, extract_stats_from_fit
 
-
 # -----------------------------------------------------------------------------
 # Model Fitting Functions
 # -----------------------------------------------------------------------------
