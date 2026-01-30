@@ -1,7 +1,7 @@
 """Parametric model fitting functions for growth curves.
 
 This module provides functions to fit parametric growth models (Richards, Logistic,
-Gompertz) and extract growth statistics from the fitted models.
+Gompertz, Baranyi) and extract growth statistics from the fitted models.
 
 All models operate in linear OD space (not log-transformed).
 """
@@ -9,7 +9,7 @@ All models operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.optimize import curve_fit
 
-from .models import gompertz_model, logistic_model, richards_model
+from .models import baranyi_model, gompertz_model, logistic_model, richards_model
 from .utils import validate_data, extract_stats_from_fit
 
 # -----------------------------------------------------------------------------
@@ -140,6 +140,51 @@ def fit_richards(t, y):
     }
 
 
+def fit_baranyi(t, y):
+    """
+    Fit Baranyi-Roberts model to growth data.
+
+    Parameters:
+        t: Time array (hours)
+        y: OD values
+
+    Returns:
+        Dict with 'params' and 'model_type', or None if fitting fails.
+    """
+    t, y = validate_data(t, y)
+    if t is None:
+        return None
+
+    # Initial estimates
+    K_init = np.max(y)
+    y0_init = np.min(y)  # Baseline OD
+    # Estimate lag time as time when growth first accelerates
+    dy = np.gradient(y, t)
+    threshold = 0.1 * np.max(dy)
+    lag_idx = np.where(dy > threshold)[0]
+    lag_time = t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
+    mu_max_init = 0.01  # Initial growth rate guess
+    # h0 is related to lag time: lambda ≈ h0/mu_max
+    h0_init = lag_time * mu_max_init if lag_time > 0 else 0.1
+
+    y0_floor = max(y0_init * 0.5, 1e-6)
+    y0_ceil = max(y0_init * 2, y0_floor * 10)
+    p0 = [K_init, max(y0_init, y0_floor), mu_max_init, h0_init]
+    bounds = ([y0_floor, 0, 0.0001, 0], [np.inf, y0_ceil, 10, t.max() * 10])
+
+    params, _ = curve_fit(baranyi_model, t, y, p0=p0, bounds=bounds, maxfev=20000)
+
+    return {
+        "params": {
+            "K": params[0],
+            "y0": params[1],
+            "mu_max_param": params[2],
+            "h0": params[3],
+        },
+        "model_type": "baranyi",
+    }
+
+
 def fit_parametric(t, y, model="logistic"):
     """
     Fit a growth model to data.
@@ -147,7 +192,7 @@ def fit_parametric(t, y, model="logistic"):
     Parameters:
         t: Time array (hours)
         y: OD values
-        model_type: One of "logistic", "gompertz", "richards"
+        model_type: One of "logistic", "gompertz", "richards", "baranyi"
 
     Returns:
         Fit result dict or None if fitting fails.
@@ -156,6 +201,7 @@ def fit_parametric(t, y, model="logistic"):
         "logistic": fit_logistic,
         "gompertz": fit_gompertz,
         "richards": fit_richards,
+        "baranyi": fit_baranyi,
     }
     fit_func = fit_funcs.get(model)
 

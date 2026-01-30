@@ -1,7 +1,7 @@
 """Growth curve models.
 
 This module defines parametric growth model functions (Richards, Logistic,
-Gompertz, Gaussian) that operate in linear OD space (not log-transformed).
+Gompertz, Baranyi, Gaussian) that operate in linear OD space (not log-transformed).
 """
 
 import numpy as np
@@ -75,6 +75,47 @@ def richards_model(t, K, y0, r, t0, nu):
         mu_max = r / (nu + 1)^(1/nu) for the Richards model
     """
     return y0 + (K - y0) * (1 + nu * np.exp(-r * (t - t0))) ** (-1 / nu)
+
+
+def baranyi_model(t, K, y0, mu_max, h0):
+    """
+    Baranyi-Roberts growth model in linear OD space with baseline offset.
+
+    This model includes a lag phase parameter h0 that represents the initial
+    physiological state of the cells.
+
+    N(t) = K / (1 + ((K - y0) / y0) * exp(-mu_max * A(t)))
+    and A(t) = t + (1/mu_max) * ln(exp(-mu_max*t) + exp(-h0) - exp(-mu_max*t - h0))
+
+    Parameters:
+        t: Time array
+        K: Carrying capacity (maximum OD)
+        y0: Baseline OD (minimum value)
+        mu_max: Maximum specific growth rate (h^-1)
+        h0: Dimensionless lag parameter (higher values = longer lag)
+
+    Returns:
+        OD values at each time point
+
+    Note:
+        - h0 > 0 indicates lag phase
+        - The lag time can be approximated as lambda ≈ h0/mu_max
+        - mu_max is directly a fitted parameter
+    """
+    # Adjustment function A(t) accounting for lag phase
+    # A(t) = t + (1/mu_max) * ln(exp(-mu_max*t) + exp(-h0) - exp(-mu_max*t - h0))
+    # Use stable computation to avoid overflow
+    exp_neg_mu_t = np.exp(-mu_max * t)
+    exp_neg_h0 = np.exp(-h0)
+    exp_neg_both = np.exp(-mu_max * t - h0)
+
+    # A(t) adjustment function
+    A_t = t + (1.0 / mu_max) * np.log(exp_neg_mu_t + exp_neg_h0 - exp_neg_both)
+
+    # Baranyi model (linear OD), ensuring N(0) = y0 when A(0) -> 0
+    y0_safe = np.maximum(y0, 1e-9)
+    denom = 1.0 + ((K - y0_safe) / y0_safe) * np.exp(-mu_max * A_t)
+    return K / denom
 
 
 def gaussian(t, amplitude, center, sigma):

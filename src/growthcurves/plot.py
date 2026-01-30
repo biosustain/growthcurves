@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
-from .models import gompertz_model, logistic_model, richards_model, spline_from_params
+from .models import baranyi_model, gompertz_model, logistic_model, richards_model, spline_from_params
 
 
 def create_base_plot(
@@ -436,8 +436,8 @@ def annotate_plot(
     fitted_model : dict, optional
         Fit result dictionary from fit_model() or fit_non_parametric().
         Can be passed directly (recommended) or as a custom dictionary with:
-        - 'model_type': one of 'logistic', 'gompertz', 'richards', 'spline',
-                        'sliding_window'
+        - 'model_type': one of 'logistic', 'gompertz', 'richards', 'baranyi',
+                        'spline', 'sliding_window'
         - 'params': model parameter dictionary (must include 'fit_t_min' and
                     'fit_t_max')
         - 'name': legend name (optional, default based on model type)
@@ -519,6 +519,7 @@ def annotate_plot(
             "logistic": "Logistic fit",
             "gompertz": "Gompertz fit",
             "richards": "Richards fit",
+            "baranyi": "Baranyi fit",
             "spline": "Spline fit",
             "sliding_window": "Sliding window fit",
         }
@@ -544,6 +545,14 @@ def annotate_plot(
                     params["y0"],
                     params["mu_max_param"],
                     params["lam"],
+                )
+            elif model_type == "baranyi":
+                y_fit = baranyi_model(
+                    time_fit,
+                    params["K"],
+                    params["y0"],
+                    params["mu_max_param"],
+                    params["h0"],
                 )
             elif model_type == "richards":
                 y_fit = richards_model(

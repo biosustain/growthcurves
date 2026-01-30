@@ -236,8 +236,8 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
     model_type = fit_result.get("model_type")
     params = fit_result.get("params", {})
 
-    if model_type in {"logistic", "gompertz", "richards"}:
-        from .models import gompertz_model, logistic_model, richards_model
+    if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
+        from .models import baranyi_model, gompertz_model, logistic_model, richards_model
 
         if model_type == "logistic":
             y_fit = logistic_model(
@@ -246,6 +246,10 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
         elif model_type == "gompertz":
             y_fit = gompertz_model(
                 t, params["K"], params["y0"], params["mu_max_param"], params["lam"]
+            )
+        elif model_type == "baranyi":
+            y_fit = baranyi_model(
+                t, params["K"], params["y0"], params["mu_max_param"], params["h0"]
             )
         elif model_type == "richards":
             y_fit = richards_model(
@@ -271,6 +275,14 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
                 params["y0"],
                 params["mu_max_param"],
                 params["lam"],
+            )
+        elif model_type == "baranyi":
+            y_dense = baranyi_model(
+                t_dense,
+                params["K"],
+                params["y0"],
+                params["mu_max_param"],
+                params["h0"],
             )
         else:
             y_dense = richards_model(
