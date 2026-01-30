@@ -83,6 +83,11 @@ def create_base_plot(
     )
 
     # Update layout
+    # For linear scale, set y-axis to start at 0; for log scale, auto-range
+    yaxis_config = dict(visible=True, showline=True)
+    if scale == "linear":
+        yaxis_config["range"] = [0, None]
+
     fig.update_layout(
         xaxis_title=xlabel,
         yaxis_title=ylabel,
@@ -90,7 +95,7 @@ def create_base_plot(
         template="plotly_white",
         showlegend=False,
         xaxis=dict(range=[0, None]),  # Start x-axis at 0 to remove gap
-        yaxis=dict(visible=True, showline=True),  # Explicitly show y-axis
+        yaxis=yaxis_config,
     )
 
     return fig
@@ -582,23 +587,24 @@ def annotate_plot(
     ):
         y_val = np.log(od_umax) if scale == "log" else od_umax
 
-        # Determine the y-axis minimum from existing data to properly anchor the vertical line
-        y_min = 0  # default for linear scale
-        if len(fig.data) > 0:
-            y_values = []
-            for trace in fig.data:
-                if trace.y is not None:
-                    y_values.extend(
-                        [y for y in trace.y if y is not None and np.isfinite(y)]
-                    )
-            if y_values:
-                y_min = min(y_values)
-
         # Add vertical line from bottom of plot to umax point
+        # For log scale, calculate minimum y value from data; for linear, use 0
+        if scale == "log":
+            # Get minimum y value from all traces to find bottom of plot
+            y_min_vals = []
+            for trace in fig.data:
+                if trace.y is not None and len(trace.y) > 0:
+                    valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
+                    if valid_y:
+                        y_min_vals.append(min(valid_y))
+            y_bottom = min(y_min_vals) if y_min_vals else y_val
+        else:
+            y_bottom = 0
+
         fig.add_shape(
             type="line",
             x0=time_umax,
-            y0=y_min,
+            y0=y_bottom,
             x1=time_umax,
             y1=y_val,
             line=dict(color="black", dash="dot", width=1),
