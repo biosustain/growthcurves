@@ -9,7 +9,6 @@ from scipy.signal import savgol_filter
 
 from .models import gaussian
 
-
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -267,11 +266,20 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
             )
         elif model_type == "gompertz":
             y_dense = gompertz_model(
-                t_dense, params["K"], params["y0"], params["mu_max_param"], params["lam"]
+                t_dense,
+                params["K"],
+                params["y0"],
+                params["mu_max_param"],
+                params["lam"],
             )
         else:
             y_dense = richards_model(
-                t_dense, params["K"], params["y0"], params["r"], params["t0"], params["nu"]
+                t_dense,
+                params["K"],
+                params["y0"],
+                params["r"],
+                params["t0"],
+                params["nu"],
             )
 
         # Maximum OD (carrying capacity from fit)
@@ -348,7 +356,9 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 
         t_dense = np.linspace(t_clean.min(), t_clean.max(), 500)
         dy_idealized = fit_gaussian_to_derivative(t_clean, dy_data, t_dense)
-        exp_start, exp_end = calculate_phase_ends(t_dense, dy_idealized, lag_frac, exp_frac)
+        exp_start, exp_end = calculate_phase_ends(
+            t_dense, dy_idealized, lag_frac, exp_frac
+        )
 
         if model_type == "sliding_window":
             mu_max = params["slope"]
@@ -430,7 +440,9 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 
                 mask = np.isfinite(y_log_exp) & np.isfinite(y_log_fit)
                 if mask.sum() > 0:
-                    rmse = float(np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2)))
+                    rmse = float(
+                        np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2))
+                    )
                 else:
                     rmse = np.nan
             except Exception:
@@ -522,12 +534,14 @@ def detect_no_growth(
     Parameters:
         t: Time array
         y: OD values (baseline-corrected)
-        growth_stats: Optional dict of fitted growth statistics (from extract_stats_from_fit
-            or sliding_window_fit). If provided, growth rate is checked.
+        growth_stats: Optional dict of fitted growth statistics
+            (from extract_stats_from_fit or sliding_window_fit).
+            If provided, growth rate is checked.
         min_data_points: Minimum number of valid data points required (default: 5)
         min_signal_to_noise: Minimum ratio of max/min OD values (default: 5.0)
         min_od_increase: Minimum absolute OD increase required (default: 0.05)
-        min_growth_rate: Minimum specific growth rate to be considered growth (default: 1e-6)
+        min_growth_rate: Minimum specific growth rate to be considered growth
+                         (default: 1e-6)
 
     Returns:
         Dict with:
@@ -582,7 +596,9 @@ def detect_no_growth(
         checks["has_sufficient_od_increase"] = False
         return {
             "is_no_growth": True,
-            "reason": f"Insufficient OD increase ({od_increase:.4f} < {min_od_increase})",
+            "reason": (
+                f"Insufficient OD increase ({od_increase:.4f} < {min_od_increase})"
+            ),
             "checks": checks,
         }
 
