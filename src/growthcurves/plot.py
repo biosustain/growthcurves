@@ -89,6 +89,8 @@ def create_base_plot(
         hovermode="closest",
         template="plotly_white",
         showlegend=False,
+        xaxis=dict(range=[0, None]),  # Start x-axis at 0 to remove gap
+        yaxis=dict(visible=True, showline=True),  # Explicitly show y-axis
     )
 
     return fig
