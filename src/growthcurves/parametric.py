@@ -141,7 +141,7 @@ def fit_richards(t, y):
     }
 
 
-def fit_parametric(t, y, model_type="logistic"):
+def fit_parametric(t, y, model="logistic"):
     """
     Fit a growth model to data.
 
@@ -158,7 +158,7 @@ def fit_parametric(t, y, model_type="logistic"):
         "gompertz": fit_gompertz,
         "richards": fit_richards,
     }
-    fit_func = fit_funcs.get(model_type)
+    fit_func = fit_funcs.get(model)
 
     result = fit_func(t, y)
     if result is not None:
