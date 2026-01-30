@@ -334,9 +334,9 @@ def add_od_max_line(
     fig: go.Figure,
     od_max: float,
     scale: str = "linear",
-    line_color: str = "red",
-    line_dash: str = "dash",
-    line_width: float = 1,
+    line_color: str = "black",
+    line_dash: str = "dot",
+    line_width: float = 2,
     line_opacity: float = 0.5,
     name: str = "ODmax",
     row: Optional[int] = None,
@@ -586,7 +586,9 @@ def annotate_plot(
             y_values = []
             for trace in fig.data:
                 if trace.y is not None:
-                    y_values.extend([y for y in trace.y if y is not None and np.isfinite(y)])
+                    y_values.extend(
+                        [y for y in trace.y if y is not None and np.isfinite(y)]
+                    )
             if y_values:
                 y_min = min(y_values)
 
@@ -633,7 +635,7 @@ def annotate_plot(
                     x=[t_val],
                     y=[y_val],
                     mode="markers",
-                    marker=dict(size=15, color="green", symbol="circle"),
+                    marker=dict(size=15, color="#66BB6A", symbol="circle"),
                     showlegend=False,
                 ),
                 row=row,
