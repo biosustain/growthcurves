@@ -102,54 +102,6 @@ def smooth(y, window=11, poly=1, passes=2):
     return y
 
 
-def fit_gaussian_to_derivative(t, dy, t_dense):
-    """
-    Fit a symmetric Gaussian to first-derivative data and evaluate on t_dense.
-
-    Returns:
-        Array of fitted Gaussian values evaluated at t_dense.
-    """
-    t = np.asarray(t, dtype=float)
-    dy = np.asarray(dy, dtype=float)
-    t_dense = np.asarray(t_dense, dtype=float)
-
-    mask = np.isfinite(t) & np.isfinite(dy)
-    t_fit = t[mask]
-    dy_fit = dy[mask]
-
-    if len(t_fit) < 3 or np.ptp(t_fit) <= 0 or np.max(dy_fit) <= 0:
-        if len(t_fit) == 0:
-            return np.zeros_like(t_dense)
-        return np.interp(t_dense, t_fit, dy_fit, left=0.0, right=0.0)
-
-    amplitude_init = float(np.max(dy_fit))
-    center_init = float(t_fit[np.argmax(dy_fit)])
-    weights = np.maximum(dy_fit, 0)
-    if np.sum(weights) > 0:
-        sigma_init = float(
-            np.sqrt(np.sum(weights * (t_fit - center_init) ** 2) / np.sum(weights))
-        )
-    else:
-        sigma_init = float(np.ptp(t_fit) / 6.0)
-    sigma_init = max(sigma_init, np.ptp(t_fit) / 20.0)
-
-    p0 = [amplitude_init, center_init, sigma_init]
-    bounds = (
-        [0.0, float(t_fit.min()), 1e-6],
-        [np.inf, float(t_fit.max()), np.ptp(t_fit)],
-    )
-
-    try:
-        from scipy.optimize import curve_fit
-
-        params, _ = curve_fit(
-            gaussian, t_fit, dy_fit, p0=p0, bounds=bounds, maxfev=20000
-        )
-        return gaussian(t_dense, *params)
-    except Exception:
-        return np.interp(t_dense, t_fit, dy_fit, left=0.0, right=0.0)
-
-
 def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
     """
     Calculate lag and exponential phase end times from specific growth rate.
@@ -489,23 +441,6 @@ def first_derivative(t, y):
     return np.gradient(y, t)
 
 
-def second_derivative(t, y):
-    """
-    Calculate the second derivative (d²N/dt²) of a curve.
-
-    Parameters:
-        t: Time array
-        y: Values array (e.g., OD or fitted values)
-
-    Returns:
-        Array of second derivative values (same length as input)
-    """
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
-    dy_dt = np.gradient(y, t)
-    return np.gradient(dy_dt, t)
-
-
 def bad_fit_stats():
     """Return default stats for failed fits."""
     return no_fit_dictionary.copy()
@@ -668,29 +603,6 @@ def compute_first_derivative(t, y):
     y = np.asarray(y, dtype=float)
     dy = np.gradient(y, t)
     return t, dy
-
-
-def compute_second_derivative(t, y):
-    """
-    Compute the second derivative of a growth curve.
-
-    Parameters
-    ----------
-    t : array_like
-        Time array
-    y : array_like
-        OD600 values (baseline-corrected)
-
-    Returns
-    -------
-    tuple of (np.ndarray, np.ndarray)
-        Tuple of (t, d2y) where d2y is the second derivative d²y/dt²
-    """
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
-    dy = np.gradient(y, t)
-    d2y = np.gradient(dy, t)
-    return t, d2y
 
 
 def compute_specific_growth_rate(t, y):
