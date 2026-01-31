@@ -13,6 +13,102 @@ from .models import baranyi_model, gompertz_model, logistic_model, richards_mode
 from .utils import validate_data, extract_stats_from_fit
 
 # -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+
+
+def _estimate_initial_params(t, y):
+    """
+    Estimate common initial parameters for all growth models.
+
+    Parameters:
+        t: Time array
+        y: OD values
+
+    Returns:
+        Tuple of (K_init, y0_init, dy) where:
+            K_init: Initial carrying capacity (max OD)
+            y0_init: Initial baseline OD (min OD)
+            dy: First derivative (gradient) of OD with respect to time
+    """
+    K_init = np.max(y)
+    y0_init = np.min(y)
+    dy = np.gradient(y, t)
+    return K_init, y0_init, dy
+
+
+def _estimate_inflection_time(t, dy):
+    """
+    Estimate time at inflection point (maximum growth rate).
+
+    Parameters:
+        t: Time array
+        dy: First derivative of OD
+
+    Returns:
+        Time at maximum derivative (inflection point)
+    """
+    return t[np.argmax(dy)]
+
+
+def _estimate_lag_time(t, dy, threshold_frac=0.1):
+    """
+    Estimate lag time from growth rate threshold.
+
+    Parameters:
+        t: Time array
+        dy: First derivative of OD
+        threshold_frac: Fraction of max derivative to use as threshold
+
+    Returns:
+        Estimated lag time (time when growth rate exceeds threshold)
+    """
+    threshold = threshold_frac * np.max(dy)
+    lag_idx = np.where(dy > threshold)[0]
+    return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
+
+
+def _fit_model_generic(t, y, model_func, param_names, p0_func, bounds_func, model_type):
+    """
+    Generic wrapper for fitting parametric growth models.
+
+    This function encapsulates the common pattern used across all parametric
+    model fitting functions, reducing code duplication.
+
+    Parameters:
+        t: Time array
+        y: OD values
+        model_func: Model function to fit (e.g., logistic_model)
+        param_names: List of parameter names in order
+        p0_func: Function that takes (K_init, y0_init, t, dy) and returns p0
+        bounds_func: Function that takes (K_init, y0_init, t) and returns bounds
+        model_type: String identifier for the model
+
+    Returns:
+        Dict with 'params' and 'model_type', or None if fitting fails
+    """
+    t, y = validate_data(t, y)
+    if t is None:
+        return None
+
+    # Estimate common initial parameters
+    K_init, y0_init, dy = _estimate_initial_params(t, y)
+
+    # Generate initial guess and bounds
+    p0 = p0_func(K_init, y0_init, t, dy)
+    bounds = bounds_func(K_init, y0_init, t)
+
+    # Fit the model
+    params, _ = curve_fit(model_func, t, y, p0=p0, bounds=bounds, maxfev=20000)
+
+    # Return structured result
+    return {
+        "params": dict(zip(param_names, params)),
+        "model_type": model_type,
+    }
+
+
+# -----------------------------------------------------------------------------
 # Model Fitting Functions
 # -----------------------------------------------------------------------------
 
@@ -28,32 +124,17 @@ def fit_logistic(t, y):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    t, y = validate_data(t, y)
-    if t is None:
-        return None
-
-    # Initial estimates
-    K_init = np.max(y)
-    y0_init = np.min(y)  # Baseline OD
-    # Estimate t0 as time of maximum growth rate (inflection point)
-    dy = np.gradient(y, t)
-    t0_init = t[np.argmax(dy)]
-    r_init = 0.01  # Initial growth rate guess
-
-    p0 = [K_init, y0_init, r_init, t0_init]
-    bounds = ([y0_init * 0.5, 0, 0.0001, t.min()], [np.inf, y0_init * 2, 10, t.max()])
-
-    params, _ = curve_fit(logistic_model, t, y, p0=p0, bounds=bounds, maxfev=20000)
-
-    return {
-        "params": {
-            "K": params[0],
-            "y0": params[1],
-            "r": params[2],
-            "t0": params[3],
-        },
-        "model_type": "logistic",
-    }
+    return _fit_model_generic(
+        t, y,
+        model_func=logistic_model,
+        param_names=["K", "y0", "r", "t0"],
+        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_inflection_time(t, dy)],
+        bounds_func=lambda K, y0, t: (
+            [y0 * 0.5, 0, 0.0001, t.min()],
+            [np.inf, y0 * 2, 10, t.max()],
+        ),
+        model_type="logistic",
+    )
 
 
 def fit_gompertz(t, y):
@@ -67,34 +148,17 @@ def fit_gompertz(t, y):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    t, y = validate_data(t, y)
-    if t is None:
-        return None
-
-    # Initial estimates
-    K_init = np.max(y)
-    y0_init = np.min(y)  # Baseline OD
-    # Estimate lag time as time when growth first accelerates
-    dy = np.gradient(y, t)
-    threshold = 0.1 * np.max(dy)
-    lag_idx = np.where(dy > threshold)[0]
-    lam_init = t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
-    mu_max_init = 0.01  # Initial growth rate guess
-
-    p0 = [K_init, y0_init, mu_max_init, lam_init]
-    bounds = ([y0_init * 0.5, 0, 0.0001, 0], [np.inf, y0_init * 2, 10, t.max()])
-
-    params, _ = curve_fit(gompertz_model, t, y, p0=p0, bounds=bounds, maxfev=20000)
-
-    return {
-        "params": {
-            "K": params[0],
-            "y0": params[1],
-            "mu_max_param": params[2],
-            "lam": params[3],
-        },
-        "model_type": "gompertz",
-    }
+    return _fit_model_generic(
+        t, y,
+        model_func=gompertz_model,
+        param_names=["K", "y0", "mu_max", "lam"],
+        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_lag_time(t, dy)],
+        bounds_func=lambda K, y0, t: (
+            [y0 * 0.5, 0, 0.0001, 0],
+            [np.inf, y0 * 2, 10, t.max()],
+        ),
+        model_type="gompertz",
+    )
 
 
 def fit_richards(t, y):
@@ -108,36 +172,17 @@ def fit_richards(t, y):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    t, y = validate_data(t, y)
-    if t is None:
-        return None
-
-    # Initial estimates
-    K_init = np.max(y)
-    y0_init = np.min(y)  # Baseline OD
-    dy = np.gradient(y, t)
-    t0_init = t[np.argmax(dy)]
-    r_init = 0.01
-    nu_init = 1.0  # Start with logistic-like shape
-
-    p0 = [K_init, y0_init, r_init, t0_init, nu_init]
-    bounds = (
-        [y0_init * 0.5, 0, 0.0001, t.min(), 0.01],
-        [np.inf, y0_init * 2, 10, t.max(), 100],
+    return _fit_model_generic(
+        t, y,
+        model_func=richards_model,
+        param_names=["K", "y0", "r", "t0", "nu"],
+        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_inflection_time(t, dy), 1.0],
+        bounds_func=lambda K, y0, t: (
+            [y0 * 0.5, 0, 0.0001, t.min(), 0.01],
+            [np.inf, y0 * 2, 10, t.max(), 100],
+        ),
+        model_type="richards",
     )
-
-    params, _ = curve_fit(richards_model, t, y, p0=p0, bounds=bounds, maxfev=20000)
-
-    return {
-        "params": {
-            "K": params[0],
-            "y0": params[1],
-            "r": params[2],
-            "t0": params[3],
-            "nu": params[4],
-        },
-        "model_type": "richards",
-    }
 
 
 def fit_baranyi(t, y):
@@ -151,38 +196,26 @@ def fit_baranyi(t, y):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    t, y = validate_data(t, y)
-    if t is None:
-        return None
+    def p0_baranyi(K, y0, t, dy):
+        lag_time = _estimate_lag_time(t, dy)
+        mu_max_init = 0.01
+        h0_init = lag_time * mu_max_init if lag_time > 0 else 0.1
+        y0_floor = max(y0 * 0.5, 1e-6)
+        return [K, max(y0, y0_floor), mu_max_init, h0_init]
 
-    # Initial estimates
-    K_init = np.max(y)
-    y0_init = np.min(y)  # Baseline OD
-    # Estimate lag time as time when growth first accelerates
-    dy = np.gradient(y, t)
-    threshold = 0.1 * np.max(dy)
-    lag_idx = np.where(dy > threshold)[0]
-    lag_time = t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
-    mu_max_init = 0.01  # Initial growth rate guess
-    # h0 is related to lag time: lambda ≈ h0/mu_max
-    h0_init = lag_time * mu_max_init if lag_time > 0 else 0.1
+    def bounds_baranyi(K, y0, t):
+        y0_floor = max(y0 * 0.5, 1e-6)
+        y0_ceil = max(y0 * 2, y0_floor * 10)
+        return ([y0_floor, 0, 0.0001, 0], [np.inf, y0_ceil, 10, t.max() * 10])
 
-    y0_floor = max(y0_init * 0.5, 1e-6)
-    y0_ceil = max(y0_init * 2, y0_floor * 10)
-    p0 = [K_init, max(y0_init, y0_floor), mu_max_init, h0_init]
-    bounds = ([y0_floor, 0, 0.0001, 0], [np.inf, y0_ceil, 10, t.max() * 10])
-
-    params, _ = curve_fit(baranyi_model, t, y, p0=p0, bounds=bounds, maxfev=20000)
-
-    return {
-        "params": {
-            "K": params[0],
-            "y0": params[1],
-            "mu_max_param": params[2],
-            "h0": params[3],
-        },
-        "model_type": "baranyi",
-    }
+    return _fit_model_generic(
+        t, y,
+        model_func=baranyi_model,
+        param_names=["K", "y0", "mu_max", "h0"],
+        p0_func=p0_baranyi,
+        bounds_func=bounds_baranyi,
+        model_type="baranyi",
+    )
 
 
 def fit_parametric(t, y, model="logistic"):

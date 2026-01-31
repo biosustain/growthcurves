@@ -52,12 +52,38 @@ def validate_data(t, y, min_points=10):
     return t, y
 
 
-def compute_rmse(y_observed, y_predicted):
-    """Calculate root mean square error between observed and predicted values."""
+def compute_rmse(y_observed, y_predicted, in_log_space=False):
+    """
+    Calculate root mean square error between observed and predicted values.
+
+    Parameters:
+        y_observed: Observed values
+        y_predicted: Predicted values
+        in_log_space: If True, compute RMSE in log space (default: False)
+
+    Returns:
+        RMSE value (float), or np.nan if no valid data points
+
+    Note:
+        - Parametric models use in_log_space=False (linear space)
+        - Non-parametric models (spline, sliding window) use in_log_space=False
+          when data is already log-transformed
+    """
     mask = np.isfinite(y_observed) & np.isfinite(y_predicted)
     if mask.sum() == 0:
         return np.nan
-    residuals = y_observed[mask] - y_predicted[mask]
+
+    obs = y_observed[mask]
+    pred = y_predicted[mask]
+
+    # Apply log transformation if requested and values are positive
+    if in_log_space:
+        if np.any(obs <= 0) or np.any(pred <= 0):
+            return np.nan
+        obs = np.log(obs)
+        pred = np.log(pred)
+
+    residuals = obs - pred
     return float(np.sqrt(np.mean(residuals**2)))
 
 
@@ -102,6 +128,41 @@ def smooth(y, window=11, poly=1, passes=2):
     return y
 
 
+def _linear_interpolate_crossing(t, values, threshold, search_condition):
+    """
+    Find time at which values cross a threshold using linear interpolation.
+
+    This helper function eliminates duplication in phase boundary calculation.
+
+    Parameters:
+        t: Time array
+        values: Value array (e.g., specific growth rate)
+        threshold: Threshold value to find crossing for
+        search_condition: Boolean array indicating where to search for crossing
+
+    Returns:
+        Float time at threshold crossing, or None if no crossing found
+    """
+    if not np.any(search_condition):
+        return None
+
+    crossing_idx = int(np.argmax(search_condition))
+
+    if crossing_idx == 0:
+        return float(t[crossing_idx])
+
+    # Linear interpolation between points
+    t0, t1 = t[crossing_idx - 1], t[crossing_idx]
+    v0, v1 = values[crossing_idx - 1], values[crossing_idx]
+
+    if v1 == v0:
+        frac = 0.0
+    else:
+        frac = (threshold - v0) / (v1 - v0)
+
+    return float(t0 + frac * (t1 - t0))
+
+
 def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
     """
     Calculate lag and exponential phase end times from specific growth rate.
@@ -134,31 +195,18 @@ def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
     lag_threshold = lag_frac * peak_val
     exp_threshold = exp_frac * peak_val
 
-    lag_end = float(t[0])
-    above_lag = mu >= lag_threshold
-    if np.any(above_lag):
-        first_idx = int(np.argmax(above_lag))
-        if first_idx > 0:
-            t0, t1 = t[first_idx - 1], t[first_idx]
-            y0, y1 = mu[first_idx - 1], mu[first_idx]
-            frac = 0.0 if y1 == y0 else (lag_threshold - y0) / (y1 - y0)
-            lag_end = float(t0 + frac * (t1 - t0))
-        else:
-            lag_end = float(t[first_idx])
+    # Find lag phase end (first crossing of lag threshold)
+    lag_end = _linear_interpolate_crossing(t, mu, lag_threshold, mu >= lag_threshold)
+    if lag_end is None:
+        lag_end = float(t[0])
 
-    exp_end = float(t[-1])
+    # Find exp phase end (first crossing below exp threshold after peak)
     after_peak = np.arange(len(t)) > peak_idx
-    below_exp = mu <= exp_threshold
-    exp_candidates = np.where(after_peak & below_exp)[0]
-    if len(exp_candidates) > 0:
-        idx = int(exp_candidates[0])
-        if idx > 0:
-            t0, t1 = t[idx - 1], t[idx]
-            y0, y1 = mu[idx - 1], mu[idx]
-            frac = 0.0 if y1 == y0 else (exp_threshold - y0) / (y1 - y0)
-            exp_end = float(t0 + frac * (t1 - t0))
-        else:
-            exp_end = float(t[idx])
+    exp_end = _linear_interpolate_crossing(
+        t, mu, exp_threshold, after_peak & (mu <= exp_threshold)
+    )
+    if exp_end is None:
+        exp_end = float(t[-1])
 
     return lag_end, max(exp_end, lag_end)
 
@@ -192,67 +240,17 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
     params = fit_result.get("params", {})
 
     if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
-        from .models import (
-            baranyi_model,
-            gompertz_model,
-            logistic_model,
-            richards_model,
-        )
+        from .models import evaluate_parametric_model
 
-        if model_type == "logistic":
-            y_fit = logistic_model(
-                t, params["K"], params["y0"], params["r"], params["t0"]
-            )
-        elif model_type == "gompertz":
-            y_fit = gompertz_model(
-                t, params["K"], params["y0"], params["mu_max_param"], params["lam"]
-            )
-        elif model_type == "baranyi":
-            y_fit = baranyi_model(
-                t, params["K"], params["y0"], params["mu_max_param"], params["h0"]
-            )
-        elif model_type == "richards":
-            y_fit = richards_model(
-                t, params["K"], params["y0"], params["r"], params["t0"], params["nu"]
-            )
-        else:
-            return bad_fit_stats()
+        # Evaluate model at original time points
+        y_fit = evaluate_parametric_model(t, model_type, params)
 
         # Calculate true specific growth rate from fitted curve
         mu_max = calculate_specific_growth_rate(t, y_fit)
 
         # Generate dense predictions for derivative calculation
         t_dense = np.linspace(t.min(), t.max(), 500)
-
-        if model_type == "logistic":
-            y_dense = logistic_model(
-                t_dense, params["K"], params["y0"], params["r"], params["t0"]
-            )
-        elif model_type == "gompertz":
-            y_dense = gompertz_model(
-                t_dense,
-                params["K"],
-                params["y0"],
-                params["mu_max_param"],
-                params["lam"],
-            )
-        elif model_type == "baranyi":
-            y_dense = baranyi_model(
-                t_dense,
-                params["K"],
-                params["y0"],
-                params["mu_max_param"],
-                params["h0"],
-            )
-        else:
-            y_dense = richards_model(
-                t_dense,
-                params["K"],
-                params["y0"],
-                params["r"],
-                params["t0"],
-                params["nu"],
-            )
+        y_dense = evaluate_parametric_model(t_dense, model_type, params)
 
         # Maximum OD (carrying capacity from fit)
         max_od = float(params["K"])
@@ -364,19 +362,8 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
                 intercept = params["intercept"]
                 y_fit_window = np.exp(slope * t_window + intercept)
 
-                mask = (
-                    (y_window > 0)
-                    & np.isfinite(y_window)
-                    & np.isfinite(y_fit_window)
-                    & (y_fit_window > 0)
-                )
-                if mask.sum() > 0:
-                    # RMSE in log space (sliding window fits linear model in log space)
-                    y_log = np.log(y_window[mask])
-                    y_fit_log = np.log(y_fit_window[mask])
-                    rmse = float(np.sqrt(np.mean((y_log - y_fit_log) ** 2)))
-                else:
-                    rmse = np.nan
+                # RMSE in log space (sliding window fits linear model in log space)
+                rmse = compute_rmse(y_window, y_fit_window, in_log_space=True)
             else:
                 rmse = np.nan
 
@@ -395,11 +382,8 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
                 y_log_fit = spline(t_exp)
 
                 # RMSE in log space (spline fits in log space)
-                mask = np.isfinite(y_log_exp) & np.isfinite(y_log_fit)
-                if mask.sum() > 0:
-                    rmse = float(np.sqrt(np.mean((y_log_exp[mask] - y_log_fit[mask]) ** 2)))
-                else:
-                    rmse = np.nan
+                # Data is already log-transformed, so use in_log_space=False
+                rmse = compute_rmse(y_log_exp, y_log_fit, in_log_space=False)
             except Exception:
                 rmse = np.nan
 
@@ -423,22 +407,6 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 # -----------------------------------------------------------------------------
 # Derivative Functions
 # -----------------------------------------------------------------------------
-
-
-def first_derivative(t, y):
-    """
-    Calculate the first derivative (dN/dt) of a curve.
-
-    Parameters:
-        t: Time array
-        y: Values array (e.g., OD or fitted values)
-
-    Returns:
-        Array of first derivative values (same length as input)
-    """
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
-    return np.gradient(y, t)
 
 
 def bad_fit_stats():

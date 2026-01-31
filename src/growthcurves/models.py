@@ -124,6 +124,48 @@ def gaussian(t, amplitude, center, sigma):
     return amplitude * np.exp(-((t - center) ** 2) / (2 * sigma**2))
 
 
+def evaluate_parametric_model(t, model_type, params):
+    """
+    Evaluate a fitted parametric model at given time points.
+
+    This function provides a unified interface for evaluating any parametric
+    growth model, eliminating the need for repeated if-elif chains.
+
+    Parameters:
+        t: Time array or scalar
+        model_type: One of 'logistic', 'gompertz', 'richards', 'baranyi'
+        params: Parameter dictionary containing model-specific parameters
+
+    Returns:
+        OD values predicted by the model at time points t
+
+    Raises:
+        ValueError: If model_type is not recognized
+
+    Example:
+        >>> params = {"K": 0.5, "y0": 0.05, "r": 0.1, "t0": 10}
+        >>> y_fit = evaluate_parametric_model(t, "logistic", params)
+    """
+    # Model registry: maps model_type to (function, required_param_names)
+    MODEL_REGISTRY = {
+        "logistic": (logistic_model, ["K", "y0", "r", "t0"]),
+        "gompertz": (gompertz_model, ["K", "y0", "mu_max", "lam"]),
+        "richards": (richards_model, ["K", "y0", "r", "t0", "nu"]),
+        "baranyi": (baranyi_model, ["K", "y0", "mu_max", "h0"]),
+    }
+
+    if model_type not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown model type: {model_type}. "
+            f"Must be one of {list(MODEL_REGISTRY.keys())}"
+        )
+
+    model_func, param_names = MODEL_REGISTRY[model_type]
+    model_args = [params[name] for name in param_names]
+
+    return model_func(t, *model_args)
+
+
 def spline_model(t, y, spline_s=None, k=3):
     """
     Fit a smoothing spline to data.

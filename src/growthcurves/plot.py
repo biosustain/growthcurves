@@ -9,13 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
-from .models import (
-    baranyi_model,
-    gompertz_model,
-    logistic_model,
-    richards_model,
-    spline_from_params,
-)
+from .models import evaluate_parametric_model, spline_from_params
 
 
 def create_base_plot(
@@ -442,35 +436,8 @@ def annotate_plot(
             time_fit = np.linspace(window_start, window_end, 200)
             y_fit = None
 
-            if model_type == "logistic":
-                y_fit = logistic_model(
-                    time_fit, params["K"], params["y0"], params["r"], params["t0"]
-                )
-            elif model_type == "gompertz":
-                y_fit = gompertz_model(
-                    time_fit,
-                    params["K"],
-                    params["y0"],
-                    params["mu_max_param"],
-                    params["lam"],
-                )
-            elif model_type == "baranyi":
-                y_fit = baranyi_model(
-                    time_fit,
-                    params["K"],
-                    params["y0"],
-                    params["mu_max_param"],
-                    params["h0"],
-                )
-            elif model_type == "richards":
-                y_fit = richards_model(
-                    time_fit,
-                    params["K"],
-                    params["y0"],
-                    params["r"],
-                    params["t0"],
-                    params["nu"],
-                )
+            if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
+                y_fit = evaluate_parametric_model(time_fit, model_type, params)
             elif model_type == "spline":
                 spline = spline_from_params(params)
                 y_fit = np.exp(spline(time_fit))
@@ -750,29 +717,14 @@ def plot_derivative_metric(
 
             elif model_type in ["logistic", "gompertz", "richards", "baranyi"]:
                 # For parametric models, compute metric from the model
-                model_func = {
-                    "logistic": logistic_model,
-                    "gompertz": gompertz_model,
-                    "richards": richards_model,
-                    "baranyi": baranyi_model,
-                }.get(model_type)
+                # Evaluate the model on fitted range
+                y_model = evaluate_parametric_model(t_model, model_type, params)
 
-                if model_func is not None:
-                    # Handle parameter name mismatches and filter metadata
-                    model_params = params.copy()
-                    if "mu_max_param" in model_params:
-                        model_params["mu_max"] = model_params.pop("mu_max_param")
-                    model_params.pop("fit_t_min", None)
-                    model_params.pop("fit_t_max", None)
-
-                    # Evaluate the model on fitted range
-                    y_model = model_func(t_model, **model_params)
-
-                    # Compute metric from model
-                    if metric == "dndt":
-                        _, metric_model = compute_first_derivative(t_model, y_model)
-                    else:  # mu
-                        _, metric_model = compute_specific_growth_rate(t_model, y_model)
+                # Compute metric from model
+                if metric == "dndt":
+                    _, metric_model = compute_first_derivative(t_model, y_model)
+                else:  # mu
+                    _, metric_model = compute_specific_growth_rate(t_model, y_model)
 
             elif model_type == "spline":
                 # For spline model, reconstruct the spline and evaluate
