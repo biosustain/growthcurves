@@ -12,7 +12,6 @@ from .models import spline_model
 from .utils import (
     bad_fit_stats,
     calculate_phase_ends,
-    fit_gaussian_to_derivative,
     smooth,
 )
 
@@ -216,17 +215,15 @@ def fit_non_parametric(
     # Maximum OD from raw data
     # max_od = float(np.max(y_raw))
 
-    # Smooth the data and calculate first derivative for phase detection
+    # Smooth the data for phase detection
     y_smooth = smooth(y_raw, sg_window, sg_poly)
-    dy_data = np.gradient(y_smooth, t)
-    dy_data = np.maximum(dy_data, 0)  # Only consider positive growth
 
-    # Fit idealized symmetric Gaussian to the derivative data
+    # Interpolate smoothed data to dense grid for phase boundary detection
     t_dense = np.linspace(t.min(), t.max(), 500)
-    dy_idealized = fit_gaussian_to_derivative(t, dy_data, t_dense)
+    y_dense = np.interp(t_dense, t, y_smooth)
 
-    # Calculate phase boundaries
-    lag_end, exp_end = calculate_phase_ends(t_dense, dy_idealized, exp_start, exp_end)
+    # Calculate phase boundaries based on specific growth rate thresholds
+    lag_end, exp_end = calculate_phase_ends(t_dense, y_dense, exp_start, exp_end)
 
     # Calculate Umax using specified method
     if umax_method == "sliding_window":

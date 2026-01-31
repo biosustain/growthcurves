@@ -9,7 +9,13 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
-from .models import baranyi_model, gompertz_model, logistic_model, richards_model, spline_from_params
+from .models import (
+    baranyi_model,
+    gompertz_model,
+    logistic_model,
+    richards_model,
+    spline_from_params,
+)
 
 
 def create_base_plot(
@@ -658,5 +664,267 @@ def annotate_plot(
                 row=row,
                 col=col,
             )
+
+    return fig
+
+
+def plot_derivative_metric(
+    t: np.ndarray,
+    y: np.ndarray,
+    metric: str = "mu",
+    fit_result: Optional[Dict[str, Any]] = None,
+    sg_window: int = 11,
+    sg_poly: int = 2,
+    phase_boundaries: Optional[Tuple[float, float]] = None,
+    title: Optional[str] = None,
+) -> go.Figure:
+    """
+    Plot either dN/dt or μ (specific growth rate) for a growth curve.
+
+    This function generates up to three traces:
+    1. Raw data metric (light grey)
+    2. Smoothed data metric (main trace, pink/red)
+    3. Model fit metric (dashed blue line, if fit_result provided)
+
+    Parameters
+    ----------
+    t : np.ndarray
+        Time array
+    y : np.ndarray
+        OD600 values (baseline-corrected)
+    metric : str, optional
+        Either "dndt" for dN/dt or "mu" for μ (default: "mu")
+    fit_result : dict, optional
+        Fit result dictionary from fit_parametric() or fit_non_parametric().
+        If provided, the fitted model's derivative will be shown.
+        Should contain 'model_type' and 'params' keys.
+    sg_window : int, optional
+        Savitzky-Golay window size for smoothing (default: 11)
+    sg_poly : int, optional
+        Savitzky-Golay polynomial order for smoothing (default: 2)
+    phase_boundaries : tuple of (float, float), optional
+        Tuple of (exp_start, exp_end) for exponential phase boundaries.
+        If provided, adds shading for the phase.
+    title : str, optional
+        Plot title. If None, automatically generated based on metric.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure with derivative metric plot
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from growthcurves import plot_derivative_metric, fit_non_parametric
+    >>>
+    >>> # Generate some example data
+    >>> t = np.linspace(0, 24, 100)
+    >>> y = 0.05 * np.exp(0.5 * t) / (1 + (0.05/2.0) * (np.exp(0.5 * t) - 1))
+    >>>
+    >>> # Plot specific growth rate without fit
+    >>> fig = plot_derivative_metric(t, y, metric="mu")
+    >>>
+    >>> # Plot with fitted model
+    >>> fit_result = fit_non_parametric(t, y, umax_method="spline")
+    >>> fig = plot_derivative_metric(
+    ...     t, y,
+    ...     metric="mu",
+    ...     fit_result=fit_result,
+    ...     phase_boundaries=(5, 15)
+    ... )
+    """
+    from .utils import (
+        compute_first_derivative,
+        compute_specific_growth_rate,
+        smooth,
+        compute_sliding_window_growth_rate,
+    )
+
+    # Validate metric
+    if metric not in ["dndt", "mu"]:
+        raise ValueError(f"metric must be 'dndt' or 'mu', got '{metric}'")
+
+    # Convert to numpy arrays
+    t = np.asarray(t, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    # Remove non-finite values
+    mask = np.isfinite(t) & np.isfinite(y)
+    t = t[mask]
+    y = y[mask]
+
+    if len(t) < 3:
+        return go.Figure()
+
+    # Store full time range for x-axis
+    x_range = [float(t.min()), float(t.max())]
+
+    # Step 1: Calculate metric on raw data
+    if metric == "dndt":
+        t_metric_raw, metric_raw = compute_first_derivative(t, y)
+        metric_label = "dN/dt"
+        y_axis_title = "dN/dt"
+        plot_title = title or "First Derivative (dN/dt)"
+    else:  # mu
+        t_metric_raw, metric_raw = compute_specific_growth_rate(t, y)
+        metric_label = "μ"
+        y_axis_title = "μ (h⁻¹)"
+        plot_title = title or "Specific Growth Rate (μ)"
+
+    # Step 2: Smooth the data
+    y_smooth = smooth(y, sg_window, sg_poly)
+
+    # Step 3: Calculate metric on smoothed data
+    if metric == "dndt":
+        t_metric_smooth, metric_smooth = compute_first_derivative(t, y_smooth)
+    else:  # mu
+        t_metric_smooth, metric_smooth = compute_specific_growth_rate(t, y_smooth)
+
+    # Create figure
+    fig = go.Figure()
+
+    # Plot raw metric (light grey)
+    fig.add_trace(
+        go.Scatter(
+            x=t_metric_raw,
+            y=metric_raw,
+            mode="lines",
+            line=dict(width=1, color="lightgrey"),
+            hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (raw)=%{{y:.4f}}<extra></extra>",
+            showlegend=False,
+            name="Raw",
+        )
+    )
+
+    # Plot smoothed metric (pink/red)
+    fig.add_trace(
+        go.Scatter(
+            x=t_metric_smooth,
+            y=metric_smooth,
+            mode="lines",
+            line=dict(width=2, color="#FF6692"),
+            hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (smoothed)=%{{y:.4f}}<extra></extra>",
+            showlegend=False,
+            name="Smoothed",
+        )
+    )
+
+    # Step 4 & 5: Generate model metric and plot (if fit_result provided)
+    if fit_result is not None:
+        model_type = fit_result.get("model_type", "")
+        params = fit_result.get("params", {})
+        metric_model = None
+        t_model = None
+
+        # Get the fitted data range
+        fit_t_min = params.get("fit_t_min")
+        fit_t_max = params.get("fit_t_max")
+
+        # Filter to fitted range if available
+        if fit_t_min is not None and fit_t_max is not None:
+            fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
+            t_model = t[fit_mask]
+            y_model_raw = y[fit_mask]
+            y_model_smooth = y_smooth[fit_mask]
+        else:
+            # Use full range if fit bounds not available
+            t_model = t
+            y_model_raw = y
+            y_model_smooth = y_smooth
+
+        if len(t_model) >= 2:
+            if model_type == "sliding_window":
+                # For sliding window, calculate from raw data (as growthcurves does)
+                window_points = params.get("window_points", 15)
+                if metric == "dndt":
+                    # For dN/dt, we need to smooth first then compute derivative
+                    _, metric_model = compute_first_derivative(t_model, y_model_smooth)
+                else:  # mu
+                    # For μ, use sliding window on raw data
+                    _, metric_model = compute_sliding_window_growth_rate(
+                        t_model, y_model_raw, window_points=window_points
+                    )
+
+            elif model_type in ["logistic", "gompertz", "richards", "baranyi"]:
+                # For parametric models, compute metric from the model
+                model_func = {
+                    "logistic": logistic_model,
+                    "gompertz": gompertz_model,
+                    "richards": richards_model,
+                    "baranyi": baranyi_model,
+                }.get(model_type)
+
+                if model_func is not None:
+                    # Handle parameter name mismatches and filter metadata
+                    model_params = params.copy()
+                    if "mu_max_param" in model_params:
+                        model_params["mu_max"] = model_params.pop("mu_max_param")
+                    model_params.pop("fit_t_min", None)
+                    model_params.pop("fit_t_max", None)
+
+                    # Evaluate the model on fitted range
+                    y_model = model_func(t_model, **model_params)
+
+                    # Compute metric from model
+                    if metric == "dndt":
+                        _, metric_model = compute_first_derivative(t_model, y_model)
+                    else:  # mu
+                        _, metric_model = compute_specific_growth_rate(t_model, y_model)
+
+            elif model_type == "spline":
+                # For spline model, reconstruct the spline and evaluate
+                try:
+                    spline = spline_from_params(params)
+
+                    if metric == "dndt":
+                        # Spline is fitted to log(y), so exp(spline(t)) gives y
+                        y_log_model = spline(t_model)
+                        y_model = np.exp(y_log_model)
+                        _, metric_model = compute_first_derivative(t_model, y_model)
+                    else:  # mu
+                        # μ = d(ln(y))/dt, which is the derivative of the spline
+                        metric_model = spline.derivative()(t_model)
+                except Exception:
+                    # If spline reconstruction fails, skip model trace
+                    pass
+
+        # Plot model metric if available
+        if (
+            metric_model is not None
+            and t_model is not None
+            and np.isfinite(metric_model).any()
+        ):
+            fig.add_trace(
+                go.Scatter(
+                    x=t_model,
+                    y=metric_model,
+                    mode="lines",
+                    line=dict(width=2, dash="dash", color="#636EFA"),
+                    hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (fitted)=%{{y:.4f}}<extra></extra>",
+                    showlegend=False,
+                    name="Fitted",
+                )
+            )
+
+    # Add phase boundary annotations if provided
+    if phase_boundaries is not None and len(phase_boundaries) == 2:
+        exp_start, exp_end = phase_boundaries
+        if exp_start is not None and exp_end is not None:
+            if np.isfinite(exp_start) and np.isfinite(exp_end):
+                fig = add_exponential_phase(fig, exp_start, exp_end)
+
+    # Update layout
+    fig.update_layout(
+        title=plot_title,
+        height=400,
+        showlegend=False,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=40, r=20, t=60, b=40),
+        template="plotly_white",
+    )
+    fig.update_xaxes(showgrid=False, title="Time (hours)", range=x_range)
+    fig.update_yaxes(showgrid=False, title=y_axis_title)
 
     return fig
