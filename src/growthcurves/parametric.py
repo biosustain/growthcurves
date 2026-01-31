@@ -125,7 +125,8 @@ def fit_logistic(t, y):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
     return _fit_model_generic(
-        t, y,
+        t,
+        y,
         model_func=logistic_model,
         param_names=["K", "y0", "r", "t0"],
         p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_inflection_time(t, dy)],
@@ -149,7 +150,8 @@ def fit_gompertz(t, y):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
     return _fit_model_generic(
-        t, y,
+        t,
+        y,
         model_func=gompertz_model,
         param_names=["K", "y0", "mu_max", "lam"],
         p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_lag_time(t, dy)],
@@ -173,10 +175,17 @@ def fit_richards(t, y):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
     return _fit_model_generic(
-        t, y,
+        t,
+        y,
         model_func=richards_model,
         param_names=["K", "y0", "r", "t0", "nu"],
-        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_inflection_time(t, dy), 1.0],
+        p0_func=lambda K, y0, t, dy: [
+            K,
+            y0,
+            0.01,
+            _estimate_inflection_time(t, dy),
+            1.0,
+        ],
         bounds_func=lambda K, y0, t: (
             [y0 * 0.5, 0, 0.0001, t.min(), 0.01],
             [np.inf, y0 * 2, 10, t.max(), 100],
@@ -196,6 +205,7 @@ def fit_baranyi(t, y):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
+
     def p0_baranyi(K, y0, t, dy):
         lag_time = _estimate_lag_time(t, dy)
         mu_max_init = 0.01
@@ -209,7 +219,8 @@ def fit_baranyi(t, y):
         return ([y0_floor, 0, 0.0001, 0], [np.inf, y0_ceil, 10, t.max() * 10])
 
     return _fit_model_generic(
-        t, y,
+        t,
+        y,
         model_func=baranyi_model,
         param_names=["K", "y0", "mu_max", "h0"],
         p0_func=p0_baranyi,
@@ -218,7 +229,7 @@ def fit_baranyi(t, y):
     )
 
 
-def fit_parametric(t, y, model="logistic"):
+def fit_parametric(t, y, method="logistic"):
     """
     Fit a growth model to data.
 
@@ -236,7 +247,7 @@ def fit_parametric(t, y, model="logistic"):
         "richards": fit_richards,
         "baranyi": fit_baranyi,
     }
-    fit_func = fit_funcs.get(model)
+    fit_func = fit_funcs.get(method)
 
     result = fit_func(t, y)
     if result is not None:

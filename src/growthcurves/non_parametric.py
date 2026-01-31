@@ -166,7 +166,7 @@ def fit_spline(t_exp, y_exp, spline_s=None):
 def fit_non_parametric(
     t,
     y,
-    umax_method="sliding_window",
+    method="sliding_window",
     exp_start=0.15,
     exp_end=0.15,
     sg_window=11,
@@ -208,7 +208,7 @@ def fit_non_parametric(
     t, y_raw = t[mask], y[mask]
 
     # Check minimum data requirements
-    min_points = window_points if umax_method == "sliding_window" else 10
+    min_points = window_points if method == "sliding_window" else 10
     if len(t) < min_points or np.ptp(t) <= 0:
         return bad_fit_stats()
 
@@ -226,7 +226,7 @@ def fit_non_parametric(
     lag_end, exp_end = calculate_phase_ends(t_dense, y_dense, exp_start, exp_end)
 
     # Calculate Umax using specified method
-    if umax_method == "sliding_window":
+    if method == "sliding_window":
         umax_result = fit_sliding_window(t, y_raw, window_points)
 
         if umax_result is None:
@@ -245,7 +245,7 @@ def fit_non_parametric(
             "model_type": "sliding_window",
         }
 
-    elif umax_method == "spline":
+    elif method == "spline":
         # Extract exponential phase data
         exp_mask = (t >= lag_end) & (t <= exp_end)
         if np.sum(exp_mask) < 5:
@@ -282,4 +282,4 @@ def fit_non_parametric(
         }
 
     else:
-        raise ValueError(f"Unknown umax_method: {umax_method}")
+        raise ValueError(f"Unknown umax_method: {method}")
