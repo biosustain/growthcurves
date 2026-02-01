@@ -7,8 +7,6 @@ derivative calculations, and RMSE computation.
 import numpy as np
 from scipy.signal import savgol_filter
 
-from .models import gaussian
-
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -170,8 +168,8 @@ def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
     Parameters:
         t: Time array
         y: OD values (should be from fitted/idealized curve)
-        lag_frac: Fraction of peak specific growth rate (μ_max) for lag phase end detection
-        exp_frac: Fraction of peak specific growth rate (μ_max) for exponential phase end detection
+        lag_frac: Fraction of μ_max for lag phase end detection
+        exp_frac: Fraction of μ_max for exponential phase end detection
 
     Returns:
         Tuple of (lag_end, exp_end) times.
@@ -309,9 +307,7 @@ def extract_stats_from_fit(fit_result, t, y, lag_frac=0.15, exp_frac=0.15):
 
         t_dense = np.linspace(t_clean.min(), t_clean.max(), 500)
         y_dense = np.interp(t_dense, t_clean, y_smooth)
-        exp_start, exp_end = calculate_phase_ends(
-            t_dense, y_dense, lag_frac, exp_frac
-        )
+        exp_start, exp_end = calculate_phase_ends(t_dense, y_dense, lag_frac, exp_frac)
 
         if model_type == "sliding_window":
             mu_max = params["slope"]

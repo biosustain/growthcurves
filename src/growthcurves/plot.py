@@ -653,6 +653,7 @@ def plot_derivative_metric(
     # Create figure
     fig = go.Figure()
 
+    template = f"Time=%{{x:.2f}}<br>{metric_label} (raw)=%{{y:.4f}}<extra></extra>"
     # Plot raw metric (light grey)
     fig.add_trace(
         go.Scatter(
@@ -660,12 +661,15 @@ def plot_derivative_metric(
             y=metric_raw,
             mode="lines",
             line=dict(width=1, color="lightgrey"),
-            hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (raw)=%{{y:.4f}}<extra></extra>",
+            hovertemplate=template,
             showlegend=False,
             name="Raw",
         )
     )
 
+    template = (
+        f"Time=%{{x:.2f}}<br>{metric_label} (smoothed)=%{{y:.4f}}<extra></extra>",
+    )
     # Plot smoothed metric (pink/red)
     fig.add_trace(
         go.Scatter(
@@ -673,7 +677,7 @@ def plot_derivative_metric(
             y=metric_smooth,
             mode="lines",
             line=dict(width=2, color="#FF6692"),
-            hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (smoothed)=%{{y:.4f}}<extra></extra>",
+            hovertemplate=template,
             showlegend=False,
             name="Smoothed",
         )
@@ -749,13 +753,16 @@ def plot_derivative_metric(
             and t_model is not None
             and np.isfinite(metric_model).any()
         ):
+            template = (
+                f"Time=%{{x:.2f}}<br>{metric_label} (fitted)=%{{y:.4f}}<extra></extra>"
+            )
             fig.add_trace(
                 go.Scatter(
                     x=t_model,
                     y=metric_model,
                     mode="lines",
                     line=dict(width=2, dash="dash", color="#636EFA"),
-                    hovertemplate=f"Time=%{{x:.2f}}<br>{metric_label} (fitted)=%{{y:.4f}}<extra></extra>",
+                    hovertemplate=template,
                     showlegend=False,
                     name="Fitted",
                 )

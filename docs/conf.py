@@ -30,7 +30,7 @@ release = PACKAGE_VERSION
 # ones.
 extensions = [
     "sphinx.ext.autodoc",  # Core extension for generating documentation from docstrings
-    # "sphinx.ext.autodoc.typehints",  # Automatically document type hints in function signatures
+    # "sphinx.ext.autodoc.typehints",  # Automatically document type hints in signatures
     "sphinx.ext.viewcode",  # Include links to the source code in the documentation
     "sphinx.ext.napoleon",  # Support for Google and NumPy style docstrings
     "sphinx.ext.intersphinx",  # allows linking to other projects' documentation in API
