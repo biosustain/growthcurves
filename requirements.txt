@@ -2,3 +2,4 @@ numpy>=1.20.0
 scipy>=1.7.0
 plotly>=5.0.0
 growthcurves>=0.3.0
+streamlit==1.52.0
