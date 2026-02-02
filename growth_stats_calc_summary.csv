@@ -1,0 +1,15 @@
+MECHANISTIC,,,,,,,,
+Name,Model,Equation,Exp Start,Exp End,Intrinsic U,U max,carrying capacity,fit
+Logistic,parametric,N(t)=K/(1+exp(_µ*(t_t0))),log phase,log phase,µ,max dln(N)/dt,K,curve
+Gompertz (mechanistic),parametric,N(t)=N0 + A*exp(_exp((µ*e/A)*(__t)+1)),lag end,threshold,µ,max dln(N)/dt,N0+A,curve
+Richards,parametric,N(t)=A + (K_A)/((C+Q*exp(_B*t))^(1/_)),lag end,threshold,µ,max dln(N)/dt,K _ A,curve
+Baranyi,parametric,N(t)=N0 + µ * (t + (1/µ)*ln( exp(_µ*(t__)) + 1 ) ),_,threshold,µ,max dln(N)/dt,K,curve
+,,,,,,,,
+PHENOMENALOGICAL,,,,,,,,
+Name,Model,Equation,Exp Start,Exp End,Intrinsic U,U max,Max OD,fit
+Linear,non-parametric,ln(N)=a + b*t,threshold,threshold,n.a.,b,max OD raw,window
+Spline,non-parametric,spline fit to ln(N) vs t,threshold,threshold,n.a.,max of derivative of spline,max OD raw,log phase
+Logistic (phenom),parametric,N(t)=K/(1+exp(_r*(t_t0))),threshold,threshold,n.a.,max dln(N)/dt,K,curve
+Gompertz (modified),parametric,N(t)=N0 + A*exp(_exp(_B*(t_M))),threshold,threshold,n.a.,max dln(N)/dt,N0+A,curve
+Richards (phenom),parametric,N(t)=A + (K_A)/((1+Q*exp(_B*t))^(1/_)),threshold,threshold,n.a.,max dln(N)/dt,K_A,curve
+,,,,,,,,
