@@ -34,17 +34,43 @@ no_fit_dictionary = {
 
 def validate_data(t, y, min_points=10):
     """
-    Validate and clean input data.
+    Validate and clean input growth curve data.
+
+    This function filters out invalid data points that would cause problems in
+    growth curve analysis, particularly when taking logarithms for exponential
+    growth calculations.
+
+    Filters out:
+    - Non-finite values (NaN, inf, -inf) in time or OD
+    - Non-positive OD values (y <= 0), which are invalid for log transformations
+    - Datasets with insufficient data points or no time variation
+
+    Parameters:
+        t: Time array
+        y: OD measurement array
+        min_points: Minimum number of valid data points required (default: 10)
 
     Returns:
-        Tuple of (t, y) arrays with finite values only, or (None, None) if invalid.
+        Tuple of (t_clean, y_clean) with only valid data points, or (None, None)
+        if the data doesn't meet minimum requirements.
+
+    Examples:
+        >>> t = np.array([0, 1, 2, 3, 4])
+        >>> y = np.array([0.0, 0.1, 0.2, np.nan, 0.4])  # Has zero and NaN
+        >>> t_clean, y_clean = validate_data(t, y)
+        >>> print(t_clean)
+        [1 2 4]
+        >>> print(y_clean)
+        [0.1 0.2 0.4]
     """
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
 
+    # Filter: keep only finite values where y > 0
     mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
     t, y = t[mask], y[mask]
 
+    # Check minimum requirements
     if len(t) < min_points or np.ptp(t) <= 0:
         return None, None
 
@@ -220,8 +246,10 @@ def calculate_phase_boundaries_tangent(
     (μ_max) down to the baseline (lag phase) and up to the plateau (stationary
     phase). The intersection points define the start and end of exponential phase.
 
-    At the point of maximum growth rate, the tangent line in linear OD space is:
-        OD(t) = od_at_umax * (1 + μ_max * (t - time_at_umax))
+    At the point of maximum growth rate, the tangent line in LOG space is:
+        ln(OD(t)) = ln(od_at_umax) + μ_max * (t - time_at_umax)
+    Which gives in linear space:
+        OD(t) = od_at_umax * exp(μ_max * (t - time_at_umax))
 
     Parameters:
         t: Time array
@@ -255,16 +283,19 @@ def calculate_phase_boundaries_tangent(
     baseline_od = min(baseline_od, od_at_umax * 0.9)
     plateau_od = max(plateau_od, od_at_umax * 1.1)
 
-    # Tangent line at point of max growth: OD(t) = od_at_umax * (1 + μ_max * (t - time_at_umax))
+    # Tangent line in LOG space: ln(OD(t)) = ln(od_at_umax) + μ_max * (t - time_at_umax)
+    # Which gives: OD(t) = od_at_umax * exp(μ_max * (t - time_at_umax))
     # Solving for t when OD = baseline_od:
-    #   baseline_od = od_at_umax * (1 + μ_max * (t_start - time_at_umax))
-    #   t_start = time_at_umax + (baseline_od/od_at_umax - 1) / μ_max
-    t_start = time_at_umax + ((baseline_od / od_at_umax) - 1) / mu_max
+    #   baseline_od = od_at_umax * exp(μ_max * (t_start - time_at_umax))
+    #   ln(baseline_od / od_at_umax) = μ_max * (t_start - time_at_umax)
+    #   t_start = time_at_umax + ln(baseline_od / od_at_umax) / μ_max
+    t_start = time_at_umax + np.log(baseline_od / od_at_umax) / mu_max
 
     # Solving for t when OD = plateau_od:
-    #   plateau_od = od_at_umax * (1 + μ_max * (t_end - time_at_umax))
-    #   t_end = time_at_umax + (plateau_od/od_at_umax - 1) / μ_max
-    t_end = time_at_umax + ((plateau_od / od_at_umax) - 1) / mu_max
+    #   plateau_od = od_at_umax * exp(μ_max * (t_end - time_at_umax))
+    #   ln(plateau_od / od_at_umax) = μ_max * (t_end - time_at_umax)
+    #   t_end = time_at_umax + ln(plateau_od / od_at_umax) / μ_max
+    t_end = time_at_umax + np.log(plateau_od / od_at_umax) / mu_max
 
     # Constrain to data range
     t_start = max(float(t[0]), t_start)
@@ -337,9 +368,7 @@ def calculate_phase_boundaries(
     elif method == "threshold":
         return calculate_phase_ends(t, y, lag_frac, exp_frac)
     else:
-        raise ValueError(
-            f"Unknown method '{method}'. Choose 'tangent' or 'threshold'."
-        )
+        raise ValueError(f"Unknown method '{method}'. Choose 'tangent' or 'threshold'.")
 
 
 # -----------------------------------------------------------------------------
@@ -505,9 +534,9 @@ def _extract_stats_gompertz(
         exp_frac=exp_frac,
     )
 
-    # Use model's lag parameter if available and reasonable (only for threshold method)
-    if phase_boundary_method == "threshold" and np.isfinite(lam) and lam > 0:
-        exp_phase_start = float(lam)
+    # Note: Previously this code overrode exp_phase_start with the model's lam parameter
+    # when using threshold method. This prevented custom threshold values from working.
+    # The override has been removed to allow threshold-based detection to work properly.
 
     # Doubling time from observed mu_max
     doubling_time = np.log(2) / mu_max_observed if mu_max_observed > 0 else np.nan
@@ -694,9 +723,9 @@ def _extract_stats_baranyi(
         exp_frac=exp_frac,
     )
 
-    # Use model's lag parameter if available and reasonable (only for threshold method)
-    if phase_boundary_method == "threshold" and np.isfinite(lag_time) and lag_time > 0:
-        exp_phase_start = float(lag_time)
+    # Note: Previously this code overrode exp_phase_start with the model's lag_time parameter
+    # when using threshold method. This prevented custom threshold values from working.
+    # The override has been removed to allow threshold-based detection to work properly.
 
     # Doubling time from observed mu_max
     doubling_time = np.log(2) / mu_max_observed if mu_max_observed > 0 else np.nan
@@ -798,7 +827,9 @@ def _extract_stats_sliding_window(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
     max_od = float(np.max(y_clean))
     time_at_umax = params["time_at_umax"]
-    od_at_umax = float(np.interp(time_at_umax, t_clean, y_smooth))
+    # Evaluate the fitted line at time_at_umax to get the correct OD value
+    # Fitted line is: ln(OD) = slope * t + intercept, so OD = exp(slope * t + intercept)
+    od_at_umax = float(np.exp(params["slope"] * time_at_umax + params["intercept"]))
 
     # Calculate phase boundaries using specified method
     baseline_od = float(np.min(y_clean))
@@ -909,15 +940,21 @@ def _extract_stats_spline(
         return bad_fit_stats()
 
     y_log_exp = np.log(y_exp)
-    spline_s = params.get("spline_s", len(t_exp) * 0.1)
+    spline_s = params.get("spline_s", 0.01)
 
+    # Reconstruct spline from stored parameters to ensure consistency
     spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+
+    # Use stored mu_max and time_at_umax from the original fit for consistency
+    # These were calculated from the original spline during fitting
     time_at_umax = params["time_at_umax"]
-    mu_max = float(spline.derivative()(time_at_umax))
+    mu_max = float(params["mu_max"])
 
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
     max_od = float(np.max(y_clean))
-    od_at_umax = float(np.interp(time_at_umax, t_clean, y_smooth))
+    # Evaluate spline at time_at_umax to get the correct OD value
+    # Spline is fitted to log(y), so exponentiate to get actual OD
+    od_at_umax = float(np.exp(spline(time_at_umax)))
 
     # Calculate refined phase boundaries using specified method
     baseline_od = float(np.min(y_clean))
@@ -964,8 +1001,8 @@ def _extract_stats_spline(
     }
 
 
-def extract_stats_from_fit(
-    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="auto"
+def extract_stats(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method=None
 ):
     """
     Extract growth statistics from parametric or non-parametric fit results.
@@ -980,7 +1017,7 @@ def extract_stats_from_fit(
         lag_frac: Fraction of peak growth rate for lag phase detection (threshold method)
         exp_frac: Fraction of peak growth rate for exponential phase end (threshold method)
         phase_boundary_method: Method for calculating phase boundaries:
-            - "auto" (default): Use "threshold" for parametric, "tangent" for non-parametric
+            - None (default): Use "threshold" for parametric models, "tangent" for non-parametric
             - "threshold": Threshold-based method using fractions of μ_max
             - "tangent": Tangent line method at point of maximum growth rate
 
@@ -990,13 +1027,15 @@ def extract_stats_from_fit(
     if fit_result is None:
         return bad_fit_stats()
 
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
+    # Validate and filter data - remove non-positive and non-finite values
+    t, y = validate_data(t, y, min_points=3)
+    if t is None or y is None:
+        return bad_fit_stats()
 
     model_type = fit_result.get("model_type")
 
-    # Determine method based on model type if auto
-    if phase_boundary_method == "auto":
+    # Determine method based on model type if not specified
+    if phase_boundary_method is None:
         if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
             method = "threshold"
         else:
@@ -1008,7 +1047,9 @@ def extract_stats_from_fit(
     if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
         return _extract_stats_parametric(fit_result, t, y, lag_frac, exp_frac, method)
     elif model_type == "sliding_window":
-        return _extract_stats_sliding_window(fit_result, t, y, lag_frac, exp_frac, method)
+        return _extract_stats_sliding_window(
+            fit_result, t, y, lag_frac, exp_frac, method
+        )
     elif model_type == "spline":
         return _extract_stats_spline(fit_result, t, y, lag_frac, exp_frac, method)
     else:
@@ -1053,7 +1094,7 @@ def detect_no_growth(
         t: Time array
         y: OD values (baseline-corrected)
         growth_stats: Optional dict of fitted growth statistics
-            (from extract_stats_from_fit or sliding_window_fit).
+            (from extract_stats or sliding_window_fit).
             If provided, growth rate is checked.
         min_data_points: Minimum number of valid data points required (default: 5)
         min_signal_to_noise: Minimum ratio of max/min OD values (default: 5.0)
@@ -1147,7 +1188,7 @@ def is_no_growth(growth_stats):
     For more comprehensive checks including raw data analysis, use detect_no_growth().
 
     Parameters:
-        growth_stats: Dict from extract_stats_from_fit or sliding_window_fit
+        growth_stats: Dict from extract_stats or sliding_window_fit
 
     Returns:
         bool: True if no growth detected (empty stats or zero growth rate)

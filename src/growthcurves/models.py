@@ -183,7 +183,7 @@ def spline_model(t, y, spline_s=None, k=3):
     y = np.asarray(y, dtype=float)
 
     if spline_s is None:
-        spline_s = len(t) * 0.1
+        spline_s = 0.01
 
     spline = UnivariateSpline(t, y, s=spline_s, k=k)
     return spline, spline_s

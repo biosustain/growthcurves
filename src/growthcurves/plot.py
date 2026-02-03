@@ -53,6 +53,11 @@ def create_base_plot(
     time = np.asarray(time, dtype=float)
     data = np.asarray(data, dtype=float)
 
+    # Filter out non-positive and non-finite values for valid plotting
+    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
+    time = time[mask]
+    data = data[mask]
+
     # Determine y-axis data based on scale
     if scale == "log":
         y_data = np.log(data)
@@ -307,8 +312,10 @@ def annotate_plot(
     time_umax: Optional[float] = None,
     od_umax: Optional[float] = None,
     od_max: Optional[float] = None,
+    umax: Optional[float] = None,
     umax_point: Optional[Tuple[float, float]] = None,
     fitted_model: Optional[Dict[str, Any]] = None,
+    draw_umax_tangent: bool = False,
     scale: str = "linear",
     row: Optional[int] = None,
     col: Optional[int] = None,
@@ -332,6 +339,8 @@ def annotate_plot(
         OD value at maximum growth rate. If provided, adds horizontal line.
     od_max : float, optional
         Maximum OD value. If provided, adds horizontal line at this value.
+    umax : float, optional
+        Maximum growth rate value. Required if draw_umax_tangent is True.
     umax_point : tuple of (float, float), optional
         Tuple of (time_umax, od_umax) to draw a small green dot at the intersection.
         Format: (time, od_value)
@@ -347,6 +356,9 @@ def annotate_plot(
         For backward compatibility, also accepts:
         - 'window_start': start of fitting window (if fit_t_min not in params)
         - 'window_end': end of fitting window (if fit_t_max not in params)
+    draw_umax_tangent : bool, optional
+        If True, draws the tangent line at the umax point. Requires umax, time_umax,
+        and od_umax to be provided. Default is False.
     scale : str, optional
         Plot scale for annotations: 'linear' or 'log'. Defaults to 'linear'.
     row : int, optional
@@ -375,8 +387,10 @@ def annotate_plot(
     ...     time_umax=45,
     ...     od_umax=0.25,
     ...     od_max=0.8,
+    ...     umax=0.5,
     ...     umax_point=(45, 0.25),
     ...     fitted_model=spline_result,
+    ...     draw_umax_tangent=True,
     ...     scale="log"
     ... )
 
@@ -534,6 +548,82 @@ def annotate_plot(
                 col=col,
             )
 
+    # Add umax tangent line (if requested and data provided)
+    if (
+        draw_umax_tangent
+        and umax is not None
+        and time_umax is not None
+        and od_umax is not None
+        and np.isfinite(umax)
+        and np.isfinite(time_umax)
+        and np.isfinite(od_umax)
+    ):
+        # Extract y-values from figure to determine baseline and plateau OD
+        all_y_values = []
+        for trace in fig.data:
+            if trace.y is not None and len(trace.y) > 0:
+                # Handle both linear and log scale data
+                valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
+                if valid_y:
+                    all_y_values.extend(valid_y)
+
+        if len(all_y_values) > 0:
+            if scale == "log":
+                # Data is in log space, convert to linear for OD calculations
+                baseline_od = np.exp(min(all_y_values))
+                plateau_od = np.exp(max(all_y_values))
+            else:
+                # Data is already in linear space
+                baseline_od = min(all_y_values)
+                plateau_od = max(all_y_values)
+
+            # Ensure baseline < od_umax < plateau (with safety margins)
+            baseline_od = min(baseline_od, od_umax * 0.95)
+            plateau_od = max(plateau_od, od_umax * 1.05)
+
+            # Calculate where tangent intersects baseline and plateau
+            # Tangent equation: OD(t) = od_umax * exp(umax * (t - time_umax))
+            # Solving for t when OD = baseline_od:
+            #   t_start = time_umax + ln(baseline_od / od_umax) / umax
+            # Solving for t when OD = plateau_od:
+            #   t_end = time_umax + ln(plateau_od / od_umax) / umax
+
+            if baseline_od > 0 and plateau_od > 0 and od_umax > 0:
+                t_tangent_start = time_umax + np.log(baseline_od / od_umax) / umax
+                t_tangent_end = time_umax + np.log(plateau_od / od_umax) / umax
+
+                # Create time points for tangent line between intersections
+                t_tangent = np.linspace(t_tangent_start, t_tangent_end, 100)
+
+                # Calculate tangent line values
+                # IMPORTANT: The tangent should be applied in LOG space for exponential growth
+                # In log space, the tangent line at the point of max growth is:
+                #   ln(OD(t)) = ln(od_umax) + umax * (t - time_umax)
+                # Which gives: OD(t) = od_umax * exp(umax * (t - time_umax))
+                y_tangent_linear = od_umax * np.exp(umax * (t_tangent - time_umax))
+
+                if scale == "log":
+                    # Transform to log space for plotting
+                    y_tangent = np.log(y_tangent_linear)
+                else:
+                    # Already in linear space
+                    y_tangent = y_tangent_linear
+
+                # Add tangent line
+                fig.add_trace(
+                    go.Scatter(
+                        x=t_tangent,
+                        y=y_tangent,
+                        mode="lines",
+                        line=dict(color="green", width=2, dash="dash"),
+                        name="umax tangent",
+                        showlegend=False,
+                        hovertemplate="Tangent line at μmax<extra></extra>",
+                    ),
+                    row=row,
+                    col=col,
+                )
+
     return fig
 
 
@@ -618,8 +708,8 @@ def plot_derivative_metric(
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
 
-    # Remove non-finite values
-    mask = np.isfinite(t) & np.isfinite(y)
+    # Remove non-finite and non-positive values (needed for mu calculation)
+    mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
     t = t[mask]
     y = y[mask]
 

@@ -121,8 +121,8 @@ def fit_spline(t_exp, y_exp, spline_s=None):
     try:
         # Fit spline with automatic or specified smoothing
         if spline_s is None:
-            # Automatic smoothing based on number of points
-            spline_s = len(t_exp) * 0.1
+            # Low smoothing for tight fit to data
+            spline_s = 0.01
 
         spline, spline_s = spline_model(t_exp, y_log_exp, spline_s, k=3)
 
@@ -150,6 +150,7 @@ def fit_spline(t_exp, y_exp, spline_s=None):
                 "tck_k": int(tck_k),
                 "spline_s": spline_s,
                 "time_at_umax": time_at_umax,
+                "mu_max": mu_max,  # Store calculated mu_max for consistency
             },
             "model_type": "spline",
         }
@@ -246,10 +247,17 @@ def fit_non_parametric(
         }
 
     elif method == "spline":
-        # Extract exponential phase data
-        exp_mask = (t >= lag_end) & (t <= exp_end)
+        # For spline fitting, use a wider window to ensure full exponential phase coverage
+        # Use more lenient thresholds (5% instead of 15%) to get wider initial window
+        lag_end_wide, exp_end_wide = calculate_phase_ends(t_dense, y_dense, 0.05, 0.05)
+
+        # Extract exponential phase data with wider window
+        exp_mask = (t >= lag_end_wide) & (t <= exp_end_wide)
         if np.sum(exp_mask) < 5:
-            return None
+            # Fallback to original window if wider window fails
+            exp_mask = (t >= lag_end) & (t <= exp_end)
+            if np.sum(exp_mask) < 5:
+                return None
 
         t_exp = t[exp_mask]
         y_exp = y_raw[exp_mask]
@@ -265,7 +273,7 @@ def fit_non_parametric(
 
         # Reconstruct spline to get mu_max
         y_log_exp = np.log(y_exp)
-        s = spline_s if spline_s is not None else len(t_exp) * 0.1
+        s = spline_s if spline_s is not None else 0.01
         try:
             spline, _ = spline_model(t_exp, y_log_exp, s, k=3)
             # mu_max = float(spline.derivative()(time_at_umax))
