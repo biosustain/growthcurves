@@ -404,7 +404,7 @@ def _extract_stats_logistic(
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
     r = float(params["r"])  # Intrinsic growth rate (equals mu_max for logistic)
-    t0 = float(params.get("t0", np.nan))  # Inflection time
+    float(params.get("t0", np.nan))  # Inflection time
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "logistic", params)
@@ -494,7 +494,7 @@ def _extract_stats_gompertz(
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
     mu_max_intrinsic = float(params["mu_max"])  # Intrinsic growth rate parameter
-    lam = float(params.get("lam", np.nan))  # Lag time
+    float(params.get("lam", np.nan))  # Lag time
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "gompertz", params)
@@ -589,8 +589,8 @@ def _extract_stats_richards(
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
     r = float(params["r"])  # Intrinsic growth rate constant
-    nu = float(params.get("nu", 1.0))  # Shape parameter
-    t0 = float(params.get("t0", np.nan))  # Inflection time
+    float(params.get("nu", 1.0))  # Shape parameter
+    float(params.get("t0", np.nan))  # Inflection time
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "richards", params)
@@ -683,7 +683,7 @@ def _extract_stats_baranyi(
     h0 = float(params.get("h0", 0.0))  # Dimensionless lag parameter
 
     # Calculate lag time from h0
-    lag_time = h0 / mu_max_intrinsic if mu_max_intrinsic > 0 and h0 > 0 else np.nan
+    h0 / mu_max_intrinsic if mu_max_intrinsic > 0 and h0 > 0 else np.nan
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "baranyi", params)
