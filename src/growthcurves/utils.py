@@ -1298,7 +1298,8 @@ def _extract_stats_spline(
     Extract growth statistics from spline fits.
 
     The spline fitting pipeline:
-    1. Initial region identified using 30% threshold of instantaneous mu (defines fit_t_min/fit_t_max)
+    1. Initial region identified using 30% threshold of instantaneous mu
+       (defines fit_t_min/fit_t_max)
     2. Spline fitted to log-transformed data in that region
     3. mu_max calculated as maximum derivative of fitted spline
     4. Phase boundaries calculated here using tangent or threshold method
@@ -1307,8 +1308,10 @@ def _extract_stats_spline(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         y: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection (threshold method)
-        exp_frac: Fraction of peak growth rate for exponential phase end (threshold method)
+        lag_frac: Fraction of peak growth rate for lag phase detection
+                  (threshold method)
+        exp_frac: Fraction of peak growth rate for exponential phase end
+                  (threshold method)
         phase_boundary_method: "threshold" or "tangent" (default: "tangent")
 
     Returns:

@@ -9,11 +9,7 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 
 from .models import spline_model
-from .utils import (
-    bad_fit_stats,
-    calculate_phase_ends,
-    smooth,
-)
+from .utils import bad_fit_stats, calculate_phase_ends, smooth
 
 # -----------------------------------------------------------------------------
 # Sliding Window Helpers
@@ -249,7 +245,8 @@ def fit_non_parametric(
     elif method == "spline":
         # For spline fitting, identify approximate region of Umax using 30% threshold
         # on instantaneous mu. This defines fit_t_min and fit_t_max.
-        # Use dense grid to find boundaries, then expand to include sufficient data points
+        # Use dense grid to find boundaries, then expand to include sufficient data
+        # points
 
         # Calculate instantaneous mu on dense grid
         from .utils import compute_mu_max as calc_mu
@@ -294,7 +291,8 @@ def fit_non_parametric(
         fit_t_min_initial = float(t_dense[target_segment[0]])
         fit_t_max_initial = float(t_dense[target_segment[-1]])
 
-        # Expand window to ensure we have at least 10 data points for robust spline fitting
+        # Expand window to ensure we have at least 10 data points for robust spline
+        # fitting
         exp_mask = (t >= fit_t_min_initial) & (t <= fit_t_max_initial)
         n_points = np.sum(exp_mask)
 
