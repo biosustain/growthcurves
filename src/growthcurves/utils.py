@@ -14,7 +14,7 @@ from scipy.signal import savgol_filter
 no_fit_dictionary = {
     "max_od": 0.0,
     "N0": np.nan,
-    "specific_growth_rate": 0.0,
+    "mu_max": 0.0,
     "intrinsic_growth_rate": None,
     "doubling_time": np.nan,
     "exp_phase_start": np.nan,
@@ -113,7 +113,7 @@ def compute_rmse(y_observed, y_predicted, in_log_space=False):
     return float(np.sqrt(np.mean(residuals**2)))
 
 
-def calculate_specific_growth_rate(t, y_fit):
+def calculate_mu_max(t, y_fit):
     """
     Calculate the maximum specific growth rate from a fitted curve.
 
@@ -208,7 +208,7 @@ def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
         )
 
     # Calculate specific growth rate using existing function
-    _, mu = compute_specific_growth_rate(t, y)
+    _, mu = compute_mu_max(t, y)
     mu = np.nan_to_num(mu, nan=0.0)  # Replace NaN with 0
     mu = np.maximum(mu, 0)  # Only consider positive growth
 
@@ -406,7 +406,7 @@ def _extract_stats_mech_logistic(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_logistic", params)
-    mu_max = calculate_specific_growth_rate(t, y_fit)
+    mu_max = calculate_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -452,7 +452,7 @@ def _extract_stats_mech_logistic(
     return {
         "max_od": y0 + K,
         "N0": y0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -495,7 +495,7 @@ def _extract_stats_mech_gompertz(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_gompertz", params)
-    mu_max = calculate_specific_growth_rate(t, y_fit)
+    mu_max = calculate_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -541,7 +541,7 @@ def _extract_stats_mech_gompertz(
     return {
         "max_od": y0 + K,
         "N0": y0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -584,7 +584,7 @@ def _extract_stats_mech_richards(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_richards", params)
-    mu_max = calculate_specific_growth_rate(t, y_fit)
+    mu_max = calculate_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -630,7 +630,7 @@ def _extract_stats_mech_richards(
     return {
         "max_od": y0 + K,
         "N0": y0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -674,7 +674,7 @@ def _extract_stats_mech_baranyi(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_baranyi", params)
-    mu_max = calculate_specific_growth_rate(t, y_fit)
+    mu_max = calculate_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -720,7 +720,7 @@ def _extract_stats_mech_baranyi(
     return {
         "max_od": y0 + K,
         "N0": y0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -817,7 +817,7 @@ def _extract_stats_phenom_logistic(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -914,7 +914,7 @@ def _extract_stats_phenom_gompertz(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -1015,7 +1015,7 @@ def _extract_stats_phenom_gompertz_modified(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -1112,7 +1112,7 @@ def _extract_stats_phenom_richards(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": float(mu_max),
+        "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
         "exp_phase_start": exp_phase_start,
@@ -1277,7 +1277,7 @@ def _extract_stats_sliding_window(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": mu_max,
+        "mu_max": mu_max,
         "intrinsic_growth_rate": None,  # Non-parametric: no intrinsic parameter
         "doubling_time": doubling_time,
         "exp_phase_start": exp_start,
@@ -1386,7 +1386,7 @@ def _extract_stats_spline(
     return {
         "max_od": max_od,
         "N0": N0,
-        "specific_growth_rate": mu_max,
+        "mu_max": mu_max,
         "intrinsic_growth_rate": None,  # Non-parametric: no intrinsic parameter
         "doubling_time": doubling_time,
         "exp_phase_start": exp_start,
@@ -1585,7 +1585,7 @@ def detect_no_growth(
 
     # Check 4: Growth rate from fitted statistics (if provided)
     if growth_stats is not None:
-        mu = growth_stats.get("specific_growth_rate")
+        mu = growth_stats.get("mu_max")
         if mu is None or not np.isfinite(mu) or mu < min_growth_rate:
             checks["has_positive_growth_rate"] = False
             mu_str = f"{mu:.6f}" if mu is not None and np.isfinite(mu) else "N/A"
@@ -1617,7 +1617,7 @@ def is_no_growth(growth_stats):
     """
     if not growth_stats:
         return True
-    mu = growth_stats.get("specific_growth_rate", 0.0)
+    mu = growth_stats.get("mu_max", 0.0)
     return mu is None or mu == 0.0
 
 
@@ -1648,7 +1648,7 @@ def compute_first_derivative(t, y):
     return t, dy
 
 
-def compute_specific_growth_rate(t, y):
+def compute_mu_max(t, y):
     """
     Compute the instantaneous specific growth rate (μ = 1/N × dN/dt).
 

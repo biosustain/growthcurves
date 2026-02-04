@@ -33,7 +33,7 @@ fit_result = gc.parametric.fit_parametric(time, od, method="mech_logistic")
 stats = gc.utils.extract_stats(fit_result, time, od)
 
 print(f"Max OD:               {stats['max_od']:.3f}")
-print(f"Specific growth rate: {stats['specific_growth_rate']:.4f} h⁻¹")
+print(f"Specific growth rate: {stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 
 # Or use a non-parametric spline fit
@@ -41,7 +41,7 @@ spline_fit = gc.non_parametric.fit_non_parametric(time, od, umax_method="spline"
 spline_stats = gc.utils.extract_stats(spline_fit, time, od)
 
 print(f"\nSpline fit results:")
-print(f"Specific growth rate: {spline_stats['specific_growth_rate']:.4f} h⁻¹")
+print(f"Specific growth rate: {spline_stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 ```
 
@@ -51,23 +51,23 @@ print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 
 #### Mechanistic models (ODE-based)
 
-| Model             | Function                   | Parameters           |
-| ----------------- | -------------------------- | -------------------- |
-| Mech. Logistic    | `models.mech_logistic_model` | mu, K, N0, y0      |
-| Mech. Gompertz    | `models.mech_gompertz_model` | mu, K, N0, y0      |
-| Mech. Richards    | `models.mech_richards_model` | mu, K, N0, beta, y0|
-| Mech. Baranyi     | `models.mech_baranyi_model`  | mu, K, N0, h0, y0  |
+| Model          | Function                     | Parameters          |
+| -------------- | ---------------------------- | ------------------- |
+| Mech. Logistic | `models.mech_logistic_model` | mu, K, N0, y0       |
+| Mech. Gompertz | `models.mech_gompertz_model` | mu, K, N0, y0       |
+| Mech. Richards | `models.mech_richards_model` | mu, K, N0, beta, y0 |
+| Mech. Baranyi  | `models.mech_baranyi_model`  | mu, K, N0, h0, y0   |
 
 Mechanistic models are defined as ordinary differential equations (ODEs) and fitted using numerical integration.
 
 #### Phenomenological models (ln-space)
 
-| Model               | Function                               | Parameters                     |
-| ------------------- | -------------------------------------- | ------------------------------ |
-| Phenom. Logistic    | `models.phenom_logistic_model`         | A, mu_max, lam, N0            |
-| Phenom. Gompertz    | `models.phenom_gompertz_model`         | A, mu_max, lam, N0            |
-| Phenom. Gompertz*   | `models.phenom_gompertz_modified_model`| A, mu_max, lam, alpha, t_shift, N0 |
-| Phenom. Richards    | `models.phenom_richards_model`         | A, mu_max, lam, nu, N0        |
+| Model              | Function                                | Parameters                         |
+| ------------------ | --------------------------------------- | ---------------------------------- |
+| Phenom. Logistic   | `models.phenom_logistic_model`          | A, mu_max, lam, N0                 |
+| Phenom. Gompertz   | `models.phenom_gompertz_model`          | A, mu_max, lam, N0                 |
+| Phenom. Gompertz\* | `models.phenom_gompertz_modified_model` | A, mu_max, lam, alpha, t_shift, N0 |
+| Phenom. Richards   | `models.phenom_richards_model`          | A, mu_max, lam, nu, N0             |
 
 Phenomenological models are fitted directly to ln(OD/OD0) data.
 
