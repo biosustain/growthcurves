@@ -253,6 +253,7 @@ def fit_non_parametric(
 
         # Calculate instantaneous mu on dense grid
         from .utils import compute_mu_max as calc_mu
+
         _, mu_dense = calc_mu(t_dense, y_dense)
         mu_dense = np.nan_to_num(mu_dense, nan=0.0)
         mu_dense = np.maximum(mu_dense, 0)
