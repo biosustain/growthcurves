@@ -13,6 +13,7 @@ from scipy.signal import savgol_filter
 
 no_fit_dictionary = {
     "max_od": 0.0,
+    "N0": np.nan,
     "specific_growth_rate": 0.0,
     "intrinsic_growth_rate": None,
     "doubling_time": np.nan,
@@ -472,7 +473,7 @@ def _extract_stats_gompertz(
     """
     Extract growth statistics from Gompertz model fit.
 
-    Gompertz model: N(t) = y0 + (K - y0) * exp{-exp[(mu_max * e / (K - y0)) * (lam - t) + 1]}
+    Gompertz: N(t) = y0 + (K - y0) * exp{-exp[(mu_max * e / (K - y0)) * (lam - t) + 1]}
     - mu_max: maximum specific growth rate (intrinsic parameter)
     - lam: lag time
     - K: carrying capacity
@@ -723,7 +724,6 @@ def _extract_stats_baranyi(
         exp_frac=exp_frac,
     )
 
-    # Note: Previously this code overrode exp_phase_start with the model's lag_time parameter
     # when using threshold method. This prevented custom threshold values from working.
     # The override has been removed to allow threshold-based detection to work properly.
 
@@ -796,6 +796,7 @@ def _extract_stats_mech_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = y0 + K
+        stats["N0"] = y0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_logistic"
         return stats
@@ -822,6 +823,7 @@ def _extract_stats_mech_logistic(
 
     return {
         "max_od": y0 + K,
+        "N0": y0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -883,6 +885,7 @@ def _extract_stats_mech_gompertz(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = y0 + K
+        stats["N0"] = y0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_gompertz"
         return stats
@@ -909,6 +912,7 @@ def _extract_stats_mech_gompertz(
 
     return {
         "max_od": y0 + K,
+        "N0": y0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -970,6 +974,7 @@ def _extract_stats_mech_richards(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = y0 + K
+        stats["N0"] = y0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_richards"
         return stats
@@ -996,6 +1001,7 @@ def _extract_stats_mech_richards(
 
     return {
         "max_od": y0 + K,
+        "N0": y0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -1058,6 +1064,7 @@ def _extract_stats_mech_baranyi(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = y0 + K
+        stats["N0"] = y0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_baranyi"
         return stats
@@ -1084,6 +1091,7 @@ def _extract_stats_mech_baranyi(
 
     return {
         "max_od": y0 + K,
+        "N0": y0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -1124,6 +1132,7 @@ def _extract_stats_phenom_logistic(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
+    N0 = float(params["N0"])  # Initial OD
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
@@ -1147,6 +1156,7 @@ def _extract_stats_phenom_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -1178,6 +1188,7 @@ def _extract_stats_phenom_logistic(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -1218,6 +1229,7 @@ def _extract_stats_phenom_gompertz(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
+    N0 = float(params["N0"])  # Initial OD
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_gompertz", params)
@@ -1241,6 +1253,7 @@ def _extract_stats_phenom_gompertz(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -1272,6 +1285,7 @@ def _extract_stats_phenom_gompertz(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -1312,6 +1326,7 @@ def _extract_stats_phenom_gompertz_modified(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
+    N0 = float(params["N0"])  # Initial OD
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_gompertz_modified", params)
@@ -1335,6 +1350,7 @@ def _extract_stats_phenom_gompertz_modified(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -1366,6 +1382,7 @@ def _extract_stats_phenom_gompertz_modified(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -1406,6 +1423,7 @@ def _extract_stats_phenom_richards(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
+    N0 = float(params["N0"])  # Initial OD
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_richards", params)
@@ -1429,6 +1447,7 @@ def _extract_stats_phenom_richards(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -1460,6 +1479,7 @@ def _extract_stats_phenom_richards(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -1491,7 +1511,7 @@ def _extract_stats_parametric(
         y: OD values used for fitting
         lag_frac: Fraction of peak growth rate for lag phase detection
         exp_frac: Fraction of peak growth rate for exponential phase end detection
-        phase_boundary_method: Method for phase boundary calculation ("threshold" or "tangent")
+        phase_boundary_method: Method for phase boundary calculation
 
     Returns:
         Growth statistics dictionary.
@@ -1583,6 +1603,8 @@ def _extract_stats_sliding_window(
     mu_max = params["slope"]
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
     max_od = float(np.max(y_clean))
+    # Calculate N0 as mean of first 10 points
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
     time_at_umax = params["time_at_umax"]
     # Evaluate the fitted line at time_at_umax to get the correct OD value
     # Fitted line is: ln(OD) = slope * t + intercept, so OD = exp(slope * t + intercept)
@@ -1638,6 +1660,7 @@ def _extract_stats_sliding_window(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": mu_max,
         "intrinsic_growth_rate": None,  # Non-parametric: no intrinsic parameter
         "doubling_time": doubling_time,
@@ -1709,6 +1732,8 @@ def _extract_stats_spline(
 
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
     max_od = float(np.max(y_clean))
+    # Calculate N0 as mean of first 10 points
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
     # Evaluate spline at time_at_umax to get the correct OD value
     # Spline is fitted to log(y), so exponentiate to get actual OD
     od_at_umax = float(np.exp(spline(time_at_umax)))
@@ -1744,6 +1769,7 @@ def _extract_stats_spline(
 
     return {
         "max_od": max_od,
+        "N0": N0,
         "specific_growth_rate": mu_max,
         "intrinsic_growth_rate": None,  # Non-parametric: no intrinsic parameter
         "doubling_time": doubling_time,
@@ -1771,10 +1797,9 @@ def extract_stats(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         y: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection (threshold method)
-        exp_frac: Fraction of peak growth rate for exponential phase end (threshold method)
+        lag_frac: Fraction of u_max for lag phase detection (threshold method)
+        exp_frac: Fraction of u_max for exponential phase end (threshold method)
         phase_boundary_method: Method for calculating phase boundaries:
-            - None (default): Use "threshold" for parametric models, "tangent" for non-parametric
             - "threshold": Threshold-based method using fractions of μ_max
             - "tangent": Tangent line method at point of maximum growth rate
 

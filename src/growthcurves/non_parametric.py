@@ -247,7 +247,7 @@ def fit_non_parametric(
         }
 
     elif method == "spline":
-        # For spline fitting, use a wider window to ensure full exponential phase coverage
+        # For spline fitting, use a wider window for full exponential phase coverage
         # Use more lenient thresholds (5% instead of 15%) to get wider initial window
         lag_end_wide, exp_end_wide = calculate_phase_ends(t_dense, y_dense, 0.05, 0.05)
 

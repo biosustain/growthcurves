@@ -306,12 +306,79 @@ def add_od_max_line(
     return fig
 
 
+def add_N0_line(
+    fig: go.Figure,
+    N0: float,
+    scale: str = "linear",
+    line_color: str = "gray",
+    line_dash: str = "dot",
+    line_width: float = 2,
+    line_opacity: float = 0.5,
+    name: str = "N0",
+    row: Optional[int] = None,
+    col: Optional[int] = None,
+) -> go.Figure:
+    """
+    Add horizontal line at initial OD value (N0).
+
+    Parameters
+    ----------
+    fig : go.Figure
+        Plotly figure to annotate
+    N0 : float
+        Initial OD value
+    scale : str, optional
+        'linear' or 'log' - determines y-axis transformation (default: 'linear')
+    line_color : str, optional
+        Color of horizontal line (default: 'gray')
+    line_dash : str, optional
+        Dash style for horizontal line (default: 'dot')
+    line_width : float, optional
+        Width of horizontal line (default: 2)
+    line_opacity : float, optional
+        Opacity of horizontal line (default: 0.5)
+    name : str, optional
+        Legend name (default: 'N0')
+    row : int, optional
+        Subplot row (for subplots)
+    col : int, optional
+        Subplot column (for subplots)
+
+    Returns
+    -------
+    go.Figure
+        Updated figure with N0 horizontal line
+    """
+    if N0 is None:
+        return fig
+
+    if not np.isfinite(N0):
+        return fig
+
+    # Transform y-value based on scale
+    y_val = np.log(N0) if scale == "log" else N0
+
+    # Add horizontal line at N0
+    fig.add_hline(
+        y=y_val,
+        line_color=line_color,
+        line_dash=line_dash,
+        line_width=line_width,
+        opacity=line_opacity,
+        row=row,
+        col=col,
+    )
+
+    return fig
+
+
 def annotate_plot(
     fig: go.Figure,
     phase_boundaries: Optional[Tuple[float, float]] = None,
     time_umax: Optional[float] = None,
     od_umax: Optional[float] = None,
     od_max: Optional[float] = None,
+    N0: Optional[float] = None,
     umax: Optional[float] = None,
     umax_point: Optional[Tuple[float, float]] = None,
     fitted_model: Optional[Dict[str, Any]] = None,
@@ -339,6 +406,8 @@ def annotate_plot(
         OD value at maximum growth rate. If provided, adds horizontal line.
     od_max : float, optional
         Maximum OD value. If provided, adds horizontal line at this value.
+    N0 : float, optional
+        Initial OD value. If provided, adds horizontal line at this value.
     umax : float, optional
         Maximum growth rate value. Required if draw_umax_tangent is True.
     umax_point : tuple of (float, float), optional
@@ -462,20 +531,19 @@ def annotate_plot(
             time_fit = np.linspace(window_start, window_end, 200)
             y_fit = None
 
-            # Check if it's a parametric model (legacy, mechanistic, or phenomenological)
+            # Check if parametric model (legacy, mechanistic, or phenomenological)
             parametric_models = {
                 "logistic",
                 "gompertz",
                 "richards",
-                "baranyi",  # Legacy
                 "mech_logistic",
                 "mech_gompertz",
                 "mech_richards",
-                "mech_baranyi",  # Mechanistic
+                "mech_baranyi",
                 "phenom_logistic",
                 "phenom_gompertz",
                 "phenom_gompertz_modified",
-                "phenom_richards",  # Phenomenological
+                "phenom_richards",
             }
             if model_type in parametric_models:
                 y_fit = evaluate_parametric_model(time_fit, model_type, params)
@@ -555,6 +623,10 @@ def annotate_plot(
     if od_max is not None:
         fig = add_od_max_line(fig, od_max, scale=scale, row=row, col=col)
 
+    # Add N0 horizontal line (if provided)
+    if N0 is not None:
+        fig = add_N0_line(fig, N0, scale=scale, row=row, col=col)
+
     # Add umax point (if provided)
     if umax_point is not None and len(umax_point) == 2:
         t_val, od_val = umax_point
@@ -623,7 +695,7 @@ def annotate_plot(
                 t_tangent = np.linspace(t_tangent_start, t_tangent_end, 100)
 
                 # Calculate tangent line values
-                # IMPORTANT: The tangent should be applied in LOG space for exponential growth
+                # The tangent should be applied in LOG space for exponential growth
                 # In log space, the tangent line at the point of max growth is:
                 #   ln(OD(t)) = ln(od_umax) + umax * (t - time_umax)
                 # Which gives: OD(t) = od_umax * exp(umax * (t - time_umax))

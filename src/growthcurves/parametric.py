@@ -552,8 +552,10 @@ def fit_parametric(t, y, method="logistic"):
         t: Time array (hours)
         y: OD values
         method: Model type string. Options:
-            Legacy models: "logistic", "gompertz", "richards", "baranyi"
-            Mechanistic (ODE): "mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"
+            Legacy models:      "logistic", "gompertz", "richards",
+                                "baranyi"
+            Mechanistic (ODE):  "mech_logistic", "mech_gompertz",
+                                "mech_richards", "mech_baranyi"
             Phenomenological (ln-space): "phenom_logistic", "phenom_gompertz",
                 "phenom_gompertz_modified", "phenom_richards"
 
