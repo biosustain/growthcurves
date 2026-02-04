@@ -1141,8 +1141,8 @@ def _extract_stats_phenom_logistic(
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
-    # Max OD is the actual maximum OD from data
-    max_od = float(np.max(y))
+    # Max OD is the maximum of the fitted model trace
+    max_od = float(np.max(y_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -1235,8 +1235,8 @@ def _extract_stats_phenom_gompertz(
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
-    # Max OD is the actual maximum OD from data
-    max_od = float(np.max(y))
+    # Max OD is the maximum of the fitted model trace
+    max_od = float(np.max(y_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -1329,8 +1329,8 @@ def _extract_stats_phenom_gompertz_modified(
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
-    # Max OD is the actual maximum OD from data
-    max_od = float(np.max(y))
+    # Max OD is the maximum of the fitted model trace
+    max_od = float(np.max(y_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -1423,8 +1423,8 @@ def _extract_stats_phenom_richards(
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
-    # Max OD is the actual maximum OD from data
-    max_od = float(np.max(y))
+    # Max OD is the maximum of the fitted model trace
+    max_od = float(np.max(y_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
