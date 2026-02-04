@@ -787,8 +787,8 @@ def plot_derivative_metric(
     from .utils import (
         compute_first_derivative,
         compute_mu_max,
-        smooth,
         compute_sliding_window_growth_rate,
+        smooth,
     )
 
     # Validate metric

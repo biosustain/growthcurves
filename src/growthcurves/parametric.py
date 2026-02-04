@@ -18,13 +18,13 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .models import (
-    mech_logistic_model,
-    mech_gompertz_model,
-    mech_richards_model,
     mech_baranyi_model,
-    phenom_logistic_model,
+    mech_gompertz_model,
+    mech_logistic_model,
+    mech_richards_model,
     phenom_gompertz_model,
     phenom_gompertz_modified_model,
+    phenom_logistic_model,
     phenom_richards_model,
 )
 from .utils import validate_data

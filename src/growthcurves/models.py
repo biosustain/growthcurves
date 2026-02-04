@@ -11,8 +11,8 @@ Models are categorized into two classes:
 """
 
 import numpy as np
-from scipy.interpolate import UnivariateSpline
 from scipy.integrate import solve_ivp
+from scipy.interpolate import UnivariateSpline
 
 # =============================================================================
 # MECHANISTIC MODELS (ODE-based)
