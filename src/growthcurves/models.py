@@ -315,7 +315,7 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
     """
     Phenomenological Richards model in ln-space.
 
-    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1/ν) * (λ - t) / A))^(-1/ν)
+    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
         t: Time array
@@ -331,7 +331,7 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
     t = np.asarray(t, dtype=float)
     # Avoid division by very small nu
     nu = np.maximum(nu, 0.01)
-    exponent = 1 + nu + mu_max * (1 + nu) ** (1 / nu) * (lam - t) / A
+    exponent = 1 + nu + mu_max * (1 + nu) ** (1 + 1 / nu) * (lam - t) / A
     ln_ratio = A * (1 + nu * np.exp(exponent)) ** (-1 / nu)
     return N0 * np.exp(ln_ratio)
 

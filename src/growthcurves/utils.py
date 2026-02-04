@@ -1031,7 +1031,7 @@ def _extract_stats_phenom_richards(
     """
     Extract growth statistics from phenomenological Richards model fit.
 
-    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1/ν) * (λ - t) / A))^(-1/ν)
+    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
         fit_result: Dict containing 'params' with A, mu_max, lam, nu, N0

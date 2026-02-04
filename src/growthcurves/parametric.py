@@ -380,7 +380,7 @@ def fit_phenom_richards(t, y):
     """
     Fit phenomenological Richards model to ln(OD/OD0) data.
 
-    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1/ν) * (λ - t) / A))^(-1/ν)
+    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
         t: Time array (hours)
