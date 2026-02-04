@@ -14,7 +14,6 @@ import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.integrate import solve_ivp
 
-
 # =============================================================================
 # MECHANISTIC MODELS (ODE-based)
 # =============================================================================
@@ -315,7 +314,7 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
     """
     Phenomenological Richards model in ln-space.
 
-    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
+    ln(Nt/N0)= A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
         t: Time array

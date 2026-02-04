@@ -1,8 +1,15 @@
 """Parametric model fitting functions for growth curves.
 
 This module provides functions to fit parametric growth models:
-- Mechanistic models (ODE-based): mech_logistic, mech_gompertz, mech_richards, mech_baranyi
-- Phenomenological models (ln-space): phenom_logistic, phenom_gompertz, phenom_gompertz_modified, phenom_richards
+- Mechanistic models (ODE-based):       mech_logistic,
+                                        mech_gompertz,
+                                        mech_richards,
+                                        mech_baranyi
+- Phenomenological models (ln-space):
+                                        phenom_logistic,
+                                        phenom_gompertz,
+                                        phenom_gompertz_modified,
+                                        phenom_richards
 
 All models operate in linear OD space (not log-transformed).
 """
@@ -380,7 +387,7 @@ def fit_phenom_richards(t, y):
     """
     Fit phenomenological Richards model to ln(OD/OD0) data.
 
-    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
+    ln(Nt/N0)= A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
         t: Time array (hours)
