@@ -749,6 +749,731 @@ def _extract_stats_baranyi(
     }
 
 
+def _extract_stats_mech_logistic(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="threshold"
+):
+    """
+    Extract growth statistics from mechanistic logistic model fit.
+
+    ODE: dN/dt = μ * (1 - N/K) * N
+
+    Parameters:
+        fit_result: Dict containing 'params' with mu, K, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    K = float(params["K"])  # Carrying capacity above baseline
+    y0 = float(params["y0"])  # Baseline OD
+    mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "mech_logistic", params)
+    mu_max = calculate_specific_growth_rate(t, y_fit)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "mech_logistic", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = y0 + K
+        stats["intrinsic_growth_rate"] = mu_intrinsic
+        stats["fit_method"] = "model_fitting_mech_logistic"
+        return stats
+
+    # Phase boundaries using specified method
+    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=y0 + K,
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": y0 + K,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": mu_intrinsic,
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_mech_logistic",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_mech_gompertz(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="threshold"
+):
+    """
+    Extract growth statistics from mechanistic Gompertz model fit.
+
+    ODE: dN/dt = μ * log(K/N) * N
+
+    Parameters:
+        fit_result: Dict containing 'params' with mu, K, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    K = float(params["K"])  # Carrying capacity above baseline
+    y0 = float(params["y0"])  # Baseline OD
+    mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "mech_gompertz", params)
+    mu_max = calculate_specific_growth_rate(t, y_fit)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "mech_gompertz", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = y0 + K
+        stats["intrinsic_growth_rate"] = mu_intrinsic
+        stats["fit_method"] = "model_fitting_mech_gompertz"
+        return stats
+
+    # Phase boundaries using specified method
+    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=y0 + K,
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": y0 + K,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": mu_intrinsic,
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_mech_gompertz",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_mech_richards(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="threshold"
+):
+    """
+    Extract growth statistics from mechanistic Richards model fit.
+
+    ODE: dN/dt = μ * (1 - (N/K)^β) * N
+
+    Parameters:
+        fit_result: Dict containing 'params' with mu, K, N0, beta
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    K = float(params["K"])  # Carrying capacity above baseline
+    y0 = float(params["y0"])  # Baseline OD
+    mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "mech_richards", params)
+    mu_max = calculate_specific_growth_rate(t, y_fit)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "mech_richards", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = y0 + K
+        stats["intrinsic_growth_rate"] = mu_intrinsic
+        stats["fit_method"] = "model_fitting_mech_richards"
+        return stats
+
+    # Phase boundaries using specified method
+    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=y0 + K,
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": y0 + K,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": mu_intrinsic,
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_mech_richards",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_mech_baranyi(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="threshold"
+):
+    """
+    Extract growth statistics from mechanistic Baranyi-Roberts model fit.
+
+    ODE: dN/dt = μ * A(t) * (1 - N/K) * N
+    where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
+
+    Parameters:
+        fit_result: Dict containing 'params' with mu, K, N0, h0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    K = float(params["K"])  # Carrying capacity above baseline
+    y0 = float(params["y0"])  # Baseline OD
+    mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "mech_baranyi", params)
+    mu_max = calculate_specific_growth_rate(t, y_fit)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "mech_baranyi", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = y0 + K
+        stats["intrinsic_growth_rate"] = mu_intrinsic
+        stats["fit_method"] = "model_fitting_mech_baranyi"
+        return stats
+
+    # Phase boundaries using specified method
+    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=y0 + K,
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": y0 + K,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": mu_intrinsic,
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_mech_baranyi",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_phenom_logistic(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="tangent"
+):
+    """
+    Extract growth statistics from phenomenological logistic model fit.
+
+    ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
+
+    Parameters:
+        fit_result: Dict containing 'params' with A, mu_max, lam, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
+    lam = float(params["lam"])  # Lag time
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    # Max OD is the actual maximum OD from data
+    max_od = float(np.max(y))
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = max_od
+        stats["intrinsic_growth_rate"] = (
+            None  # Phenomenological: no intrinsic parameter
+        )
+        stats["fit_method"] = "model_fitting_phenom_logistic"
+        return stats
+
+    # Exp phase start is λ for phenomenological models
+    exp_phase_start = lam
+
+    # Exp phase end using specified method
+    _, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=float(np.max(y_dense)),
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": max_od,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_phenom_logistic",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_phenom_gompertz(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="tangent"
+):
+    """
+    Extract growth statistics from phenomenological Gompertz model fit.
+
+    ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1))
+
+    Parameters:
+        fit_result: Dict containing 'params' with A, mu_max, lam, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
+    lam = float(params["lam"])  # Lag time
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "phenom_gompertz", params)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "phenom_gompertz", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    # Max OD is the actual maximum OD from data
+    max_od = float(np.max(y))
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = max_od
+        stats["intrinsic_growth_rate"] = (
+            None  # Phenomenological: no intrinsic parameter
+        )
+        stats["fit_method"] = "model_fitting_phenom_gompertz"
+        return stats
+
+    # Exp phase start is λ for phenomenological models
+    exp_phase_start = lam
+
+    # Exp phase end using specified method
+    _, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=float(np.max(y_dense)),
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": max_od,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_phenom_gompertz",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_phenom_gompertz_modified(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="tangent"
+):
+    """
+    Extract growth statistics from phenomenological modified Gompertz model fit.
+
+    ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1)) + A * exp(α * (t - t_shift))
+
+    Parameters:
+        fit_result: Dict containing 'params' with A, mu_max, lam, alpha, t_shift, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
+    lam = float(params["lam"])  # Lag time
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "phenom_gompertz_modified", params)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    # Max OD is the actual maximum OD from data
+    max_od = float(np.max(y))
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = max_od
+        stats["intrinsic_growth_rate"] = (
+            None  # Phenomenological: no intrinsic parameter
+        )
+        stats["fit_method"] = "model_fitting_phenom_gompertz_modified"
+        return stats
+
+    # Exp phase start is λ for phenomenological models
+    exp_phase_start = lam
+
+    # Exp phase end using specified method
+    _, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=float(np.max(y_dense)),
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": max_od,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_phenom_gompertz_modified",
+        "model_rmse": rmse,
+    }
+
+
+def _extract_stats_phenom_richards(
+    fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="tangent"
+):
+    """
+    Extract growth statistics from phenomenological Richards model fit.
+
+    ln(Nt/N0) = A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1/ν) * (λ - t) / A))^(-1/ν)
+
+    Parameters:
+        fit_result: Dict containing 'params' with A, mu_max, lam, nu, N0
+        t: Time array
+        y: OD values
+        lag_frac, exp_frac: Phase detection thresholds
+        phase_boundary_method: "threshold" or "tangent"
+
+    Returns:
+        Growth statistics dictionary.
+    """
+    from .models import evaluate_parametric_model
+
+    params = fit_result.get("params", {})
+
+    # Extract model parameters
+    float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
+    lam = float(params["lam"])  # Lag time
+
+    # Evaluate model
+    y_fit = evaluate_parametric_model(t, "phenom_richards", params)
+
+    # Dense grid for accurate calculations
+    t_dense = np.linspace(t.min(), t.max(), 500)
+    y_dense = evaluate_parametric_model(t_dense, "phenom_richards", params)
+
+    # Calculate specific growth rate curve
+    y_safe = np.maximum(y_dense, 1e-10)
+    mu_dense = np.gradient(np.log(y_safe), t_dense)
+
+    # Find time of maximum specific growth rate
+    max_mu_idx = int(np.argmax(mu_dense))
+    time_at_umax = float(t_dense[max_mu_idx])
+    od_at_umax = float(y_dense[max_mu_idx])
+
+    # Max OD is the actual maximum OD from data
+    max_od = float(np.max(y))
+
+    if mu_max <= 0:
+        stats = bad_fit_stats()
+        stats["max_od"] = max_od
+        stats["intrinsic_growth_rate"] = (
+            None  # Phenomenological: no intrinsic parameter
+        )
+        stats["fit_method"] = "model_fitting_phenom_richards"
+        return stats
+
+    # Exp phase start is λ for phenomenological models
+    exp_phase_start = lam
+
+    # Exp phase end using specified method
+    _, exp_phase_end = calculate_phase_boundaries(
+        t_dense,
+        y_dense,
+        method=phase_boundary_method,
+        time_at_umax=time_at_umax,
+        od_at_umax=od_at_umax,
+        mu_max=mu_max,
+        baseline_od=float(np.min(y_dense)),
+        plateau_od=float(np.max(y_dense)),
+        lag_frac=lag_frac,
+        exp_frac=exp_frac,
+    )
+
+    # Doubling time from mu_max
+    doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
+
+    # RMSE
+    rmse = compute_rmse(y, y_fit)
+
+    return {
+        "max_od": max_od,
+        "specific_growth_rate": float(mu_max),
+        "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
+        "doubling_time": float(doubling_time),
+        "exp_phase_start": exp_phase_start,
+        "exp_phase_end": max(exp_phase_end, exp_phase_start),
+        "time_at_umax": time_at_umax,
+        "od_at_umax": od_at_umax,
+        "fit_t_min": float(t.min()),
+        "fit_t_max": float(t.max()),
+        "fit_method": "model_fitting_phenom_richards",
+        "model_rmse": rmse,
+    }
+
+
 def _extract_stats_parametric(
     fit_result, t, y, lag_frac=0.15, exp_frac=0.15, phase_boundary_method="threshold"
 ):
@@ -758,7 +1483,7 @@ def _extract_stats_parametric(
     This function reads the model type and dispatches to the appropriate
     model-specific extraction function.
 
-    Handles: logistic, gompertz, richards, baranyi models.
+    Handles: logistic, gompertz, richards, baranyi models (legacy and new).
 
     Parameters:
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
@@ -788,6 +1513,38 @@ def _extract_stats_parametric(
         )
     elif model_type == "baranyi":
         return _extract_stats_baranyi(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "mech_logistic":
+        return _extract_stats_mech_logistic(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "mech_gompertz":
+        return _extract_stats_mech_gompertz(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "mech_richards":
+        return _extract_stats_mech_richards(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "mech_baranyi":
+        return _extract_stats_mech_baranyi(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "phenom_logistic":
+        return _extract_stats_phenom_logistic(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "phenom_gompertz":
+        return _extract_stats_phenom_gompertz(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "phenom_gompertz_modified":
+        return _extract_stats_phenom_gompertz_modified(
+            fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
+        )
+    elif model_type == "phenom_richards":
+        return _extract_stats_phenom_richards(
             fit_result, t, y, lag_frac, exp_frac, phase_boundary_method
         )
     else:
@@ -1036,15 +1793,46 @@ def extract_stats(
 
     # Determine method based on model type if not specified
     if phase_boundary_method is None:
+        # Legacy parametric models: use threshold
         if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
             method = "threshold"
+        # Mechanistic models (ODE-based): use threshold
+        elif model_type in {
+            "mech_logistic",
+            "mech_gompertz",
+            "mech_richards",
+            "mech_baranyi",
+        }:
+            method = "threshold"
+        # Phenomenological models (ln-space): use tangent
+        elif model_type in {
+            "phenom_logistic",
+            "phenom_gompertz",
+            "phenom_gompertz_modified",
+            "phenom_richards",
+        }:
+            method = "tangent"
+        # Non-parametric models: use tangent
         else:
             method = "tangent"
     else:
         method = phase_boundary_method
 
     # Dispatch to appropriate extraction function based on model type
-    if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
+    if model_type in {
+        "logistic",
+        "gompertz",
+        "richards",
+        "baranyi",
+        "mech_logistic",
+        "mech_gompertz",
+        "mech_richards",
+        "mech_baranyi",
+        "phenom_logistic",
+        "phenom_gompertz",
+        "phenom_gompertz_modified",
+        "phenom_richards",
+    }:
         return _extract_stats_parametric(fit_result, t, y, lag_frac, exp_frac, method)
     elif model_type == "sliding_window":
         return _extract_stats_sliding_window(

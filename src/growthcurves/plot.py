@@ -432,10 +432,22 @@ def annotate_plot(
 
         # Generate default name based on model type
         default_names = {
+            # Legacy models
             "logistic": "Logistic fit",
             "gompertz": "Gompertz fit",
             "richards": "Richards fit",
             "baranyi": "Baranyi fit",
+            # Mechanistic models
+            "mech_logistic": "Mechanistic Logistic fit",
+            "mech_gompertz": "Mechanistic Gompertz fit",
+            "mech_richards": "Mechanistic Richards fit",
+            "mech_baranyi": "Mechanistic Baranyi fit",
+            # Phenomenological models
+            "phenom_logistic": "Phenomenological Logistic fit",
+            "phenom_gompertz": "Phenomenological Gompertz fit",
+            "phenom_gompertz_modified": "Phenomenological Gompertz (modified) fit",
+            "phenom_richards": "Phenomenological Richards fit",
+            # Non-parametric models
             "spline": "Spline fit",
             "sliding_window": "Sliding window fit",
         }
@@ -450,7 +462,22 @@ def annotate_plot(
             time_fit = np.linspace(window_start, window_end, 200)
             y_fit = None
 
-            if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
+            # Check if it's a parametric model (legacy, mechanistic, or phenomenological)
+            parametric_models = {
+                "logistic",
+                "gompertz",
+                "richards",
+                "baranyi",  # Legacy
+                "mech_logistic",
+                "mech_gompertz",
+                "mech_richards",
+                "mech_baranyi",  # Mechanistic
+                "phenom_logistic",
+                "phenom_gompertz",
+                "phenom_gompertz_modified",
+                "phenom_richards",  # Phenomenological
+            }
+            if model_type in parametric_models:
                 y_fit = evaluate_parametric_model(time_fit, model_type, params)
             elif model_type == "spline":
                 spline = spline_from_params(params)
@@ -505,7 +532,7 @@ def annotate_plot(
             y0=y_bottom,
             x1=time_umax,
             y1=y_val,
-            line=dict(color="black", dash="dot", width=1),
+            line=dict(color="black", dash="dot", width=2),
             opacity=0.5,
             row=row,
             col=col,
@@ -518,7 +545,7 @@ def annotate_plot(
             y0=y_val,
             x1=time_umax,
             y1=y_val,
-            line=dict(color="black", dash="dot", width=1),
+            line=dict(color="black", dash="dot", width=2),
             opacity=0.5,
             row=row,
             col=col,
