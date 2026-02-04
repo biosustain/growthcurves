@@ -428,6 +428,10 @@ def _extract_stats_logistic(
         stats = bad_fit_stats()
         stats["max_od"] = K
         stats["intrinsic_growth_rate"] = r
+        # Calculate N0 as mean of first 10 points
+        valid_mask = np.isfinite(y) & (y > 0)
+        y_clean = y[valid_mask]
+        stats["N0"] = float(np.mean(y_clean[: min(10, len(y_clean))]))
         stats["fit_method"] = "model_fitting_logistic"
         return stats
 
@@ -451,8 +455,14 @@ def _extract_stats_logistic(
     # RMSE
     rmse = compute_rmse(y, y_fit)
 
+    # Calculate N0 as mean of first 10 points
+    valid_mask = np.isfinite(y) & (y > 0)
+    y_clean = y[valid_mask]
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
+
     return {
         "max_od": K,
+        "N0": N0,
         "specific_growth_rate": float(mu_max),
         "intrinsic_growth_rate": r,
         "doubling_time": float(doubling_time),
@@ -518,6 +528,10 @@ def _extract_stats_gompertz(
         stats = bad_fit_stats()
         stats["max_od"] = K
         stats["intrinsic_growth_rate"] = mu_max_intrinsic
+        # Calculate N0 as mean of first 10 points
+        valid_mask = np.isfinite(y) & (y > 0)
+        y_clean = y[valid_mask]
+        stats["N0"] = float(np.mean(y_clean[: min(10, len(y_clean))]))
         stats["fit_method"] = "model_fitting_gompertz"
         return stats
 
@@ -545,8 +559,14 @@ def _extract_stats_gompertz(
     # RMSE
     rmse = compute_rmse(y, y_fit)
 
+    # Calculate N0 as mean of first 10 points
+    valid_mask = np.isfinite(y) & (y > 0)
+    y_clean = y[valid_mask]
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
+
     return {
         "max_od": K,
+        "N0": N0,
         "specific_growth_rate": float(mu_max_observed),
         "intrinsic_growth_rate": mu_max_intrinsic,
         "doubling_time": float(doubling_time),
@@ -614,6 +634,10 @@ def _extract_stats_richards(
         stats = bad_fit_stats()
         stats["max_od"] = K
         stats["intrinsic_growth_rate"] = r
+        # Calculate N0 as mean of first 10 points
+        valid_mask = np.isfinite(y) & (y > 0)
+        y_clean = y[valid_mask]
+        stats["N0"] = float(np.mean(y_clean[: min(10, len(y_clean))]))
         stats["fit_method"] = "model_fitting_richards"
         return stats
 
@@ -637,8 +661,14 @@ def _extract_stats_richards(
     # RMSE
     rmse = compute_rmse(y, y_fit)
 
+    # Calculate N0 as mean of first 10 points
+    valid_mask = np.isfinite(y) & (y > 0)
+    y_clean = y[valid_mask]
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
+
     return {
         "max_od": K,
+        "N0": N0,
         "specific_growth_rate": float(mu_max_observed),
         "intrinsic_growth_rate": r,
         "doubling_time": float(doubling_time),
@@ -707,6 +737,10 @@ def _extract_stats_baranyi(
         stats = bad_fit_stats()
         stats["max_od"] = K
         stats["intrinsic_growth_rate"] = mu_max_intrinsic
+        # Calculate N0 as mean of first 10 points
+        valid_mask = np.isfinite(y) & (y > 0)
+        y_clean = y[valid_mask]
+        stats["N0"] = float(np.mean(y_clean[: min(10, len(y_clean))]))
         stats["fit_method"] = "model_fitting_baranyi"
         return stats
 
@@ -733,8 +767,14 @@ def _extract_stats_baranyi(
     # RMSE
     rmse = compute_rmse(y, y_fit)
 
+    # Calculate N0 as mean of first 10 points
+    valid_mask = np.isfinite(y) & (y > 0)
+    y_clean = y[valid_mask]
+    N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
+
     return {
         "max_od": K,
+        "N0": N0,
         "specific_growth_rate": float(mu_max_observed),
         "intrinsic_growth_rate": mu_max_intrinsic,
         "doubling_time": float(doubling_time),
