@@ -758,6 +758,7 @@ def _extract_stats_phenom_logistic(
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
     N0 = float(params["N0"])  # Initial OD
 
@@ -774,7 +775,6 @@ def _extract_stats_phenom_logistic(
 
     # Find time of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
-    mu_max = float(mu_dense[max_mu_idx])
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
@@ -855,6 +855,7 @@ def _extract_stats_phenom_gompertz(
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
     N0 = float(params["N0"])  # Initial OD
 
@@ -871,7 +872,6 @@ def _extract_stats_phenom_gompertz(
 
     # Find time of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
-    mu_max = float(mu_dense[max_mu_idx])
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
@@ -952,6 +952,7 @@ def _extract_stats_phenom_gompertz_modified(
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
     N0 = float(params["N0"])  # Initial OD
 
@@ -968,7 +969,6 @@ def _extract_stats_phenom_gompertz_modified(
 
     # Find time of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
-    mu_max = float(mu_dense[max_mu_idx])
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
@@ -1049,6 +1049,7 @@ def _extract_stats_phenom_richards(
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
+    mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag time
     N0 = float(params["N0"])  # Initial OD
 
@@ -1065,7 +1066,6 @@ def _extract_stats_phenom_richards(
 
     # Find time of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
-    mu_max = float(mu_dense[max_mu_idx])
     time_at_umax = float(t_dense[max_mu_idx])
     od_at_umax = float(y_dense[max_mu_idx])
 
