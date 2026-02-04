@@ -1297,12 +1297,18 @@ def _extract_stats_spline(
     """
     Extract growth statistics from spline fits.
 
+    The spline fitting pipeline:
+    1. Initial region identified using 30% threshold of instantaneous mu (defines fit_t_min/fit_t_max)
+    2. Spline fitted to log-transformed data in that region
+    3. mu_max calculated as maximum derivative of fitted spline
+    4. Phase boundaries calculated here using tangent or threshold method
+
     Parameters:
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         y: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection
-        exp_frac: Fraction of peak growth rate for exponential phase end detection
+        lag_frac: Fraction of peak growth rate for lag phase detection (threshold method)
+        exp_frac: Fraction of peak growth rate for exponential phase end (threshold method)
         phase_boundary_method: "threshold" or "tangent" (default: "tangent")
 
     Returns:
@@ -1312,6 +1318,20 @@ def _extract_stats_spline(
 
     params = fit_result.get("params", {})
 
+    # Use stored mu_max and time_at_umax from the original fit
+    # These were calculated from the spline during fitting
+    mu_max = params.get("mu_max")
+    time_at_umax = params.get("time_at_umax")
+    fit_t_min = params.get("fit_t_min")
+    fit_t_max = params.get("fit_t_max")
+    spline_s = params.get("spline_s", 0.01)
+
+    if mu_max is None or time_at_umax is None or fit_t_min is None or fit_t_max is None:
+        return bad_fit_stats()
+
+    mu_max = float(mu_max)
+
+    # Validate and clean data
     valid_mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
     t_clean = t[valid_mask]
     y_clean = y[valid_mask]
@@ -1321,40 +1341,35 @@ def _extract_stats_spline(
 
     y_smooth = smooth(y_clean, 11, 1)
 
-    # Use threshold method to get initial phase boundaries for spline fitting
-    t_dense = np.linspace(t_clean.min(), t_clean.max(), 500)
-    y_dense = np.interp(t_dense, t_clean, y_smooth)
-    exp_start_initial, exp_end_initial = calculate_phase_ends(
-        t_dense, y_dense, lag_frac, exp_frac
-    )
-
-    exp_mask = (t_clean >= exp_start_initial) & (t_clean <= exp_end_initial)
+    # Extract the exponential phase data using stored fit_t_min and fit_t_max
+    exp_mask = (t_clean >= fit_t_min) & (t_clean <= fit_t_max)
     t_exp = t_clean[exp_mask]
     y_exp = y_clean[exp_mask]
 
     if len(t_exp) < 5:
         return bad_fit_stats()
 
+    # Reconstruct spline to calculate od_at_umax and RMSE
     y_log_exp = np.log(y_exp)
-    spline_s = params.get("spline_s", 0.01)
+    try:
+        spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+        # Evaluate spline at time_at_umax to get the OD value
+        # Spline is fitted to log(y), so exponentiate to get actual OD
+        od_at_umax = float(np.exp(spline(time_at_umax)))
 
-    # Reconstruct spline from stored parameters to ensure consistency
-    spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+        # Calculate RMSE in log space
+        y_log_fit = spline(t_exp)
+        rmse = compute_rmse(y_log_exp, y_log_fit, in_log_space=False)
+    except Exception:
+        od_at_umax = np.nan
+        rmse = np.nan
 
-    # Use stored mu_max and time_at_umax from the original fit for consistency
-    # These were calculated from the original spline during fitting
-    time_at_umax = params["time_at_umax"]
-    mu_max = float(params["mu_max"])
-
+    # Calculate basic stats
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
     max_od = float(np.max(y_clean))
-    # Calculate N0 as mean of first 10 points
     N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
-    # Evaluate spline at time_at_umax to get the correct OD value
-    # Spline is fitted to log(y), so exponentiate to get actual OD
-    od_at_umax = float(np.exp(spline(time_at_umax)))
 
-    # Calculate refined phase boundaries using specified method
+    # Calculate phase boundaries using specified method
     baseline_od = float(np.min(y_clean))
     plateau_od = max_od
     exp_start, exp_end = calculate_phase_boundaries(
@@ -1370,19 +1385,6 @@ def _extract_stats_spline(
         exp_frac=exp_frac,
     )
 
-    t_window_start = float(np.min(t_exp)) if len(t_exp) > 0 else np.nan
-    t_window_end = float(np.max(t_exp)) if len(t_exp) > 0 else np.nan
-
-    try:
-        spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
-        y_log_fit = spline(t_exp)
-
-        # RMSE in log space (spline fits in log space)
-        # Data is already log-transformed, so use in_log_space=False
-        rmse = compute_rmse(y_log_exp, y_log_fit, in_log_space=False)
-    except Exception:
-        rmse = np.nan
-
     return {
         "max_od": max_od,
         "N0": N0,
@@ -1393,8 +1395,8 @@ def _extract_stats_spline(
         "exp_phase_end": exp_end,
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": t_window_start,
-        "fit_t_max": t_window_end,
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_spline",
         "model_rmse": rmse,
     }
