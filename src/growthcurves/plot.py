@@ -501,11 +501,6 @@ def annotate_plot(
 
         # Generate default name based on model type
         default_names = {
-            # Legacy models
-            "logistic": "Logistic fit",
-            "gompertz": "Gompertz fit",
-            "richards": "Richards fit",
-            "baranyi": "Baranyi fit",
             # Mechanistic models
             "mech_logistic": "Mechanistic Logistic fit",
             "mech_gompertz": "Mechanistic Gompertz fit",
@@ -531,11 +526,8 @@ def annotate_plot(
             time_fit = np.linspace(window_start, window_end, 200)
             y_fit = None
 
-            # Check if parametric model (legacy, mechanistic, or phenomenological)
+            # Check if parametric model (mechanistic or phenomenological)
             parametric_models = {
-                "logistic",
-                "gompertz",
-                "richards",
                 "mech_logistic",
                 "mech_gompertz",
                 "mech_richards",
@@ -908,7 +900,16 @@ def plot_derivative_metric(
                         t_model, y_model_raw, window_points=window_points
                     )
 
-            elif model_type in ["logistic", "gompertz", "richards", "baranyi"]:
+            elif model_type in [
+                "mech_logistic",
+                "mech_gompertz",
+                "mech_richards",
+                "mech_baranyi",
+                "phenom_logistic",
+                "phenom_gompertz",
+                "phenom_gompertz_modified",
+                "phenom_richards",
+            ]:
                 # For parametric models, compute metric from the model
                 # Evaluate the model on fitted range
                 y_model = evaluate_parametric_model(t_model, model_type, params)

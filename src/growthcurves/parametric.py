@@ -1,7 +1,8 @@
 """Parametric model fitting functions for growth curves.
 
-This module provides functions to fit parametric growth models (Richards, Logistic,
-Gompertz, Baranyi) and extract growth statistics from the fitted models.
+This module provides functions to fit parametric growth models:
+- Mechanistic models (ODE-based): mech_logistic, mech_gompertz, mech_richards, mech_baranyi
+- Phenomenological models (ln-space): phenom_logistic, phenom_gompertz, phenom_gompertz_modified, phenom_richards
 
 All models operate in linear OD space (not log-transformed).
 """
@@ -10,10 +11,6 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .models import (
-    baranyi_model,
-    gompertz_model,
-    logistic_model,
-    richards_model,
     mech_logistic_model,
     mech_gompertz_model,
     mech_richards_model,
@@ -91,7 +88,7 @@ def _fit_model_generic(t, y, model_func, param_names, p0_func, bounds_func, mode
     Parameters:
         t: Time array
         y: OD values
-        model_func: Model function to fit (e.g., logistic_model)
+        model_func: Model function to fit (e.g., mech_logistic_model)
         param_names: List of parameter names in order
         p0_func: Function that takes (K_init, y0_init, t, dy) and returns p0
         bounds_func: Function that takes (K_init, y0_init, t) and returns bounds
@@ -119,127 +116,6 @@ def _fit_model_generic(t, y, model_func, param_names, p0_func, bounds_func, mode
         "params": dict(zip(param_names, params)),
         "model_type": model_type,
     }
-
-
-# -----------------------------------------------------------------------------
-# Model Fitting Functions
-# -----------------------------------------------------------------------------
-
-
-def fit_logistic(t, y):
-    """
-    Fit logistic model to growth data.
-
-    Parameters:
-        t: Time array (hours)
-        y: OD values
-
-    Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
-    """
-    return _fit_model_generic(
-        t,
-        y,
-        model_func=logistic_model,
-        param_names=["K", "y0", "r", "t0"],
-        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_inflection_time(t, dy)],
-        bounds_func=lambda K, y0, t: (
-            [y0 * 0.5, 0, 0.0001, t.min()],
-            [np.inf, y0 * 2, 10, t.max()],
-        ),
-        model_type="logistic",
-    )
-
-
-def fit_gompertz(t, y):
-    """
-    Fit modified Gompertz model to growth data.
-
-    Parameters:
-        t: Time array (hours)
-        y: OD values
-
-    Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
-    """
-    return _fit_model_generic(
-        t,
-        y,
-        model_func=gompertz_model,
-        param_names=["K", "y0", "mu_max", "lam"],
-        p0_func=lambda K, y0, t, dy: [K, y0, 0.01, _estimate_lag_time(t, dy)],
-        bounds_func=lambda K, y0, t: (
-            [y0 * 0.5, 0, 0.0001, 0],
-            [np.inf, y0 * 2, 10, t.max()],
-        ),
-        model_type="gompertz",
-    )
-
-
-def fit_richards(t, y):
-    """
-    Fit Richards model to growth data.
-
-    Parameters:
-        t: Time array (hours)
-        y: OD values
-
-    Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
-    """
-    return _fit_model_generic(
-        t,
-        y,
-        model_func=richards_model,
-        param_names=["K", "y0", "r", "t0", "nu"],
-        p0_func=lambda K, y0, t, dy: [
-            K,
-            y0,
-            0.01,
-            _estimate_inflection_time(t, dy),
-            1.0,
-        ],
-        bounds_func=lambda K, y0, t: (
-            [y0 * 0.5, 0, 0.0001, t.min(), 0.01],
-            [np.inf, y0 * 2, 10, t.max(), 100],
-        ),
-        model_type="richards",
-    )
-
-
-def fit_baranyi(t, y):
-    """
-    Fit Baranyi-Roberts model to growth data.
-
-    Parameters:
-        t: Time array (hours)
-        y: OD values
-
-    Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
-    """
-
-    def p0_baranyi(K, y0, t, dy):
-        lag_time = _estimate_lag_time(t, dy)
-        mu_max_init = 0.01
-        h0_init = lag_time * mu_max_init if lag_time > 0 else 0.1
-        y0_floor = max(y0 * 0.5, 1e-6)
-        return [K, max(y0, y0_floor), mu_max_init, h0_init]
-
-    def bounds_baranyi(K, y0, t):
-        y0_floor = max(y0 * 0.5, 1e-6)
-        y0_ceil = max(y0 * 2, y0_floor * 10)
-        return ([y0_floor, 0, 0.0001, 0], [np.inf, y0_ceil, 10, t.max() * 10])
-
-    return _fit_model_generic(
-        t,
-        y,
-        model_func=baranyi_model,
-        param_names=["K", "y0", "mu_max", "h0"],
-        p0_func=p0_baranyi,
-        bounds_func=bounds_baranyi,
-        model_type="baranyi",
-    )
 
 
 # -----------------------------------------------------------------------------
@@ -544,7 +420,7 @@ def fit_phenom_richards(t, y):
 # -----------------------------------------------------------------------------
 
 
-def fit_parametric(t, y, method="logistic"):
+def fit_parametric(t, y, method="mech_logistic"):
     """
     Fit a growth model to data.
 
@@ -552,8 +428,6 @@ def fit_parametric(t, y, method="logistic"):
         t: Time array (hours)
         y: OD values
         method: Model type string. Options:
-            Legacy models:      "logistic", "gompertz", "richards",
-                                "baranyi"
             Mechanistic (ODE):  "mech_logistic", "mech_gompertz",
                                 "mech_richards", "mech_baranyi"
             Phenomenological (ln-space): "phenom_logistic", "phenom_gompertz",
@@ -563,11 +437,6 @@ def fit_parametric(t, y, method="logistic"):
         Fit result dict or None if fitting fails.
     """
     fit_funcs = {
-        # Legacy models (for backward compatibility)
-        "logistic": fit_logistic,
-        "gompertz": fit_gompertz,
-        "richards": fit_richards,
-        "baranyi": fit_baranyi,
         # Mechanistic models (ODE-based)
         "mech_logistic": fit_mech_logistic,
         "mech_gompertz": fit_mech_gompertz,

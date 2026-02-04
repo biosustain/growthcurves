@@ -8,129 +8,11 @@ Models are categorized into two classes:
 
 2. **Phenomenological models**: Fitted directly to ln(OD/OD0)
    - phenom_logistic, phenom_gompertz, phenom_gompertz_modified, phenom_richards
-
-Legacy models (logistic_model, gompertz_model, etc.) are retained for compatibility.
 """
 
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 from scipy.integrate import solve_ivp
-
-
-def logistic_model(t, K, y0, r, t0):
-    """
-    Logistic growth model in linear OD space with baseline offset.
-
-    N(t) = y0 + (K - y0) / [1 + exp(-r * (t - t0))]
-
-    Parameters:
-        t: Time array
-        K: Carrying capacity (maximum OD)
-        y0: Baseline OD (minimum value at t=0)
-        r: Growth rate constant (h^-1), equals mu_max
-        t0: Inflection time (time at which N = (K + y0)/2)
-
-    Returns:
-        OD values at each time point
-
-    Note:
-        mu_max = r for the logistic model
-    """
-    return y0 + (K - y0) / (1 + np.exp(-r * (t - t0)))
-
-
-def gompertz_model(t, K, y0, mu_max, lam):
-    """
-    Modified Gompertz growth model in linear OD space with baseline offset.
-
-    N(t) = y0 + (K - y0) * exp{-exp[(mu_max * e / (K - y0)) * (lam - t) + 1]}
-
-    Parameters:
-        t: Time array
-        K: Carrying capacity (maximum OD)
-        y0: Baseline OD (minimum value)
-        mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag time (hours)
-
-    Returns:
-        OD values at each time point
-
-    Note:
-        mu_max is directly a fitted parameter
-    """
-    e = np.e
-    A = K - y0  # Amplitude
-    return y0 + A * np.exp(-np.exp((mu_max * e / A) * (lam - t) + 1))
-
-
-def richards_model(t, K, y0, r, t0, nu):
-    """
-    Richards growth model in linear OD space with baseline offset.
-
-    N(t) = y0 + (K - y0) * [1 + nu * exp(-r * (t - t0))]^(-1/nu)
-
-    Parameters:
-        t: Time array
-        K: Carrying capacity (maximum OD)
-        y0: Baseline OD (minimum value)
-        r: Growth rate constant (h^-1)
-        t0: Inflection time
-        nu: Shape parameter (nu=1 gives logistic, nu->0 gives Gompertz)
-
-    Returns:
-        OD values at each time point
-
-    Note:
-        mu_max = r / (nu + 1)^(1/nu) for the Richards model
-    """
-    return y0 + (K - y0) * (1 + nu * np.exp(-r * (t - t0))) ** (-1 / nu)
-
-
-def baranyi_model(t, K, y0, mu_max, h0):
-    """
-    Baranyi-Roberts growth model in linear OD space with baseline offset.
-
-    This model includes a lag phase parameter h0 that represents the initial
-    physiological state of the cells.
-
-    N(t) = K / (1 + ((K - y0) / y0) * exp(-mu_max * A(t)))
-    and A(t) = t + (1/mu_max) * ln(exp(-mu_max*t) + exp(-h0) - exp(-mu_max*t - h0))
-
-    Parameters:
-        t: Time array
-        K: Carrying capacity (maximum OD)
-        y0: Baseline OD (minimum value)
-        mu_max: Maximum specific growth rate (h^-1)
-        h0: Dimensionless lag parameter (higher values = longer lag)
-
-    Returns:
-        OD values at each time point
-
-    Note:
-        - h0 > 0 indicates lag phase
-        - The lag time can be approximated as lambda ≈ h0/mu_max
-        - mu_max is directly a fitted parameter
-    """
-    # Adjustment function A(t) accounting for lag phase
-    # A(t) = t + (1/mu_max) * ln(exp(-mu_max*t) + exp(-h0) - exp(-mu_max*t - h0))
-    # Use stable computation to avoid overflow
-    exp_neg_mu_t = np.exp(-mu_max * t)
-    exp_neg_h0 = np.exp(-h0)
-    exp_neg_both = np.exp(-mu_max * t - h0)
-
-    # A(t) adjustment function
-    A_t = t + (1.0 / mu_max) * np.log(exp_neg_mu_t + exp_neg_h0 - exp_neg_both)
-
-    # Baranyi model (linear OD), ensuring N(0) = y0 when A(0) -> 0
-    y0_safe = np.maximum(y0, 1e-9)
-    denom = 1.0 + ((K - y0_safe) / y0_safe) * np.exp(-mu_max * A_t)
-    return K / denom
-
-
-def gaussian(t, amplitude, center, sigma):
-    """Symmetric Gaussian bell-shaped curve."""
-    sigma = np.maximum(sigma, 1e-12)
-    return amplitude * np.exp(-((t - center) ** 2) / (2 * sigma**2))
 
 
 # =============================================================================
@@ -468,7 +350,7 @@ def evaluate_parametric_model(t, model_type, params):
 
     Parameters:
         t: Time array or scalar
-        model_type: One of 'logistic', 'gompertz', 'richards', 'baranyi'
+        model_type: Model type string (e.g., 'mech_logistic', 'phenom_gompertz')
         params: Parameter dictionary containing model-specific parameters
 
     Returns:
@@ -478,16 +360,11 @@ def evaluate_parametric_model(t, model_type, params):
         ValueError: If model_type is not recognized
 
     Example:
-        >>> params = {"K": 0.5, "y0": 0.05, "r": 0.1, "t0": 10}
-        >>> y_fit = evaluate_parametric_model(t, "logistic", params)
+        >>> params = {"mu": 0.5, "K": 0.5, "N0": 0.001, "y0": 0.05}
+        >>> y_fit = evaluate_parametric_model(t, "mech_logistic", params)
     """
     # Model registry: maps model_type to (function, required_param_names)
     MODEL_REGISTRY = {
-        # Legacy models (for backward compatibility)
-        "logistic": (logistic_model, ["K", "y0", "r", "t0"]),
-        "gompertz": (gompertz_model, ["K", "y0", "mu_max", "lam"]),
-        "richards": (richards_model, ["K", "y0", "r", "t0", "nu"]),
-        "baranyi": (baranyi_model, ["K", "y0", "mu_max", "h0"]),
         # Mechanistic models (ODE-based)
         "mech_logistic": (mech_logistic_model, ["mu", "K", "N0", "y0"]),
         "mech_gompertz": (mech_gompertz_model, ["mu", "K", "N0", "y0"]),
