@@ -1572,7 +1572,7 @@ def detect_no_growth(
         checks["has_sufficient_snr"] = False
         return {
             "is_no_growth": True,
-            "reason": f"Low signal-to-noise ratio ({snr:.2f} < {min_signal_to_noise})",
+            "reason": f"Signal-to-noise ratio below threshold ({snr:.2f} < {min_signal_to_noise})",
             "checks": checks,
         }
 
@@ -1596,7 +1596,7 @@ def detect_no_growth(
             mu_str = f"{mu:.6f}" if mu is not None and np.isfinite(mu) else "N/A"
             return {
                 "is_no_growth": True,
-                "reason": f"Zero or negative growth rate (μ = {mu_str})",
+                "reason": f"Maximum specific growth rate below minimum threshold (μ(max) = {mu_str})",
                 "checks": checks,
             }
 
