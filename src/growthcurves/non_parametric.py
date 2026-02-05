@@ -7,6 +7,7 @@ All methods operate in linear OD space (not log-transformed).
 """
 
 import numpy as np
+from scipy.stats import theilslopes
 
 from .models import spline_model
 from .utils import bad_fit_stats, calculate_phase_ends, smooth
@@ -26,7 +27,8 @@ def fit_sliding_window(t, y_raw, window_points=15):
     Calculate maximum specific growth rate using the sliding window method.
 
     Finds the maximum specific growth rate by fitting a line to log-transformed
-    OD data in consecutive windows, selecting the window with the steepest slope.
+    OD data in consecutive windows using the Theil-Sen estimator, selecting the
+    window with the steepest slope.
 
     Parameters:
         t: Time array (hours)
@@ -63,7 +65,9 @@ def fit_sliding_window(t, y_raw, window_points=15):
         if np.ptp(t_win) <= 0:
             continue
 
-        slope, intercept = np.polyfit(t_win, y_log_win, 1)
+        # Use Theil-Sen estimator for robust line fitting
+        result = theilslopes(y_log_win, t_win)
+        slope, intercept = result.slope, result.intercept
 
         if slope > best_slope:
             best_slope = slope
