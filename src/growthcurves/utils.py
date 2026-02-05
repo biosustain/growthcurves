@@ -1751,3 +1751,136 @@ def compute_sliding_window_growth_rate(t, y, window_points=15):
             continue
 
     return t, mu
+
+
+def compare_methods(
+    time: np.ndarray,
+    data: np.ndarray,
+    model_family: str = "mechanistic",
+    phase_boundary_method: str = None,
+    **fit_kwargs,
+) -> tuple:
+    """
+    Fit multiple models and extract growth statistics for comparison.
+
+    This all-in-one convenience function fits all models in a specified family,
+    extracts their statistics, and returns both for analysis and visualization.
+
+    Parameters
+    ----------
+    time : array_like
+        Time array for fitting
+    data : array_like
+        OD data array for fitting
+    model_family : str, optional
+        Which family of models to fit. Options:
+        - "mechanistic" : All mechanistic models (mech_logistic, mech_gompertz, etc.)
+        - "phenomenological" : All phenomenological models (parametric and non-parametric)
+        - "all" : All available models
+        Default: "mechanistic"
+    phase_boundary_method : str, optional
+        Method for calculating phase boundaries ("threshold" or "tangent").
+        If None, uses default for each model type.
+    **fit_kwargs
+        Additional keyword arguments to pass to fitting functions
+        (e.g., spline_s, window_points)
+
+    Returns
+    -------
+    tuple of (dict, dict)
+        Returns (fits, stats) where:
+        - fits: Dictionary mapping method names to fit result dictionaries
+        - stats: Dictionary mapping method names to statistics dictionaries
+        The stats dictionary can be passed directly to plot_growth_stats_comparison().
+
+    Examples
+    --------
+    >>> # Fit and compare all mechanistic models
+    >>> fits, stats = gc.utils.compare_methods(time, data, model_family="mechanistic")
+    >>>
+    >>> # Plot comparison
+    >>> fig = gc.plot.plot_growth_stats_comparison(stats, title="Mechanistic Models")
+    >>> fig.show()
+    >>>
+    >>> # Fit phenomenological models with tangent phase boundaries
+    >>> fits, stats = gc.utils.compare_methods(
+    ...     time, data,
+    ...     model_family="phenomenological",
+    ...     phase_boundary_method="tangent"
+    ... )
+    """
+    from .parametric import fit_parametric
+    from .non_parametric import fit_non_parametric
+
+    # Define model families
+    model_families = {
+        "mechanistic": ["mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"],
+        "phenomenological": [
+            "phenom_logistic",
+            "phenom_gompertz",
+            "phenom_gompertz_modified",
+            "phenom_richards",
+            "spline",
+            "sliding_window",
+        ],
+    }
+
+    # Get list of models to fit
+    if model_family == "all":
+        models_to_fit = (
+            model_families["mechanistic"]
+            + model_families["phenomenological"]
+        )
+    elif model_family in model_families:
+        models_to_fit = model_families[model_family]
+    else:
+        raise ValueError(
+            f"Unknown model_family '{model_family}'. "
+            f"Choose from: {list(model_families.keys()) + ['all']}"
+        )
+
+    # Define non-parametric models and their specific kwargs
+    non_parametric_models = ["spline", "sliding_window"]
+    spline_kwargs = ["spline_s", "k"]
+    sliding_window_kwargs = ["window_points", "poly_order"]
+
+    # Fit all models
+    fits = {}
+    for model_name in models_to_fit:
+        try:
+            if model_name in non_parametric_models:
+                # Filter kwargs for non-parametric models
+                if model_name == "spline":
+                    model_kwargs = {k: v for k, v in fit_kwargs.items() if k in spline_kwargs}
+                elif model_name == "sliding_window":
+                    model_kwargs = {k: v for k, v in fit_kwargs.items() if k in sliding_window_kwargs}
+                else:
+                    model_kwargs = {}
+
+                fits[model_name] = fit_non_parametric(
+                    time, data, method=model_name, **model_kwargs
+                )
+            else:
+                # Parametric models - exclude non-parametric specific kwargs
+                excluded_kwargs = spline_kwargs + sliding_window_kwargs
+                model_kwargs = {k: v for k, v in fit_kwargs.items() if k not in excluded_kwargs}
+
+                fits[model_name] = fit_parametric(
+                    time, data, method=model_name, **model_kwargs
+                )
+        except Exception:
+            # If fitting fails, store None
+            fits[model_name] = None
+
+    # Extract statistics from all fits
+    stats = {}
+    for model_name, fit_result in fits.items():
+        if fit_result is not None:
+            stats[model_name] = extract_stats(
+                fit_result, time, data, phase_boundary_method=phase_boundary_method
+            )
+        else:
+            # If fit failed, include empty stats
+            stats[model_name] = bad_fit_stats()
+
+    return fits, stats

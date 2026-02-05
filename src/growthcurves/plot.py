@@ -979,3 +979,97 @@ def plot_derivative_metric(
     fig.update_yaxes(showgrid=False, title=y_axis_title)
 
     return fig
+
+
+def plot_growth_stats_comparison(
+    stats_dict: Dict[str, Dict[str, Any]],
+    title: str = "Growth Statistics Comparison",
+    metric_order: Optional[list] = None,
+) -> go.Figure:
+    """
+    Create a multi-panel bar chart comparing growth statistics across methods.
+
+    Parameters
+    ----------
+    stats_dict : dict
+        Dictionary mapping method names to their growth statistics dictionaries.
+        Each stats dict should contain keys like 'mu_max', 'doubling_time', etc.
+    title : str, optional
+        Overall title for the figure (default: "Growth Statistics Comparison")
+    metric_order : list, optional
+        List of metric keys to plot in specific order. If None, uses default order.
+
+    Returns
+    -------
+    go.Figure
+        Plotly figure with subplots showing each metric comparison
+
+    Examples
+    --------
+    >>> # Compare multiple fitting methods
+    >>> stats_dict = {
+    ...     'logistic': stats_logistic,
+    ...     'gompertz': stats_gompertz,
+    ...     'spline': stats_spline
+    ... }
+    >>> fig = plot_growth_stats_comparison(
+    ...     stats_dict,
+    ...     title="Model Comparison"
+    ... )
+    >>> fig.show()
+    """
+    import pandas as pd
+    from plotly.subplots import make_subplots
+
+    df = pd.DataFrame(stats_dict).T
+
+    default_metrics = [
+        "mu_max",
+        "intrinsic_growth_rate",
+        "doubling_time",
+        "time_at_umax",
+        "exp_phase_start",
+        "exp_phase_end",
+        "model_rmse",
+    ]
+
+    metrics = metric_order or [m for m in default_metrics if m in df.columns]
+    numeric_df = df.copy()
+    for m in metrics:
+        numeric_df[m] = pd.to_numeric(numeric_df[m], errors="coerce")
+
+    n_metrics = len(metrics)
+    n_cols = 3
+    n_rows = int(np.ceil(n_metrics / n_cols))
+
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        subplot_titles=[m.replace("_", " ").title() for m in metrics],
+        horizontal_spacing=0.08,
+        vertical_spacing=0.15,
+    )
+
+    method_names = list(numeric_df.index)
+    for i, metric in enumerate(metrics):
+        row = i // n_cols + 1
+        col = i % n_cols + 1
+        fig.add_trace(
+            go.Bar(
+                x=method_names,
+                y=numeric_df[metric].tolist(),
+                showlegend=False,
+                marker=dict(line=dict(color="black", width=1)),
+            ),
+            row=row,
+            col=col,
+        )
+
+    fig.update_layout(
+        title=title,
+        height=max(420, 320 * n_rows),
+        width=1200,
+        bargap=0.25,
+        template="plotly_white",
+    )
+    return fig
