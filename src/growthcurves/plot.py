@@ -53,6 +53,11 @@ def create_base_plot(
     time = np.asarray(time, dtype=float)
     data = np.asarray(data, dtype=float)
 
+    # Filter out non-positive and non-finite values for valid plotting
+    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
+    time = time[mask]
+    data = data[mask]
+
     # Determine y-axis data based on scale
     if scale == "log":
         y_data = np.log(data)
@@ -301,14 +306,83 @@ def add_od_max_line(
     return fig
 
 
+def add_N0_line(
+    fig: go.Figure,
+    N0: float,
+    scale: str = "linear",
+    line_color: str = "gray",
+    line_dash: str = "dot",
+    line_width: float = 2,
+    line_opacity: float = 0.5,
+    name: str = "N0",
+    row: Optional[int] = None,
+    col: Optional[int] = None,
+) -> go.Figure:
+    """
+    Add horizontal line at initial OD value (N0).
+
+    Parameters
+    ----------
+    fig : go.Figure
+        Plotly figure to annotate
+    N0 : float
+        Initial OD value
+    scale : str, optional
+        'linear' or 'log' - determines y-axis transformation (default: 'linear')
+    line_color : str, optional
+        Color of horizontal line (default: 'gray')
+    line_dash : str, optional
+        Dash style for horizontal line (default: 'dot')
+    line_width : float, optional
+        Width of horizontal line (default: 2)
+    line_opacity : float, optional
+        Opacity of horizontal line (default: 0.5)
+    name : str, optional
+        Legend name (default: 'N0')
+    row : int, optional
+        Subplot row (for subplots)
+    col : int, optional
+        Subplot column (for subplots)
+
+    Returns
+    -------
+    go.Figure
+        Updated figure with N0 horizontal line
+    """
+    if N0 is None:
+        return fig
+
+    if not np.isfinite(N0):
+        return fig
+
+    # Transform y-value based on scale
+    y_val = np.log(N0) if scale == "log" else N0
+
+    # Add horizontal line at N0
+    fig.add_hline(
+        y=y_val,
+        line_color=line_color,
+        line_dash=line_dash,
+        line_width=line_width,
+        opacity=line_opacity,
+        row=row,
+        col=col,
+    )
+
+    return fig
+
+
 def annotate_plot(
     fig: go.Figure,
     phase_boundaries: Optional[Tuple[float, float]] = None,
     time_umax: Optional[float] = None,
     od_umax: Optional[float] = None,
     od_max: Optional[float] = None,
+    N0: Optional[float] = None,
+    umax: Optional[float] = None,
     umax_point: Optional[Tuple[float, float]] = None,
     fitted_model: Optional[Dict[str, Any]] = None,
+    draw_umax_tangent: bool = False,
     scale: str = "linear",
     row: Optional[int] = None,
     col: Optional[int] = None,
@@ -332,6 +406,10 @@ def annotate_plot(
         OD value at maximum growth rate. If provided, adds horizontal line.
     od_max : float, optional
         Maximum OD value. If provided, adds horizontal line at this value.
+    N0 : float, optional
+        Initial OD value. If provided, adds horizontal line at this value.
+    umax : float, optional
+        Maximum growth rate value. Required if draw_umax_tangent is True.
     umax_point : tuple of (float, float), optional
         Tuple of (time_umax, od_umax) to draw a small green dot at the intersection.
         Format: (time, od_value)
@@ -347,6 +425,9 @@ def annotate_plot(
         For backward compatibility, also accepts:
         - 'window_start': start of fitting window (if fit_t_min not in params)
         - 'window_end': end of fitting window (if fit_t_max not in params)
+    draw_umax_tangent : bool, optional
+        If True, draws the tangent line at the umax point. Requires umax, time_umax,
+        and od_umax to be provided. Default is False.
     scale : str, optional
         Plot scale for annotations: 'linear' or 'log'. Defaults to 'linear'.
     row : int, optional
@@ -375,8 +456,10 @@ def annotate_plot(
     ...     time_umax=45,
     ...     od_umax=0.25,
     ...     od_max=0.8,
+    ...     umax=0.5,
     ...     umax_point=(45, 0.25),
     ...     fitted_model=spline_result,
+    ...     draw_umax_tangent=True,
     ...     scale="log"
     ... )
 
@@ -418,10 +501,17 @@ def annotate_plot(
 
         # Generate default name based on model type
         default_names = {
-            "logistic": "Logistic fit",
-            "gompertz": "Gompertz fit",
-            "richards": "Richards fit",
-            "baranyi": "Baranyi fit",
+            # Mechanistic models
+            "mech_logistic": "Mechanistic Logistic fit",
+            "mech_gompertz": "Mechanistic Gompertz fit",
+            "mech_richards": "Mechanistic Richards fit",
+            "mech_baranyi": "Mechanistic Baranyi fit",
+            # Phenomenological models
+            "phenom_logistic": "Phenomenological Logistic fit",
+            "phenom_gompertz": "Phenomenological Gompertz fit",
+            "phenom_gompertz_modified": "Phenomenological Gompertz (modified) fit",
+            "phenom_richards": "Phenomenological Richards fit",
+            # Non-parametric models
             "spline": "Spline fit",
             "sliding_window": "Sliding window fit",
         }
@@ -436,7 +526,18 @@ def annotate_plot(
             time_fit = np.linspace(window_start, window_end, 200)
             y_fit = None
 
-            if model_type in {"logistic", "gompertz", "richards", "baranyi"}:
+            # Check if parametric model (mechanistic or phenomenological)
+            parametric_models = {
+                "mech_logistic",
+                "mech_gompertz",
+                "mech_richards",
+                "mech_baranyi",
+                "phenom_logistic",
+                "phenom_gompertz",
+                "phenom_gompertz_modified",
+                "phenom_richards",
+            }
+            if model_type in parametric_models:
                 y_fit = evaluate_parametric_model(time_fit, model_type, params)
             elif model_type == "spline":
                 spline = spline_from_params(params)
@@ -491,7 +592,7 @@ def annotate_plot(
             y0=y_bottom,
             x1=time_umax,
             y1=y_val,
-            line=dict(color="black", dash="dot", width=1),
+            line=dict(color="black", dash="dot", width=2),
             opacity=0.5,
             row=row,
             col=col,
@@ -504,7 +605,7 @@ def annotate_plot(
             y0=y_val,
             x1=time_umax,
             y1=y_val,
-            line=dict(color="black", dash="dot", width=1),
+            line=dict(color="black", dash="dot", width=2),
             opacity=0.5,
             row=row,
             col=col,
@@ -513,6 +614,10 @@ def annotate_plot(
     # Add od_max horizontal line (if provided)
     if od_max is not None:
         fig = add_od_max_line(fig, od_max, scale=scale, row=row, col=col)
+
+    # Add N0 horizontal line (if provided)
+    if N0 is not None:
+        fig = add_N0_line(fig, N0, scale=scale, row=row, col=col)
 
     # Add umax point (if provided)
     if umax_point is not None and len(umax_point) == 2:
@@ -533,6 +638,82 @@ def annotate_plot(
                 row=row,
                 col=col,
             )
+
+    # Add umax tangent line (if requested and data provided)
+    if (
+        draw_umax_tangent
+        and umax is not None
+        and time_umax is not None
+        and od_umax is not None
+        and np.isfinite(umax)
+        and np.isfinite(time_umax)
+        and np.isfinite(od_umax)
+    ):
+        # Extract y-values from figure to determine baseline and plateau OD
+        all_y_values = []
+        for trace in fig.data:
+            if trace.y is not None and len(trace.y) > 0:
+                # Handle both linear and log scale data
+                valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
+                if valid_y:
+                    all_y_values.extend(valid_y)
+
+        if len(all_y_values) > 0:
+            if scale == "log":
+                # Data is in log space, convert to linear for OD calculations
+                baseline_od = np.exp(min(all_y_values))
+                plateau_od = np.exp(max(all_y_values))
+            else:
+                # Data is already in linear space
+                baseline_od = min(all_y_values)
+                plateau_od = max(all_y_values)
+
+            # Ensure baseline < od_umax < plateau (with safety margins)
+            baseline_od = min(baseline_od, od_umax * 0.95)
+            plateau_od = max(plateau_od, od_umax * 1.05)
+
+            # Calculate where tangent intersects baseline and plateau
+            # Tangent equation: OD(t) = od_umax * exp(umax * (t - time_umax))
+            # Solving for t when OD = baseline_od:
+            #   t_start = time_umax + ln(baseline_od / od_umax) / umax
+            # Solving for t when OD = plateau_od:
+            #   t_end = time_umax + ln(plateau_od / od_umax) / umax
+
+            if baseline_od > 0 and plateau_od > 0 and od_umax > 0:
+                t_tangent_start = time_umax + np.log(baseline_od / od_umax) / umax
+                t_tangent_end = time_umax + np.log(plateau_od / od_umax) / umax
+
+                # Create time points for tangent line between intersections
+                t_tangent = np.linspace(t_tangent_start, t_tangent_end, 100)
+
+                # Calculate tangent line values
+                # The tangent should be applied in LOG space for exponential growth
+                # In log space, the tangent line at the point of max growth is:
+                #   ln(OD(t)) = ln(od_umax) + umax * (t - time_umax)
+                # Which gives: OD(t) = od_umax * exp(umax * (t - time_umax))
+                y_tangent_linear = od_umax * np.exp(umax * (t_tangent - time_umax))
+
+                if scale == "log":
+                    # Transform to log space for plotting
+                    y_tangent = np.log(y_tangent_linear)
+                else:
+                    # Already in linear space
+                    y_tangent = y_tangent_linear
+
+                # Add tangent line
+                fig.add_trace(
+                    go.Scatter(
+                        x=t_tangent,
+                        y=y_tangent,
+                        mode="lines",
+                        line=dict(color="green", width=2, dash="dash"),
+                        name="umax tangent",
+                        showlegend=False,
+                        hovertemplate="Tangent line at μmax<extra></extra>",
+                    ),
+                    row=row,
+                    col=col,
+                )
 
     return fig
 
@@ -605,9 +786,9 @@ def plot_derivative_metric(
     """
     from .utils import (
         compute_first_derivative,
-        compute_specific_growth_rate,
-        smooth,
+        compute_mu_max,
         compute_sliding_window_growth_rate,
+        smooth,
     )
 
     # Validate metric
@@ -618,8 +799,8 @@ def plot_derivative_metric(
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
 
-    # Remove non-finite values
-    mask = np.isfinite(t) & np.isfinite(y)
+    # Remove non-finite and non-positive values (needed for mu calculation)
+    mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
     t = t[mask]
     y = y[mask]
 
@@ -636,7 +817,7 @@ def plot_derivative_metric(
         y_axis_title = "dN/dt"
         plot_title = title or "First Derivative (dN/dt)"
     else:  # mu
-        t_metric_raw, metric_raw = compute_specific_growth_rate(t, y)
+        t_metric_raw, metric_raw = compute_mu_max(t, y)
         metric_label = "μ"
         y_axis_title = "μ (h⁻¹)"
         plot_title = title or "Specific Growth Rate (μ)"
@@ -648,7 +829,7 @@ def plot_derivative_metric(
     if metric == "dndt":
         t_metric_smooth, metric_smooth = compute_first_derivative(t, y_smooth)
     else:  # mu
-        t_metric_smooth, metric_smooth = compute_specific_growth_rate(t, y_smooth)
+        t_metric_smooth, metric_smooth = compute_mu_max(t, y_smooth)
 
     # Create figure
     fig = go.Figure()
@@ -719,7 +900,16 @@ def plot_derivative_metric(
                         t_model, y_model_raw, window_points=window_points
                     )
 
-            elif model_type in ["logistic", "gompertz", "richards", "baranyi"]:
+            elif model_type in [
+                "mech_logistic",
+                "mech_gompertz",
+                "mech_richards",
+                "mech_baranyi",
+                "phenom_logistic",
+                "phenom_gompertz",
+                "phenom_gompertz_modified",
+                "phenom_richards",
+            ]:
                 # For parametric models, compute metric from the model
                 # Evaluate the model on fitted range
                 y_model = evaluate_parametric_model(t_model, model_type, params)
@@ -728,7 +918,7 @@ def plot_derivative_metric(
                 if metric == "dndt":
                     _, metric_model = compute_first_derivative(t_model, y_model)
                 else:  # mu
-                    _, metric_model = compute_specific_growth_rate(t_model, y_model)
+                    _, metric_model = compute_mu_max(t_model, y_model)
 
             elif model_type == "spline":
                 # For spline model, reconstruct the spline and evaluate

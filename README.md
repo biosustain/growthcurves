@@ -29,19 +29,19 @@ time = np.linspace(0, 24, 100)
 od = 0.01 + 1.5 / (1 + np.exp(-0.5 * (time - 10)))  # synthetic logistic data
 
 # Fit a parametric model and extract growth statistics
-fit_result = gc.parametric.fit_parametric(time, od, model="logistic")
-stats = gc.utils.extract_stats_from_fit(fit_result, time, od)
+fit_result = gc.parametric.fit_parametric(time, od, method="mech_logistic")
+stats = gc.utils.extract_stats(fit_result, time, od)
 
 print(f"Max OD:               {stats['max_od']:.3f}")
-print(f"Specific growth rate: {stats['specific_growth_rate']:.4f} h⁻¹")
+print(f"Specific growth rate: {stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 
 # Or use a non-parametric spline fit
 spline_fit = gc.non_parametric.fit_non_parametric(time, od, umax_method="spline")
-spline_stats = gc.utils.extract_stats_from_fit(spline_fit, time, od)
+spline_stats = gc.utils.extract_stats(spline_fit, time, od)
 
 print(f"\nSpline fit results:")
-print(f"Specific growth rate: {spline_stats['specific_growth_rate']:.4f} h⁻¹")
+print(f"Specific growth rate: {spline_stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 ```
 
@@ -49,67 +49,38 @@ print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 
 ### Parametric models
 
-| Model    | Function                | Parameters         |
-| -------- | ----------------------- | ------------------ |
-| Logistic | `models.logistic_model` | K, y0, r, t0       |
-| Gompertz | `models.gompertz_model` | K, y0, mu_max, lam |
-| Richards | `models.richards_model` | K, y0, r, t0, nu   |
+#### Mechanistic models (ODE-based)
 
-The Richards model generalizes both logistic (nu = 1) and Gompertz (nu → 0)
-growth curves via its shape parameter `nu`.
+| Model          | Function                     | Parameters          |
+| -------------- | ---------------------------- | ------------------- |
+| Mech. Logistic | `models.mech_logistic_model` | mu, K, N0, y0       |
+| Mech. Gompertz | `models.mech_gompertz_model` | mu, K, N0, y0       |
+| Mech. Richards | `models.mech_richards_model` | mu, K, N0, beta, y0 |
+| Mech. Baranyi  | `models.mech_baranyi_model`  | mu, K, N0, h0, y0   |
+
+Mechanistic models are defined as ordinary differential equations (ODEs) and fitted using numerical integration.
+
+#### Phenomenological models (ln-space)
+
+| Model              | Function                                | Parameters                         |
+| ------------------ | --------------------------------------- | ---------------------------------- |
+| Phenom. Logistic   | `models.phenom_logistic_model`          | A, mu_max, lam, N0                 |
+| Phenom. Gompertz   | `models.phenom_gompertz_model`          | A, mu_max, lam, N0                 |
+| Phenom. Gompertz\* | `models.phenom_gompertz_modified_model` | A, mu_max, lam, alpha, t_shift, N0 |
+| Phenom. Richards   | `models.phenom_richards_model`          | A, mu_max, lam, nu, N0             |
+
+Phenomenological models are fitted directly to ln(OD/OD0) data.
 
 ### Non-parametric methods
 
-| Method          | Function                          | Key parameters      |
-| --------------- | --------------------------------- | ------------------- |
-| Spline          | `non_parametric.fit_non_parametric` | spline_s (smoothing) |
-| Sliding window  | `non_parametric.fit_non_parametric` | window_points       |
+| Method         | Function                            | Key parameters       |
+| -------------- | ----------------------------------- | -------------------- |
+| Spline         | `non_parametric.fit_non_parametric` | spline_s (smoothing) |
+| Sliding window | `non_parametric.fit_non_parametric` | window_points        |
 
-The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. This provides a flexible, model-free approach that adapts to the data shape. The smoothing parameter `spline_s` controls the balance between fit quality and smoothness (default: `0.1 × number of points`).
+The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. This provides a flexible, model-free approach that adapts to the data shape. The smoothing parameter `spline_s` controls the balance between fit quality and smoothness (default: `0.01` for tight fit to data).
 
 The **sliding window method** estimates growth rate by fitting a linear regression to log-transformed data within a moving window, identifying the window with maximum slope.
-
-### Logistic
-
-$$
-N(t) = y_0 + \frac{K - y_0}{1 + \exp\!\bigl[-r\,(t - t_0)\bigr]}
-$$
-
-| Parameter | Meaning                                         |
-| --------- | ----------------------------------------------- |
-| $K$       | Carrying capacity (maximum OD)                  |
-| $y_0$     | Baseline OD at $t=0$                            |
-| $r$       | Growth rate constant (h⁻¹); equals $\mu_{\max}$ |
-| $t_0$     | Inflection time                                 |
-
-### Gompertz (modified)
-
-$$
-N(t) = y_0 + (K - y_0)\,\exp\!\left[-\exp\!\left(\frac{\mu_{\max}\,e}{K - y_0}\,(\lambda - t) + 1\right)\right]
-$$
-
-| Parameter    | Meaning                            |
-| ------------ | ---------------------------------- |
-| $K$          | Carrying capacity (maximum OD)     |
-| $y_0$        | Baseline OD                        |
-| $\mu_{\max}$ | Maximum specific growth rate (h⁻¹) |
-| $\lambda$    | Lag time (h)                       |
-
-### Richards (generalized logistic)
-
-$$
-N(t) = y_0 + (K - y_0)\,\bigl[1 + \nu\,\exp\!\bigl(-r\,(t - t_0)\bigr)\bigr]^{-1/\nu}
-$$
-
-| Parameter | Meaning                                                                         |
-| --------- | ------------------------------------------------------------------------------- |
-| $K$       | Carrying capacity (maximum OD)                                                  |
-| $y_0$     | Baseline OD                                                                     |
-| $r$       | Growth rate constant (h⁻¹)                                                      |
-| $t_0$     | Inflection time                                                                 |
-| $\nu$     | Shape parameter ($\nu=1 \Rightarrow$ logistic; $\nu\to 0 \Rightarrow$ Gompertz) |
-
-The maximum specific growth rate for the Richards model is $\mu_{\max} = r\,/\,(1+\nu)^{1/\nu}$.
 
 ### Spline fitting (non-parametric)
 
@@ -120,12 +91,12 @@ The spline method provides a model-free approach to growth curve analysis by fit
 3. Calculate specific growth rate: $\mu(t) = \frac{d\,s(t)}{dt}$
 4. Find maximum growth rate: $\mu_{\max} = \max_{t} \mu(t)$
 
-| Parameter | Meaning                                               |
-| --------- | ----------------------------------------------------- |
-| `spline_s` | Smoothing factor (default: $0.1 \times n_{\text{points}}$) |
-| `k`        | Spline degree (default: 3, cubic)                     |
+| Parameter  | Meaning                           |
+| ---------- | --------------------------------- |
+| `spline_s` | Smoothing factor (default: 0.01)  |
+| `k`        | Spline degree (default: 3, cubic) |
 
-The smoothing parameter `spline_s` controls the tradeoff between fit quality and smoothness. Lower values produce tighter fits to data; higher values produce smoother curves. The automatic default typically works well but can be adjusted for noisy or sparse data.
+The smoothing parameter `spline_s` controls the tradeoff between fit quality and smoothness. Lower values produce tighter fits to data; higher values produce smoother curves. The default of 0.01 produces a tight fit that closely follows the data, which can be increased for noisier datasets.
 
 ### Derived growth statistics
 

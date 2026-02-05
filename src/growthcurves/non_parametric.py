@@ -9,11 +9,7 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 
 from .models import spline_model
-from .utils import (
-    bad_fit_stats,
-    calculate_phase_ends,
-    smooth,
-)
+from .utils import bad_fit_stats, calculate_phase_ends, smooth
 
 # -----------------------------------------------------------------------------
 # Sliding Window Helpers
@@ -121,8 +117,8 @@ def fit_spline(t_exp, y_exp, spline_s=None):
     try:
         # Fit spline with automatic or specified smoothing
         if spline_s is None:
-            # Automatic smoothing based on number of points
-            spline_s = len(t_exp) * 0.1
+            # Low smoothing for tight fit to data
+            spline_s = 0.01
 
         spline, spline_s = spline_model(t_exp, y_log_exp, spline_s, k=3)
 
@@ -150,6 +146,7 @@ def fit_spline(t_exp, y_exp, spline_s=None):
                 "tck_k": int(tck_k),
                 "spline_s": spline_s,
                 "time_at_umax": time_at_umax,
+                "mu_max": mu_max,  # Store calculated mu_max for consistency
             },
             "model_type": "spline",
         }
@@ -246,8 +243,68 @@ def fit_non_parametric(
         }
 
     elif method == "spline":
-        # Extract exponential phase data
-        exp_mask = (t >= lag_end) & (t <= exp_end)
+        # For spline fitting, identify approximate region of Umax using 30% threshold
+        # on instantaneous mu. This defines fit_t_min and fit_t_max.
+        # Use dense grid to find boundaries, then expand to include sufficient data
+        # points
+
+        # Calculate instantaneous mu on dense grid
+        from .utils import compute_mu_max as calc_mu
+
+        _, mu_dense = calc_mu(t_dense, y_dense)
+        mu_dense = np.nan_to_num(mu_dense, nan=0.0)
+        mu_dense = np.maximum(mu_dense, 0)
+
+        if np.max(mu_dense) <= 0:
+            return None
+
+        # Find time of maximum mu
+        max_mu_idx = np.argmax(mu_dense)
+        t_at_max_mu = t_dense[max_mu_idx]
+        max_mu = mu_dense[max_mu_idx]
+
+        # Find region where mu > 30% of max_mu
+        threshold_30pct = 0.30 * max_mu
+        above_threshold = mu_dense >= threshold_30pct
+
+        if not np.any(above_threshold):
+            return None
+
+        # Find contiguous region containing the maximum
+        indices_above = np.where(above_threshold)[0]
+
+        # Find the contiguous block that contains max_mu_idx
+        # Split into contiguous segments
+        segments = np.split(indices_above, np.where(np.diff(indices_above) > 1)[0] + 1)
+
+        # Find which segment contains the maximum
+        target_segment = None
+        for seg in segments:
+            if max_mu_idx in seg:
+                target_segment = seg
+                break
+
+        if target_segment is None or len(target_segment) == 0:
+            return None
+
+        # Get time boundaries from the segment
+        fit_t_min_initial = float(t_dense[target_segment[0]])
+        fit_t_max_initial = float(t_dense[target_segment[-1]])
+
+        # Expand window to ensure we have at least 10 data points for robust spline
+        # fitting
+        exp_mask = (t >= fit_t_min_initial) & (t <= fit_t_max_initial)
+        n_points = np.sum(exp_mask)
+
+        # If fewer than 10 points, expand window symmetrically around t_at_max_mu
+        if n_points < 10:
+            # Calculate required window width to get ~15 points
+            dt_avg = np.mean(np.diff(t))  # Average time spacing
+            half_width = 7.5 * dt_avg  # Width for ~15 points
+            fit_t_min_initial = max(t.min(), t_at_max_mu - half_width)
+            fit_t_max_initial = min(t.max(), t_at_max_mu + half_width)
+            exp_mask = (t >= fit_t_min_initial) & (t <= fit_t_max_initial)
+
         if np.sum(exp_mask) < 5:
             return None
 
@@ -258,20 +315,7 @@ def fit_non_parametric(
         if umax_result is None:
             return None
 
-        # Extract parameters
-        # params = umax_result["params"]
-        # For spline, calculate mu_max from the derivative at time_at_umax
-        # time_at_umax = params["time_at_umax"]
-
-        # Reconstruct spline to get mu_max
-        y_log_exp = np.log(y_exp)
-        s = spline_s if spline_s is not None else len(t_exp) * 0.1
-        try:
-            spline, _ = spline_model(t_exp, y_log_exp, s, k=3)
-            # mu_max = float(spline.derivative()(time_at_umax))
-        except Exception:
-            return None
-
+        # Store fit_t_min and fit_t_max (the region where spline was fitted)
         return {
             "params": {
                 **umax_result["params"],
