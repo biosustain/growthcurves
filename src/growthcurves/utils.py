@@ -1596,7 +1596,7 @@ def detect_no_growth(
             mu_str = f"{mu:.6f}" if mu is not None and np.isfinite(mu) else "N/A"
             return {
                 "is_no_growth": True,
-                "reason": f"Maximum specific growth rate below minimum threshold (μ(max) = {mu_str})",
+                "reason": f"μ(max) below minimum ({mu_str} < {min_growth_rate})",
                 "checks": checks,
             }
 
@@ -1809,12 +1809,17 @@ def compare_methods(
     ...     phase_boundary_method="tangent"
     ... )
     """
-    from .parametric import fit_parametric
     from .non_parametric import fit_non_parametric
+    from .parametric import fit_parametric
 
     # Define model families
     model_families = {
-        "mechanistic": ["mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"],
+        "mechanistic": [
+            "mech_logistic",
+            "mech_gompertz",
+            "mech_richards",
+            "mech_baranyi",
+        ],
         "phenomenological": [
             "phenom_logistic",
             "phenom_gompertz",
@@ -1828,8 +1833,7 @@ def compare_methods(
     # Get list of models to fit
     if model_family == "all":
         models_to_fit = (
-            model_families["mechanistic"]
-            + model_families["phenomenological"]
+            model_families["mechanistic"] + model_families["phenomenological"]
         )
     elif model_family in model_families:
         models_to_fit = model_families[model_family]
@@ -1851,9 +1855,15 @@ def compare_methods(
             if model_name in non_parametric_models:
                 # Filter kwargs for non-parametric models
                 if model_name == "spline":
-                    model_kwargs = {k: v for k, v in fit_kwargs.items() if k in spline_kwargs}
+                    model_kwargs = {
+                        k: v for k, v in fit_kwargs.items() if k in spline_kwargs
+                    }
                 elif model_name == "sliding_window":
-                    model_kwargs = {k: v for k, v in fit_kwargs.items() if k in sliding_window_kwargs}
+                    model_kwargs = {
+                        k: v
+                        for k, v in fit_kwargs.items()
+                        if k in sliding_window_kwargs
+                    }
                 else:
                     model_kwargs = {}
 
@@ -1863,7 +1873,9 @@ def compare_methods(
             else:
                 # Parametric models - exclude non-parametric specific kwargs
                 excluded_kwargs = spline_kwargs + sliding_window_kwargs
-                model_kwargs = {k: v for k, v in fit_kwargs.items() if k not in excluded_kwargs}
+                model_kwargs = {
+                    k: v for k, v in fit_kwargs.items() if k not in excluded_kwargs
+                }
 
                 fits[model_name] = fit_parametric(
                     time, data, method=model_name, **model_kwargs
