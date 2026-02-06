@@ -372,339 +372,311 @@ def add_N0_line(
     return fig
 
 
+def prepare_fitted_curve(
+    fitted_model: Dict[str, Any], n_points: int = 200
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Convert a fitted model dictionary to curve data for plotting.
+
+    Parameters
+    ----------
+    fitted_model : dict
+        Fit result dictionary from fit_parametric() or fit_non_parametric()
+    n_points : int, optional
+        Number of points to generate for the curve (default: 200)
+
+    Returns
+    -------
+    tuple of (np.ndarray, np.ndarray) or None
+        (time_points, od_values) ready for plotting, or None if invalid
+    """
+    if fitted_model is None:
+        return None
+
+    model_type = fitted_model.get("model_type")
+    params = fitted_model.get("params")
+
+    if model_type is None or params is None:
+        return None
+
+    # Extract window boundaries
+    if "fit_t_min" in params and "fit_t_max" in params:
+        window_start = params["fit_t_min"]
+        window_end = params["fit_t_max"]
+    else:
+        window_start = fitted_model.get("window_start")
+        window_end = fitted_model.get("window_end")
+
+    if window_start is None or window_end is None:
+        return None
+
+    # Generate time points
+    time_fit = np.linspace(window_start, window_end, n_points)
+
+    # Evaluate model
+    parametric_models = {
+        "mech_logistic",
+        "mech_gompertz",
+        "mech_richards",
+        "mech_baranyi",
+        "phenom_logistic",
+        "phenom_gompertz",
+        "phenom_gompertz_modified",
+        "phenom_richards",
+    }
+
+    if model_type in parametric_models:
+        od_fit = evaluate_parametric_model(time_fit, model_type, params)
+    elif model_type == "spline":
+        spline = spline_from_params(params)
+        od_fit = np.exp(spline(time_fit))
+    elif model_type == "sliding_window":
+        slope = params["slope"]
+        intercept = params["intercept"]
+        od_fit = np.exp(slope * time_fit + intercept)
+    else:
+        return None
+
+    return (time_fit, od_fit)
+
+
+def prepare_tangent_line(
+    umax: float,
+    time_umax: float,
+    od_umax: float,
+    fig: go.Figure,
+    scale: str = "linear",
+    n_points: int = 100,
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Calculate tangent line at maximum growth rate point.
+
+    Parameters
+    ----------
+    umax : float
+        Maximum growth rate (μ_max)
+    time_umax : float
+        Time at maximum growth rate
+    od_umax : float
+        OD value at maximum growth rate
+    fig : go.Figure
+        Figure to extract data range from
+    scale : str, optional
+        'linear' or 'log' for determining data range (default: 'linear')
+    n_points : int, optional
+        Number of points to generate for tangent line (default: 100)
+
+    Returns
+    -------
+    tuple of (np.ndarray, np.ndarray) or None
+        (time_points, od_values) for tangent line, or None if invalid
+    """
+    if not np.isfinite(umax) or not np.isfinite(time_umax) or not np.isfinite(od_umax):
+        return None
+
+    # Extract y-values from figure to determine baseline and plateau OD
+    all_y_values = []
+    for trace in fig.data:
+        if trace.y is not None and len(trace.y) > 0:
+            valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
+            if valid_y:
+                all_y_values.extend(valid_y)
+
+    if len(all_y_values) == 0:
+        return None
+
+    if scale == "log":
+        baseline_od = np.exp(min(all_y_values))
+        plateau_od = np.exp(max(all_y_values))
+    else:
+        baseline_od = min(all_y_values)
+        plateau_od = max(all_y_values)
+
+    # Ensure baseline < od_umax < plateau (with safety margins)
+    baseline_od = min(baseline_od, od_umax * 0.95)
+    plateau_od = max(plateau_od, od_umax * 1.05)
+
+    if baseline_od <= 0 or plateau_od <= 0 or od_umax <= 0:
+        return None
+
+    # Calculate tangent intersections
+    # Tangent equation: OD(t) = od_umax * exp(umax * (t - time_umax))
+    t_start = time_umax + np.log(baseline_od / od_umax) / umax
+    t_end = time_umax + np.log(plateau_od / od_umax) / umax
+
+    # Generate tangent line points
+    t_tangent = np.linspace(t_start, t_end, n_points)
+    od_tangent = od_umax * np.exp(umax * (t_tangent - time_umax))
+
+    return (t_tangent, od_tangent)
+
+
 def annotate_plot(
     fig: go.Figure,
-    phase_boundaries: Optional[Tuple[float, float]] = None,
-    time_umax: Optional[float] = None,
-    od_umax: Optional[float] = None,
-    od_max: Optional[float] = None,
-    N0: Optional[float] = None,
-    umax: Optional[float] = None,
-    umax_point: Optional[Tuple[float, float]] = None,
-    fitted_model: Optional[Dict[str, Any]] = None,
-    draw_umax_tangent: bool = False,
+    fit_result: Optional[Dict[str, Any]] = None,
+    stats: Optional[Dict[str, Any]] = None,
+    show_fitted_curve: bool = True,
+    show_phase_boundaries: bool = True,
+    show_crosshairs: bool = True,
+    show_od_max_line: bool = True,
+    show_n0_line: bool = True,
+    show_umax_marker: bool = True,
+    show_tangent: bool = True,
     scale: str = "linear",
     row: Optional[int] = None,
     col: Optional[int] = None,
 ) -> go.Figure:
     """
-    Unified function to add multiple annotations to a plot.
-
-    Annotations are automatically added if the corresponding data is provided
-    (not None). To hide an annotation, simply don't pass that parameter or pass None.
+    Add annotations to a growth curve plot.
 
     Parameters
     ----------
     fig : go.Figure
         Plotly figure to annotate
-    phase_boundaries : tuple of (float, float), optional
-        Tuple of (exp_start, exp_end) defining the exponential phase boundaries.
-        If provided, adds shading for the exponential growth phase.
-    time_umax : float, optional
-        Time at maximum growth rate. If provided, adds vertical line.
-    od_umax : float, optional
-        OD value at maximum growth rate. If provided, adds horizontal line.
-    od_max : float, optional
-        Maximum OD value. If provided, adds horizontal line at this value.
-    N0 : float, optional
-        Initial OD value. If provided, adds horizontal line at this value.
-    umax : float, optional
-        Maximum growth rate value. Required if draw_umax_tangent is True.
-    umax_point : tuple of (float, float), optional
-        Tuple of (time_umax, od_umax) to draw a small green dot at the intersection.
-        Format: (time, od_value)
-    fitted_model : dict, optional
-        Fit result dictionary from fit_model() or fit_non_parametric().
-        Can be passed directly (recommended) or as a custom dictionary with:
-        - 'model_type': one of 'logistic', 'gompertz', 'richards', 'baranyi',
-                        'spline', 'sliding_window'
-        - 'params': model parameter dictionary (must include 'fit_t_min' and
-                    'fit_t_max')
-        - 'name': legend name (optional, default based on model type)
-
-        For backward compatibility, also accepts:
-        - 'window_start': start of fitting window (if fit_t_min not in params)
-        - 'window_end': end of fitting window (if fit_t_max not in params)
-    draw_umax_tangent : bool, optional
-        If True, draws the tangent line at the umax point. Requires umax, time_umax,
-        and od_umax to be provided. Default is False.
+    fit_result : dict, optional
+        Fit result dictionary from fit_parametric() or fit_non_parametric()
+    stats : dict, optional
+        Statistics dictionary from extract_stats()
+    show_fitted_curve : bool, optional
+        Whether to show the fitted curve (default: True)
+    show_phase_boundaries : bool, optional
+        Whether to show exponential phase boundaries (default: True)
+    show_crosshairs : bool, optional
+        Whether to show crosshairs to umax point (default: True)
+    show_od_max_line : bool, optional
+        Whether to show horizontal line at maximum OD (default: True)
+    show_n0_line : bool, optional
+        Whether to show horizontal line at initial OD (default: True)
+    show_umax_marker : bool, optional
+        Whether to show marker at umax point (default: True)
+    show_tangent : bool, optional
+        Whether to show tangent line at umax (default: True)
     scale : str, optional
-        Plot scale for annotations: 'linear' or 'log'. Defaults to 'linear'.
+        'linear' or 'log' for y-axis scale (default: 'linear')
     row : int, optional
-        Subplot row (for subplots)
+        Subplot row for subplots
     col : int, optional
-        Subplot column (for subplots)
+        Subplot column for subplots
 
     Returns
     -------
     go.Figure
         Updated figure with annotations
-
-    Examples
-    --------
-    >>> # Pass fit result directly (recommended)
-    >>> spline_result = gc.non_parametric.fit_non_parametric(time, data,
-        umax_method="spline")
-    >>> fig = create_base_plot(time, data, scale="linear")
-    >>> fig = annotate_plot(fig, fitted_model=spline_result, scale="linear")
-
-    >>> # Add all annotations including od_max line and umax point
-    >>> fig = create_base_plot(time, data, scale="log")
-    >>> fig = annotate_plot(
-    ...     fig,
-    ...     phase_boundaries=(30, 60),
-    ...     time_umax=45,
-    ...     od_umax=0.25,
-    ...     od_max=0.8,
-    ...     umax=0.5,
-    ...     umax_point=(45, 0.25),
-    ...     fitted_model=spline_result,
-    ...     draw_umax_tangent=True,
-    ...     scale="log"
-    ... )
-
-    >>> # Add only exponential phase, lines, and umax point (no fitted curve)
-    >>> fig = annotate_plot(
-    ...     fig,
-    ...     phase_boundaries=(30, 60),
-    ...     time_umax=45,
-    ...     od_umax=0.25,
-    ...     od_max=0.8,
-    ...     umax_point=(45, 0.25),
-    ...     scale="linear"
-    ... )
     """
-    # Extract exp_start and exp_end from phase_boundaries tuple
-    exp_start = None
-    exp_end = None
-    if phase_boundaries is not None and len(phase_boundaries) == 2:
-        exp_start, exp_end = phase_boundaries
-
-    # Add exponential phase shading (if both start and end are provided)
-    if exp_start is not None and exp_end is not None:
-        fig = add_exponential_phase(fig, exp_start, exp_end, row=row, col=col)
-
-    # Add fitted curve (if data is provided)
-    # Added before marker so marker is on top
-    if fitted_model is not None:
-        model_type = fitted_model.get("model_type")
-        params = fitted_model.get("params")
-
-        # Extract window boundaries from params (new format) or top-level (old format)
-        if params is not None and "fit_t_min" in params and "fit_t_max" in params:
-            window_start = params["fit_t_min"]
-            window_end = params["fit_t_max"]
-        else:
-            # Backward compatibility: check for old format
-            window_start = fitted_model.get("window_start")
-            window_end = fitted_model.get("window_end")
-
-        # Generate default name based on model type
-        default_names = {
-            # Mechanistic models
-            "mech_logistic": "Mechanistic Logistic fit",
-            "mech_gompertz": "Mechanistic Gompertz fit",
-            "mech_richards": "Mechanistic Richards fit",
-            "mech_baranyi": "Mechanistic Baranyi fit",
-            # Phenomenological models
-            "phenom_logistic": "Phenomenological Logistic fit",
-            "phenom_gompertz": "Phenomenological Gompertz fit",
-            "phenom_gompertz_modified": "Phenomenological Gompertz (modified) fit",
-            "phenom_richards": "Phenomenological Richards fit",
-            # Non-parametric models
-            "spline": "Spline fit",
-            "sliding_window": "Sliding window fit",
-        }
-        name = fitted_model.get("name", default_names.get(model_type, "Fitted curve"))
-
-        if (
-            model_type is not None
-            and params is not None
-            and window_start is not None
-            and window_end is not None
-        ):
-            time_fit = np.linspace(window_start, window_end, 200)
-            y_fit = None
-
-            # Check if parametric model (mechanistic or phenomenological)
-            parametric_models = {
-                "mech_logistic",
-                "mech_gompertz",
-                "mech_richards",
-                "mech_baranyi",
-                "phenom_logistic",
-                "phenom_gompertz",
-                "phenom_gompertz_modified",
-                "phenom_richards",
-            }
-            if model_type in parametric_models:
-                y_fit = evaluate_parametric_model(time_fit, model_type, params)
-            elif model_type == "spline":
-                spline = spline_from_params(params)
-                y_fit = np.exp(spline(time_fit))
-            elif model_type == "sliding_window":
-                # For sliding window, we can show the linear fit in log space
-                slope = params["slope"]
-                intercept = params["intercept"]
-                y_fit = np.exp(slope * time_fit + intercept)
-
-            if y_fit is not None:
-                fig = add_fitted_curve(
-                    fig,
-                    time_fit,
-                    y_fit,
-                    name=name,
-                    color="blue",
-                    window_start=window_start,
-                    window_end=window_end,
-                    scale=scale,
-                    row=row,
-                    col=col,
-                )
-
-    # Add vertical and horizontal lines from axes to umax point
-    # (if both coordinates provided)
-    if (
-        time_umax is not None
-        and od_umax is not None
-        and np.isfinite(time_umax)
-        and np.isfinite(od_umax)
-    ):
-        y_val = np.log(od_umax) if scale == "log" else od_umax
-
-        # Add vertical line from bottom of plot to umax point
-        # For log scale, calculate minimum y value from data; for linear, use 0
-        if scale == "log":
-            # Get minimum y value from all traces to find bottom of plot
-            y_min_vals = []
-            for trace in fig.data:
-                if trace.y is not None and len(trace.y) > 0:
-                    valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
-                    if valid_y:
-                        y_min_vals.append(min(valid_y))
-            y_bottom = min(y_min_vals) if y_min_vals else y_val
-        else:
-            y_bottom = 0
-
-        fig.add_shape(
-            type="line",
-            x0=time_umax,
-            y0=y_bottom,
-            x1=time_umax,
-            y1=y_val,
-            line=dict(color="black", dash="dot", width=2),
-            opacity=0.5,
-            row=row,
-            col=col,
-        )
-
-        # Add horizontal line from y-axis to umax point
-        fig.add_shape(
-            type="line",
-            x0=0,
-            y0=y_val,
-            x1=time_umax,
-            y1=y_val,
-            line=dict(color="black", dash="dot", width=2),
-            opacity=0.5,
-            row=row,
-            col=col,
-        )
-
-    # Add od_max horizontal line (if provided)
-    if od_max is not None:
-        fig = add_od_max_line(fig, od_max, scale=scale, row=row, col=col)
-
-    # Add N0 horizontal line (if provided)
-    if N0 is not None:
-        fig = add_N0_line(fig, N0, scale=scale, row=row, col=col)
-
-    # Add umax point (if provided)
-    if umax_point is not None and len(umax_point) == 2:
-        t_val, od_val = umax_point
-        if np.isfinite(t_val) and np.isfinite(od_val):
-            # Transform y-value based on scale
-            y_val = np.log(od_val) if scale == "log" else od_val
-
-            # Add small green dot at the intersection
-            fig.add_trace(
-                go.Scatter(
-                    x=[t_val],
-                    y=[y_val],
-                    mode="markers",
-                    marker=dict(size=15, color="#66BB6A", symbol="circle"),
-                    showlegend=False,
-                ),
+    # Add fitted curve
+    if show_fitted_curve and fit_result is not None:
+        fitted_curve = prepare_fitted_curve(fit_result)
+        if fitted_curve is not None:
+            time_fit, od_fit = fitted_curve
+            fig = add_fitted_curve(
+                fig,
+                time_fit,
+                od_fit,
+                name="Fitted curve",
+                color="blue",
+                scale=scale,
                 row=row,
                 col=col,
             )
 
-    # Add umax tangent line (if requested and data provided)
-    if (
-        draw_umax_tangent
-        and umax is not None
-        and time_umax is not None
-        and od_umax is not None
-        and np.isfinite(umax)
-        and np.isfinite(time_umax)
-        and np.isfinite(od_umax)
-    ):
-        # Extract y-values from figure to determine baseline and plateau OD
-        all_y_values = []
-        for trace in fig.data:
-            if trace.y is not None and len(trace.y) > 0:
-                # Handle both linear and log scale data
-                valid_y = [y for y in trace.y if y is not None and np.isfinite(y)]
-                if valid_y:
-                    all_y_values.extend(valid_y)
+    # Add exponential phase shading
+    if show_phase_boundaries and stats is not None:
+        exp_start = stats.get("exp_phase_start")
+        exp_end = stats.get("exp_phase_end")
+        if exp_start is not None and exp_end is not None:
+            fig = add_exponential_phase(fig, exp_start, exp_end, row=row, col=col)
 
-        if len(all_y_values) > 0:
-            if scale == "log":
-                # Data is in log space, convert to linear for OD calculations
-                baseline_od = np.exp(min(all_y_values))
-                plateau_od = np.exp(max(all_y_values))
-            else:
-                # Data is already in linear space
-                baseline_od = min(all_y_values)
-                plateau_od = max(all_y_values)
+    # Add crosshairs to umax point
+    if show_crosshairs and stats is not None:
+        time_umax = stats.get("time_at_umax")
+        od_umax = stats.get("od_at_umax")
+        if time_umax is not None and od_umax is not None:
+            if np.isfinite(time_umax) and np.isfinite(od_umax):
+                y_val = np.log(od_umax) if scale == "log" else od_umax
 
-            # Ensure baseline < od_umax < plateau (with safety margins)
-            baseline_od = min(baseline_od, od_umax * 0.95)
-            plateau_od = max(plateau_od, od_umax * 1.05)
-
-            # Calculate where tangent intersects baseline and plateau
-            # Tangent equation: OD(t) = od_umax * exp(umax * (t - time_umax))
-            # Solving for t when OD = baseline_od:
-            #   t_start = time_umax + ln(baseline_od / od_umax) / umax
-            # Solving for t when OD = plateau_od:
-            #   t_end = time_umax + ln(plateau_od / od_umax) / umax
-
-            if baseline_od > 0 and plateau_od > 0 and od_umax > 0:
-                t_tangent_start = time_umax + np.log(baseline_od / od_umax) / umax
-                t_tangent_end = time_umax + np.log(plateau_od / od_umax) / umax
-
-                # Create time points for tangent line between intersections
-                t_tangent = np.linspace(t_tangent_start, t_tangent_end, 100)
-
-                # Calculate tangent line values
-                # The tangent should be applied in LOG space for exponential growth
-                # In log space, the tangent line at the point of max growth is:
-                #   ln(OD(t)) = ln(od_umax) + umax * (t - time_umax)
-                # Which gives: OD(t) = od_umax * exp(umax * (t - time_umax))
-                y_tangent_linear = od_umax * np.exp(umax * (t_tangent - time_umax))
-
+                # Determine bottom of vertical line
                 if scale == "log":
-                    # Transform to log space for plotting
-                    y_tangent = np.log(y_tangent_linear)
+                    y_min_vals = []
+                    for trace in fig.data:
+                        if trace.y is not None and len(trace.y) > 0:
+                            valid_y = [y for y in trace.y if np.isfinite(y)]
+                            if valid_y:
+                                y_min_vals.append(min(valid_y))
+                    y_bottom = min(y_min_vals) if y_min_vals else y_val
                 else:
-                    # Already in linear space
-                    y_tangent = y_tangent_linear
+                    y_bottom = 0
 
-                # Add tangent line
+                # Vertical line
+                fig.add_shape(
+                    type="line",
+                    x0=time_umax,
+                    y0=y_bottom,
+                    x1=time_umax,
+                    y1=y_val,
+                    line=dict(color="black", dash="dot", width=2),
+                    opacity=0.5,
+                    row=row,
+                    col=col,
+                )
+
+                # Horizontal line
+                fig.add_shape(
+                    type="line",
+                    x0=0,
+                    y0=y_val,
+                    x1=time_umax,
+                    y1=y_val,
+                    line=dict(color="black", dash="dot", width=2),
+                    opacity=0.5,
+                    row=row,
+                    col=col,
+                )
+
+    # Add od_max horizontal line
+    if show_od_max_line and stats is not None:
+        od_max = stats.get("max_od")
+        if od_max is not None:
+            fig = add_od_max_line(fig, od_max, scale=scale, row=row, col=col)
+
+    # Add N0 horizontal line
+    if show_n0_line and stats is not None:
+        n0 = stats.get("N0")
+        if n0 is not None:
+            fig = add_N0_line(fig, n0, scale=scale, row=row, col=col)
+
+    # Add umax marker point
+    if show_umax_marker and stats is not None:
+        time_umax = stats.get("time_at_umax")
+        od_umax = stats.get("od_at_umax")
+        if time_umax is not None and od_umax is not None:
+            if np.isfinite(time_umax) and np.isfinite(od_umax):
+                y_val = np.log(od_umax) if scale == "log" else od_umax
                 fig.add_trace(
                     go.Scatter(
-                        x=t_tangent,
-                        y=y_tangent,
+                        x=[time_umax],
+                        y=[y_val],
+                        mode="markers",
+                        marker=dict(size=15, color="#66BB6A", symbol="circle"),
+                        showlegend=False,
+                    ),
+                    row=row,
+                    col=col,
+                )
+
+    # Add tangent line at umax
+    if show_tangent and stats is not None:
+        umax = stats.get("mu_max")
+        time_umax = stats.get("time_at_umax")
+        od_umax = stats.get("od_at_umax")
+        if umax is not None and time_umax is not None and od_umax is not None:
+            tangent_data = prepare_tangent_line(umax, time_umax, od_umax, fig, scale)
+            if tangent_data is not None:
+                time_vals, od_vals = tangent_data
+                y_vals = np.log(od_vals) if scale == "log" else od_vals
+                fig.add_trace(
+                    go.Scatter(
+                        x=time_vals,
+                        y=y_vals,
                         mode="lines",
                         line=dict(color="green", width=2, dash="dash"),
                         name="umax tangent",
