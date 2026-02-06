@@ -1570,9 +1570,10 @@ def detect_no_growth(
 
     if snr < min_signal_to_noise:
         checks["has_sufficient_snr"] = False
+        r = f"Signal-to-noise ratio below threshold ({snr:.2f} < {min_signal_to_noise})"
         return {
             "is_no_growth": True,
-            "reason": f"Signal-to-noise ratio below threshold ({snr:.2f} < {min_signal_to_noise})",
+            "reason": r,
             "checks": checks,
         }
 
@@ -1775,7 +1776,7 @@ def compare_methods(
     model_family : str, optional
         Which family of models to fit. Options:
         - "mechanistic" : All mechanistic models (mech_logistic, mech_gompertz, etc.)
-        - "phenomenological" : All phenomenological models (parametric and non-parametric)
+        - "phenomenological" : All phenomenological models
         - "all" : All available models
         Default: "mechanistic"
     phase_boundary_method : str, optional
