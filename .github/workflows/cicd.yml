@@ -110,6 +110,9 @@ jobs:
   publish:
     name: Publish package
     if: startsWith(github.ref, 'refs/tags')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/growthcurves
     permissions:
       id-token: write
     needs:
@@ -128,6 +131,3 @@ jobs:
       # register PyPI integration:
       # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          # remove repository key to set the default to pypi (not test.pypi.org)
-          repository-url: https://test.pypi.org/legacy/
