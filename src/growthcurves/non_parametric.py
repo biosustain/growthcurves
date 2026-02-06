@@ -181,7 +181,7 @@ def fit_non_parametric(
     This unified function supports multiple methods for calculating the maximum
     specific growth rate (Umax):
     - "sliding_window": Finds maximum slope in log-transformed OD across windows
-    - "spline": Fits spline to exponential phase and calculates from derivative
+    - "spline": Fits spline to entire curve and calculates from derivative
 
     Parameters:
         t: Time array (hours)
