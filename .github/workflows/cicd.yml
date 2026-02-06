@@ -131,6 +131,3 @@ jobs:
       # register PyPI integration:
       # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          # remove repository key to set the default to pypi (not test.pypi.org)
-          repository-url: https://test.pypi.org/legacy/
