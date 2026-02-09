@@ -14,7 +14,6 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import UnivariateSpline
 
-
 # =============================================================================
 # MODEL REGISTRY
 # =============================================================================
@@ -70,9 +69,9 @@ def get_model_category(model_type):
         if model_type in models:
             return category
     raise ValueError(
-        f"Unknown model type: {model_type}. "
-        f"Must be one of {get_all_models()}"
+        f"Unknown model type: {model_type}. " f"Must be one of {get_all_models()}"
     )
+
 
 # =============================================================================
 # MECHANISTIC MODELS (ODE-based)

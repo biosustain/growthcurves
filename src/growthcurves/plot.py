@@ -10,7 +10,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .models import (
-    MODEL_REGISTRY,
     evaluate_parametric_model,
     get_all_parametric_models,
     spline_from_params,
