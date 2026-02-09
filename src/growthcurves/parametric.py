@@ -1,15 +1,11 @@
 """Parametric model fitting functions for growth curves.
 
 This module provides functions to fit parametric growth models:
-- Mechanistic models (ODE-based):       mech_logistic,
-                                        mech_gompertz,
-                                        mech_richards,
-                                        mech_baranyi
-- Phenomenological models (ln-space):
-                                        phenom_logistic,
-                                        phenom_gompertz,
-                                        phenom_gompertz_modified,
-                                        phenom_richards
+
+- Mechanistic models (ODE-based): mech_logistic, mech_gompertz, mech_richards,
+  mech_baranyi
+- Phenomenological models (ln-space): phenom_logistic, phenom_gompertz,
+  phenom_gompertz_modified, phenom_richards
 
 All models operate in linear OD space (not log-transformed).
 """

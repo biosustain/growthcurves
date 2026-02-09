@@ -1810,42 +1810,27 @@ def compare_methods(
     ...     phase_boundary_method="tangent"
     ... )
     """
+    from .models import MODEL_REGISTRY
     from .non_parametric import fit_non_parametric
     from .parametric import fit_parametric
-
-    # Define model families
-    model_families = {
-        "mechanistic": [
-            "mech_logistic",
-            "mech_gompertz",
-            "mech_richards",
-            "mech_baranyi",
-        ],
-        "phenomenological": [
-            "phenom_logistic",
-            "phenom_gompertz",
-            "phenom_gompertz_modified",
-            "phenom_richards",
-            "spline",
-            "sliding_window",
-        ],
-    }
 
     # Get list of models to fit
     if model_family == "all":
         models_to_fit = (
-            model_families["mechanistic"] + model_families["phenomenological"]
+            MODEL_REGISTRY["mechanistic"]
+            + MODEL_REGISTRY["phenomenological"]
+            + MODEL_REGISTRY["non_parametric"]
         )
-    elif model_family in model_families:
-        models_to_fit = model_families[model_family]
+    elif model_family in MODEL_REGISTRY:
+        models_to_fit = MODEL_REGISTRY[model_family]
     else:
         raise ValueError(
             f"Unknown model_family '{model_family}'. "
-            f"Choose from: {list(model_families.keys()) + ['all']}"
+            f"Choose from: {list(MODEL_REGISTRY.keys()) + ['all']}"
         )
 
-    # Define non-parametric models and their specific kwargs
-    non_parametric_models = ["spline", "sliding_window"]
+    # Get non-parametric models from registry
+    non_parametric_models = MODEL_REGISTRY["non_parametric"]
     spline_kwargs = ["spline_s", "k"]
     sliding_window_kwargs = ["window_points", "poly_order"]
 

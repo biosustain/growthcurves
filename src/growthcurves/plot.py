@@ -9,7 +9,11 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
-from .models import evaluate_parametric_model, spline_from_params
+from .models import (
+    evaluate_parametric_model,
+    get_all_parametric_models,
+    spline_from_params,
+)
 
 
 def create_base_plot(
@@ -414,18 +418,7 @@ def prepare_fitted_curve(
     time_fit = np.linspace(window_start, window_end, n_points)
 
     # Evaluate model
-    parametric_models = {
-        "mech_logistic",
-        "mech_gompertz",
-        "mech_richards",
-        "mech_baranyi",
-        "phenom_logistic",
-        "phenom_gompertz",
-        "phenom_gompertz_modified",
-        "phenom_richards",
-    }
-
-    if model_type in parametric_models:
+    if model_type in get_all_parametric_models():
         od_fit = evaluate_parametric_model(time_fit, model_type, params)
     elif model_type == "spline":
         spline = spline_from_params(params)
@@ -872,16 +865,7 @@ def plot_derivative_metric(
                         t_model, y_model_raw, window_points=window_points
                     )
 
-            elif model_type in [
-                "mech_logistic",
-                "mech_gompertz",
-                "mech_richards",
-                "mech_baranyi",
-                "phenom_logistic",
-                "phenom_gompertz",
-                "phenom_gompertz_modified",
-                "phenom_richards",
-            ]:
+            elif model_type in get_all_parametric_models():
                 # For parametric models, compute metric from the model
                 # Evaluate the model on fitted range
                 y_model = evaluate_parametric_model(t_model, model_type, params)

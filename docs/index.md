@@ -13,7 +13,8 @@
 :caption: "Tutorials"
 :hidden: true
 
-tutorial/tutorial
+tutorial/analysis
+tutorial/plotting
 ```
 
 ```{toctree}
