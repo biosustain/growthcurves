@@ -23,7 +23,7 @@ from .models import (
     phenom_logistic_model,
     phenom_richards_model,
 )
-from .utils import validate_data
+from .inference import validate_data
 
 # -----------------------------------------------------------------------------
 # Helper Functions
