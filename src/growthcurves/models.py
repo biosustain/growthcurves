@@ -14,6 +14,66 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import UnivariateSpline
 
+
+# =============================================================================
+# MODEL REGISTRY
+# =============================================================================
+
+MODEL_REGISTRY = {
+    "mechanistic": [
+        "mech_logistic",
+        "mech_gompertz",
+        "mech_richards",
+        "mech_baranyi",
+    ],
+    "phenomenological": [
+        "phenom_logistic",
+        "phenom_gompertz",
+        "phenom_gompertz_modified",
+        "phenom_richards",
+    ],
+    "non_parametric": [
+        "spline",
+        "sliding_window",
+    ],
+}
+
+
+def get_all_parametric_models():
+    """Return a set of all parametric model names (mechanistic + phenomenological)."""
+    return set(MODEL_REGISTRY["mechanistic"] + MODEL_REGISTRY["phenomenological"])
+
+
+def get_all_models():
+    """Return a set of all model names (parametric + non-parametric)."""
+    return set(
+        MODEL_REGISTRY["mechanistic"]
+        + MODEL_REGISTRY["phenomenological"]
+        + MODEL_REGISTRY["non_parametric"]
+    )
+
+
+def get_model_category(model_type):
+    """
+    Return the category of a model type.
+
+    Parameters:
+        model_type: Model type string
+
+    Returns:
+        Category string: "mechanistic", "phenomenological", or "non_parametric"
+
+    Raises:
+        ValueError: If model_type is not recognized
+    """
+    for category, models in MODEL_REGISTRY.items():
+        if model_type in models:
+            return category
+    raise ValueError(
+        f"Unknown model type: {model_type}. "
+        f"Must be one of {get_all_models()}"
+    )
+
 # =============================================================================
 # MECHANISTIC MODELS (ODE-based)
 # =============================================================================
@@ -417,8 +477,8 @@ def evaluate_parametric_model(t, model_type, params):
         >>> params = {"mu": 0.5, "K": 0.5, "N0": 0.001, "y0": 0.05}
         >>> y_fit = evaluate_parametric_model(t, "mech_logistic", params)
     """
-    # Model registry: maps model_type to (function, required_param_names)
-    MODEL_REGISTRY = {
+    # Model function registry: maps model_type to (function, required_param_names)
+    PARAMETRIC_MODEL_FUNCTIONS = {
         # Mechanistic models (ODE-based)
         "mech_logistic": (mech_logistic_model, ["mu", "K", "N0", "y0"]),
         "mech_gompertz": (mech_gompertz_model, ["mu", "K", "N0", "y0"]),
@@ -434,13 +494,13 @@ def evaluate_parametric_model(t, model_type, params):
         "phenom_richards": (phenom_richards_model, ["A", "mu_max", "lam", "nu", "N0"]),
     }
 
-    if model_type not in MODEL_REGISTRY:
+    if model_type not in PARAMETRIC_MODEL_FUNCTIONS:
         raise ValueError(
             f"Unknown model type: {model_type}. "
-            f"Must be one of {list(MODEL_REGISTRY.keys())}"
+            f"Must be one of {list(PARAMETRIC_MODEL_FUNCTIONS.keys())}"
         )
 
-    model_func, param_names = MODEL_REGISTRY[model_type]
+    model_func, param_names = PARAMETRIC_MODEL_FUNCTIONS[model_type]
     model_args = [params[name] for name in param_names]
 
     return model_func(t, *model_args)
