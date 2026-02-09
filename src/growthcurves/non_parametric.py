@@ -9,8 +9,8 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.stats import theilslopes
 
-from .models import spline_model
 from .inference import bad_fit_stats, calculate_phase_ends, smooth
+from .models import spline_model
 
 # -----------------------------------------------------------------------------
 # Sliding Window Helpers

@@ -1797,7 +1797,9 @@ def compare_methods(
     Examples
     --------
     >>> # Fit and compare all mechanistic models
-    >>> fits, stats = gc.inference.compare_methods(time, data, model_family="mechanistic")
+    >>> fits, stats = gc.inference.compare_methods(time,
+                                                   data,
+                                                   model_family="mechanistic")
     >>>
     >>> # Plot comparison
     >>> fig = gc.plot.plot_growth_stats_comparison(stats, title="Mechanistic Models")
