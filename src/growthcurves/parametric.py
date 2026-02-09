@@ -13,6 +13,7 @@ All models operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.optimize import curve_fit
 
+from .inference import validate_data
 from .models import (
     mech_baranyi_model,
     mech_gompertz_model,
@@ -23,7 +24,6 @@ from .models import (
     phenom_logistic_model,
     phenom_richards_model,
 )
-from .utils import validate_data
 
 # -----------------------------------------------------------------------------
 # Helper Functions

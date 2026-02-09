@@ -4,7 +4,7 @@ from importlib import metadata
 
 __version__ = metadata.version("growthcurves")
 
-from . import models, non_parametric, parametric, plot, preprocessing, utils
+from . import inference, models, non_parametric, parametric, plot, preprocessing
 from .models import (
     MODEL_REGISTRY,
     get_all_models,
@@ -17,7 +17,7 @@ from .preprocessing import blank_subtraction, path_correct
 # when a user does "from example import *"
 __all__ = [
     "models",
-    "utils",
+    "inference",
     "parametric",
     "non_parametric",
     "plot",

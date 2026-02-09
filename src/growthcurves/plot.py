@@ -749,7 +749,7 @@ def plot_derivative_metric(
     ...     phase_boundaries=(5, 15)
     ... )
     """
-    from .utils import (
+    from .inference import (
         compute_first_derivative,
         compute_mu_max,
         compute_sliding_window_growth_rate,
