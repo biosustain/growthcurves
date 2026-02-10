@@ -168,10 +168,6 @@ def fit_non_parametric(
     t,
     y,
     method="sliding_window",
-    exp_start=0.15,
-    exp_end=0.15,
-    sg_window=11,
-    sg_poly=1,
     window_points=15,
     spline_s=None,
 ):
@@ -213,30 +209,12 @@ def fit_non_parametric(
     if len(t) < min_points or np.ptp(t) <= 0:
         return bad_fit_stats()
 
-    # Maximum OD from raw data
-    # max_od = float(np.max(y_raw))
-
-    # Smooth the data for phase detection
-    y_smooth = smooth(y_raw, sg_window, sg_poly)
-
-    # Interpolate smoothed data to dense grid for phase boundary detection
-    t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = np.interp(t_dense, t, y_smooth)
-
-    # Calculate phase boundaries based on specific growth rate thresholds
-    lag_end, exp_end = calculate_phase_ends(t_dense, y_dense, exp_start, exp_end)
-
     # Calculate Umax using specified method
     if method == "sliding_window":
         umax_result = fit_sliding_window(t, y_raw, window_points)
 
         if umax_result is None:
             return None
-
-        # Extract parameters
-        # params = umax_result["params"]
-        # mu_max = params["slope"]
-        # time_at_umax = params["time_at_umax"]
 
         return {
             "params": {

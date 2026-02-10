@@ -158,8 +158,6 @@ def _linear_interpolate_crossing(t, values, threshold, search_condition):
     """
     Find time at which values cross a threshold using linear interpolation.
 
-    This helper function eliminates duplication in phase boundary calculation.
-
     Parameters:
         t: Time array
         values: Value array (e.g., specific growth rate)
@@ -189,31 +187,34 @@ def _linear_interpolate_crossing(t, values, threshold, search_condition):
     return float(t0 + frac * (t1 - t0))
 
 
-def calculate_phase_ends(t, y, lag_frac=0.15, exp_frac=0.15):
+def calculate_phase_ends(t, y, mu_max, lag_frac=0.15, exp_frac=0.15):
     """
     Calculate lag and exponential phase end times from specific growth rate.
 
     Parameters:
         t: Time array
         y: OD values (should be from fitted/idealized curve)
+        mu_max: Pre-calculated maximum specific growth rate (required)
         lag_frac: Fraction of μ_max for lag phase end detection
         exp_frac: Fraction of μ_max for exponential phase end detection
 
     Returns:
         Tuple of (lag_end, exp_end) times.
     """
+
     if len(t) < 5 or np.ptp(t) <= 0:
         return float(t[0]) if len(t) > 0 else np.nan, (
             float(t[-1]) if len(t) > 0 else np.nan
         )
 
-    # Calculate specific growth rate using existing function
-    _, mu = compute_mu_max(t, y)
+    # Calculate specific growth rate curve for finding phase boundaries
+    _, mu = compute_instantaneous_mu(t, y)
     mu = np.nan_to_num(mu, nan=0.0)  # Replace NaN with 0
     mu = np.maximum(mu, 0)  # Only consider positive growth
 
+    # Use provided mu_max
+    peak_val = float(mu_max)
     peak_idx = np.argmax(mu)
-    peak_val = mu[peak_idx]
 
     if peak_val <= 0:
         return float(t[0]), float(t[-1])
@@ -367,7 +368,7 @@ def calculate_phase_boundaries(
             t, y, time_at_umax, od_at_umax, mu_max, baseline_od, plateau_od
         )
     elif method == "threshold":
-        return calculate_phase_ends(t, y, lag_frac, exp_frac)
+        return calculate_phase_ends(t, y, mu_max, lag_frac, exp_frac)
     else:
         raise ValueError(f"Unknown method '{method}'. Choose 'tangent' or 'threshold'.")
 
@@ -1654,7 +1655,7 @@ def compute_first_derivative(t, y):
     return t, dy
 
 
-def compute_mu_max(t, y):
+def compute_instantaneous_mu(t, y):
     """
     Compute the instantaneous specific growth rate (μ = 1/N × dN/dt).
 
