@@ -9,7 +9,7 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.stats import theilslopes
 
-from .inference import bad_fit_stats, calculate_phase_ends, smooth
+from .inference import bad_fit_stats
 from .models import spline_model
 
 # -----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ def fit_sliding_window(t, y_raw, window_points=15):
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "sliding_window"
         Returns None if calculation fails.
-    
+
     """
     if len(t) < window_points or np.ptp(t) <= 0:
         return None
