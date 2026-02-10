@@ -82,6 +82,8 @@ exclude_patterns = [
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     # "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "plotly": ("https://plotly.com/python-api-reference/", None),
     # "scikit-learn": ("https://scikit-learn.org/stable/", None),
     # "matplotlib": ("https://matplotlib.org/stable/", None),
 }

@@ -31,9 +31,9 @@ def create_base_plot(
 
     Parameters
     ----------
-    time : np.ndarray
+    time : numpy.ndarray
         Time points
-    data : np.ndarray
+    data : numpy.ndarray
         OD measurements or other growth data
     scale : str, optional
         'linear' or 'log' scale for y-axis (default: 'linear')
@@ -184,9 +184,9 @@ def add_fitted_curve(
     ----------
     fig : go.Figure
         Plotly figure to annotate
-    time_fit : np.ndarray
+    time_fit : numpy.ndarray
         Time points for fitted curve
-    y_fit : np.ndarray
+    y_fit : numpy.ndarray
         Fitted y values
     name : str, optional
         Legend name for fitted curve (default: 'Fitted curve')
@@ -461,7 +461,7 @@ def prepare_tangent_line(
 
     Returns
     -------
-    tuple of (np.ndarray, np.ndarray) or None
+    tuple of (numpy.ndarray, numpy.ndarray) or None
         (time_points, od_values) for tangent line, or None if invalid
     """
     if not np.isfinite(umax) or not np.isfinite(time_umax) or not np.isfinite(od_umax):
@@ -703,9 +703,9 @@ def plot_derivative_metric(
 
     Parameters
     ----------
-    t : np.ndarray
+    t : numpy.ndarray
         Time array
-    y : np.ndarray
+    y : numpy.ndarray
         OD600 values (baseline-corrected)
     metric : str, optional
         Either "dndt" for dN/dt or "mu" for μ (default: "mu")

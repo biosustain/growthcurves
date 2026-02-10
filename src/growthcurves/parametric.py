@@ -8,6 +8,7 @@ This module provides functions to fit parametric growth models:
   phenom_gompertz_modified, phenom_richards
 
 All models operate in linear OD space (not log-transformed).
+
 """
 
 import numpy as np
@@ -43,6 +44,7 @@ def _estimate_initial_params(t, y):
             K_init: Initial carrying capacity (max OD)
             y0_init: Initial baseline OD (min OD)
             dy: First derivative (gradient) of OD with respect to time
+
     """
     K_init = np.max(y)
     y0_init = np.min(y)
@@ -60,6 +62,7 @@ def _estimate_inflection_time(t, dy):
 
     Returns:
         Time at maximum derivative (inflection point)
+
     """
     return t[np.argmax(dy)]
 
@@ -75,6 +78,7 @@ def _estimate_lag_time(t, dy, threshold_frac=0.1):
 
     Returns:
         Estimated lag time (time when growth rate exceeds threshold)
+
     """
     threshold = threshold_frac * np.max(dy)
     lag_idx = np.where(dy > threshold)[0]
@@ -99,6 +103,7 @@ def _fit_model_generic(t, y, model_func, param_names, p0_func, bounds_func, mode
 
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails
+
     """
     t, y = validate_data(t, y)
     if t is None:
@@ -139,6 +144,7 @@ def fit_mech_logistic(t, y):
 
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
+
     """
     return _fit_model_generic(
         t,
@@ -173,6 +179,7 @@ def fit_mech_gompertz(t, y):
         due to the logarithmic term in the ODE. If fitting fails or produces
         poor results, consider using mech_logistic, mech_richards, or
         phenom_gompertz instead.
+
     """
     return _fit_model_generic(
         t,

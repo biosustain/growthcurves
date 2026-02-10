@@ -16,15 +16,15 @@ def blank_subtraction(data: np.ndarray, blank: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    data : np.ndarray
+    data : numpy.ndarray
         Data series to be corrected (e.g., OD measurements)
-    blank : np.ndarray
+    blank : numpy.ndarray
         Blank/background measurements to subtract. Must be the same length as data,
         or a scalar value to subtract from all data points.
 
     Returns
     -------
-    np.ndarray
+    numpy.ndarray
         Blank-subtracted data
 
     Examples
@@ -53,14 +53,14 @@ def path_correct(data: np.ndarray, path_length_cm: float) -> np.ndarray:
 
     Parameters
     ----------
-    data : np.ndarray
+    data : numpy.ndarray
         Optical density measurements to correct
     path_length_cm : float
         Actual path length of the measurement in centimeters (must be > 0)
 
     Returns
     -------
-    np.ndarray
+    numpy.ndarray
         Path-corrected data normalized to 1 cm path length
 
     Raises
