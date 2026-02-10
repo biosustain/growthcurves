@@ -45,6 +45,7 @@ docs = [
   "plotly",
   "pandas",
   "numpy",
+  "matplotlib",
 ]
 # local development options
 dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]
