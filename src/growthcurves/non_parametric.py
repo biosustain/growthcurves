@@ -9,7 +9,7 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.stats import theilslopes
 
-from .inference import bad_fit_stats, calculate_phase_ends, smooth
+from .inference import bad_fit_stats
 from .models import spline_model
 
 # -----------------------------------------------------------------------------
