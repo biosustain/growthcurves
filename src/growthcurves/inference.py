@@ -201,8 +201,6 @@ def calculate_phase_ends(t, y, mu_max, lag_frac=0.15, exp_frac=0.15):
     Returns:
         Tuple of (lag_end, exp_end) times.
     """
-    if mu_max is None:
-        raise ValueError("mu_max is required and must be provided")
 
     if len(t) < 5 or np.ptp(t) <= 0:
         return float(t[0]) if len(t) > 0 else np.nan, (
