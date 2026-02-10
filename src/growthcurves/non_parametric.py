@@ -22,7 +22,7 @@ from .models import spline_model
 # -----------------------------------------------------------------------------
 
 
-def fit_sliding_window(t, y_raw, window_points=15):
+def fit_sliding_window(t, y_raw, window_points=15, step=None, n_fits=100):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -58,7 +58,12 @@ def fit_sliding_window(t, y_raw, window_points=15):
     best_window_start = np.nan
     best_window_end = np.nan
 
-    for i in range(len(t) - w + 1):
+    if step is None:
+        # calculate 50 steps
+        step = max(1, int(len(t) / n_fits))
+
+    # limit number of fits to avoid excessive computation using step parameter
+    for i in range(0, len(t) - w + 1, step):
         t_win = t[i : i + w]
         y_log_win = y_log[i : i + w]
 
