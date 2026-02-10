@@ -751,7 +751,7 @@ def plot_derivative_metric(
     """
     from .inference import (
         compute_first_derivative,
-        compute_mu_max,
+        compute_instantaneous_mu,
         compute_sliding_window_growth_rate,
         smooth,
     )
@@ -782,7 +782,7 @@ def plot_derivative_metric(
         y_axis_title = "dN/dt"
         plot_title = title or "First Derivative (dN/dt)"
     else:  # mu
-        t_metric_raw, metric_raw = compute_mu_max(t, y)
+        t_metric_raw, metric_raw = compute_instantaneous_mu(t, y)
         metric_label = "μ"
         y_axis_title = "μ (h⁻¹)"
         plot_title = title or "Specific Growth Rate (μ)"
@@ -794,7 +794,7 @@ def plot_derivative_metric(
     if metric == "dndt":
         t_metric_smooth, metric_smooth = compute_first_derivative(t, y_smooth)
     else:  # mu
-        t_metric_smooth, metric_smooth = compute_mu_max(t, y_smooth)
+        t_metric_smooth, metric_smooth = compute_instantaneous_mu(t, y_smooth)
 
     # Create figure
     fig = go.Figure()
@@ -874,7 +874,7 @@ def plot_derivative_metric(
                 if metric == "dndt":
                     _, metric_model = compute_first_derivative(t_model, y_model)
                 else:  # mu
-                    _, metric_model = compute_mu_max(t_model, y_model)
+                    _, metric_model = compute_instantaneous_mu(t_model, y_model)
 
             elif model_type == "spline":
                 # For spline model, reconstruct the spline and evaluate
