@@ -175,6 +175,7 @@ def fit_non_parametric(
     method="sliding_window",
     window_points=15,
     spline_s=None,
+    **kwargs,
 ):
     """
     Calculate growth statistics using non-parametric methods.

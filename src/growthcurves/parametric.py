@@ -424,7 +424,7 @@ def fit_phenom_richards(t, y):
 # -----------------------------------------------------------------------------
 
 
-def fit_parametric(t, y, method="mech_logistic"):
+def fit_parametric(t, y, method="mech_logistic", **kwargs):
     """
     Fit a growth model to data.
 

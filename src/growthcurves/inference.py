@@ -1758,7 +1758,7 @@ def compute_sliding_window_growth_rate(t, y, window_points=15):
 def compare_methods(
     time: np.ndarray,
     data: np.ndarray,
-    model_family: str = "mechanistic",
+    model_family: str = "all",
     phase_boundary_method: str = None,
     **fit_kwargs,
 ) -> tuple:
@@ -1779,13 +1779,13 @@ def compare_methods(
         - "mechanistic" : All mechanistic models (mech_logistic, mech_gompertz, etc.)
         - "phenomenological" : All phenomenological models
         - "all" : All available models
-        Default: "mechanistic"
+        Default: "all"
     phase_boundary_method : str, optional
         Method for calculating phase boundaries ("threshold" or "tangent").
         If None, uses default for each model type.
     **fit_kwargs
         Additional keyword arguments to pass to fitting functions
-        (e.g., spline_s, window_points)
+        (e.g., spline_s=100, window_points=15)
 
     Returns
     -------
@@ -1834,44 +1834,22 @@ def compare_methods(
 
     # Get non-parametric models from registry
     non_parametric_models = MODEL_REGISTRY["non_parametric"]
-    spline_kwargs = ["spline_s", "k"]
-    sliding_window_kwargs = ["window_points", "poly_order"]
+    # spline_kwargs = ["spline_s", "k"]
+    # sliding_window_kwargs = ["window_points", "poly_order"]
 
     # Fit all models
     fits = {}
     for model_name in models_to_fit:
-        try:
-            if model_name in non_parametric_models:
-                # Filter kwargs for non-parametric models
-                if model_name == "spline":
-                    model_kwargs = {
-                        k: v for k, v in fit_kwargs.items() if k in spline_kwargs
-                    }
-                elif model_name == "sliding_window":
-                    model_kwargs = {
-                        k: v
-                        for k, v in fit_kwargs.items()
-                        if k in sliding_window_kwargs
-                    }
-                else:
-                    model_kwargs = {}
+        if model_name in non_parametric_models:
 
-                fits[model_name] = fit_non_parametric(
-                    time, data, method=model_name, **model_kwargs
-                )
-            else:
-                # Parametric models - exclude non-parametric specific kwargs
-                excluded_kwargs = spline_kwargs + sliding_window_kwargs
-                model_kwargs = {
-                    k: v for k, v in fit_kwargs.items() if k not in excluded_kwargs
-                }
+            fits[model_name] = fit_non_parametric(
+                time, data, method=model_name, **fit_kwargs
+            )
+        else:
 
-                fits[model_name] = fit_parametric(
-                    time, data, method=model_name, **model_kwargs
-                )
-        except Exception:
-            # If fitting fails, store None
-            fits[model_name] = None
+            fits[model_name] = fit_parametric(
+                time, data, method=model_name, **fit_kwargs
+            )
 
     # Extract statistics from all fits
     stats = {}
