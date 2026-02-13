@@ -7,6 +7,8 @@ derivative calculations, and RMSE computation.
 import numpy as np
 from scipy.signal import savgol_filter
 
+import growthcurves as gc
+
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -1832,34 +1834,15 @@ def compare_methods(
             f"Choose from: {list(MODEL_REGISTRY.keys()) + ['all']}"
         )
 
-    # Get non-parametric models from registry
-    non_parametric_models = MODEL_REGISTRY["non_parametric"]
     # spline_kwargs = ["spline_s", "k"]
     # sliding_window_kwargs = ["window_points", "poly_order"]
 
     # Fit all models
     fits = {}
-    for model_name in models_to_fit:
-        if model_name in non_parametric_models:
-
-            fits[model_name] = fit_non_parametric(
-                time, data, method=model_name, **fit_kwargs
-            )
-        else:
-
-            fits[model_name] = fit_parametric(
-                time, data, method=model_name, **fit_kwargs
-            )
-
-    # Extract statistics from all fits
     stats = {}
-    for model_name, fit_result in fits.items():
-        if fit_result is not None:
-            stats[model_name] = extract_stats(
-                fit_result, time, data, phase_boundary_method=phase_boundary_method
-            )
-        else:
-            # If fit failed, include empty stats
-            stats[model_name] = bad_fit_stats()
+    for model_name in models_to_fit:
+        fits[model_name], stats[model_name] = gc.fit_model(
+            time=time, data=data, model_name=model_name, **fit_kwargs
+        )
 
     return fits, stats
