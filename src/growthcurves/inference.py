@@ -9,6 +9,8 @@ from scipy.signal import savgol_filter
 
 import growthcurves as gc
 
+from .models import MODEL_REGISTRY
+
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -1829,10 +1831,6 @@ def compare_methods(
     ...     phase_boundary_method="tangent"
     ... )
     """
-    from .models import MODEL_REGISTRY
-    from .non_parametric import fit_non_parametric
-    from .parametric import fit_parametric
-
     # Get list of models to fit
     if model_family == "all":
         models_to_fit = (
