@@ -1515,10 +1515,11 @@ def detect_no_growth(
     Detect whether a growth curve shows no significant growth.
 
     Performs multiple checks to determine if a well should be marked as "no growth":
-    1. Insufficient data points
-    2. Low signal-to-noise ratio (max/min OD ratio)
-    3. Insufficient OD increase (flat curve)
-    4. Zero or near-zero growth rate (from fitted stats)
+    1. All OD values are <= 0
+    2. Insufficient data points
+    3. Low signal-to-noise ratio (max/min OD ratio)
+    4. Insufficient OD increase (flat curve)
+    5. Zero or near-zero growth rate (from fitted stats)
 
     Parameters:
         t: Time array
@@ -1540,6 +1541,19 @@ def detect_no_growth(
     """
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
+
+    # Check if all OD values are <= 0
+    if np.all(y <= 0):
+        return {
+            "is_no_growth": True,
+            "reason": "All OD values <= 0",
+            "checks": {
+                "has_sufficient_data": False,
+                "has_sufficient_snr": False,
+                "has_sufficient_od_increase": False,
+                "has_positive_growth_rate": False,
+            },
+        }
 
     # Filter to finite positive values
     mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
