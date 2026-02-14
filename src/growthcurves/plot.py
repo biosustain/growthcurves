@@ -31,9 +31,9 @@ def create_base_plot(
 
     Parameters
     ----------
-    time : np.ndarray
+    time : numpy.ndarray
         Time points
-    data : np.ndarray
+    data : numpy.ndarray
         OD measurements or other growth data
     scale : str, optional
         'linear' or 'log' scale for y-axis (default: 'linear')
@@ -50,7 +50,7 @@ def create_base_plot(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Plotly figure object with raw data
     """
     # Convert to numpy arrays
@@ -121,7 +121,7 @@ def add_exponential_phase(
 
     Parameters
     ----------
-    fig : go.Figure
+    fig : plotly.graph_objects.Figure
         Plotly figure to annotate
     exp_start : float
         Start time of exponential phase
@@ -140,7 +140,7 @@ def add_exponential_phase(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Updated figure with exponential phase shading
     """
     if exp_start is None or exp_end is None:
@@ -173,7 +173,7 @@ def add_fitted_curve(
     line_width: int = 5,
     window_start: Optional[float] = None,
     window_end: Optional[float] = None,
-    scale: str = "linear",
+    scale: Optional[str] = "linear",
     row: Optional[int] = None,
     col: Optional[int] = None,
 ) -> go.Figure:
@@ -182,11 +182,11 @@ def add_fitted_curve(
 
     Parameters
     ----------
-    fig : go.Figure
+    fig : plotly.graph_objects.Figure
         Plotly figure to annotate
-    time_fit : np.ndarray
+    time_fit : numpy.ndarray
         Time points for fitted curve
-    y_fit : np.ndarray
+    y_fit : numpy.ndarray
         Fitted y values
     name : str, optional
         Legend name for fitted curve (default: 'Fitted curve')
@@ -207,7 +207,7 @@ def add_fitted_curve(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Updated figure with fitted curve
     """
     if time_fit is None or y_fit is None:
@@ -261,7 +261,7 @@ def add_od_max_line(
 
     Parameters
     ----------
-    fig : go.Figure
+    fig : plotly.graph_objects.Figure
         Plotly figure to annotate
     od_max : float
         Maximum OD value
@@ -284,7 +284,7 @@ def add_od_max_line(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Updated figure with od_max horizontal line
     """
     if od_max is None:
@@ -327,7 +327,7 @@ def add_N0_line(
 
     Parameters
     ----------
-    fig : go.Figure
+    fig : gplotly.graph_objectso.Figure
         Plotly figure to annotate
     N0 : float
         Initial OD value
@@ -350,7 +350,7 @@ def add_N0_line(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Updated figure with N0 horizontal line
     """
     if N0 is None:
@@ -438,8 +438,8 @@ def prepare_tangent_line(
     time_umax: float,
     od_umax: float,
     fig: go.Figure,
-    scale: str = "linear",
-    n_points: int = 100,
+    scale: Optional[str] = "linear",
+    n_points: Optional[int] = 100,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     Calculate tangent line at maximum growth rate point.
@@ -452,7 +452,7 @@ def prepare_tangent_line(
         Time at maximum growth rate
     od_umax : float
         OD value at maximum growth rate
-    fig : go.Figure
+    fig : plotly.graph_objects.Figure
         Figure to extract data range from
     scale : str, optional
         'linear' or 'log' for determining data range (default: 'linear')
@@ -461,7 +461,7 @@ def prepare_tangent_line(
 
     Returns
     -------
-    tuple of (np.ndarray, np.ndarray) or None
+    tuple of (numpy.ndarray, numpy.ndarray) or None
         (time_points, od_values) for tangent line, or None if invalid
     """
     if not np.isfinite(umax) or not np.isfinite(time_umax) or not np.isfinite(od_umax):
@@ -524,7 +524,7 @@ def annotate_plot(
 
     Parameters
     ----------
-    fig : go.Figure
+    fig : plotly.graph_objects.Figure
         Plotly figure to annotate
     fit_result : dict, optional
         Fit result dictionary from fit_parametric() or fit_non_parametric()
@@ -553,7 +553,7 @@ def annotate_plot(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Updated figure with annotations
     """
     # Add fitted curve
@@ -703,9 +703,9 @@ def plot_derivative_metric(
 
     Parameters
     ----------
-    t : np.ndarray
+    t : numpy.ndarray
         Time array
-    y : np.ndarray
+    y : numpy.ndarray
         OD600 values (baseline-corrected)
     metric : str, optional
         Either "dndt" for dN/dt or "mu" for μ (default: "mu")
@@ -725,7 +725,7 @@ def plot_derivative_metric(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Plotly figure with derivative metric plot
 
     Examples
@@ -957,7 +957,7 @@ def plot_growth_stats_comparison(
 
     Returns
     -------
-    go.Figure
+    plotly.graph_objects.Figure
         Plotly figure with subplots showing each metric comparison
 
     Examples

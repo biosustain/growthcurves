@@ -1788,9 +1788,9 @@ def compare_methods(
 
     Parameters
     ----------
-    time : array_like
+    time : numpy.ndarray
         Time array for fitting
-    data : array_like
+    data : numpy.ndarray
         OD data array for fitting
     model_family : str, optional
         Which family of models to fit. Options:

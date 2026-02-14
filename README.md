@@ -119,7 +119,7 @@ The smoothing parameter `spline_s` controls the tradeoff between fit quality and
 ## Documentation and tutorial
 
 An interactive tutorial notebook is available at
-[docs/tutorial/tutorial.ipynb](docs/tutorial/tutorial.ipynb). It covers model
+[docs/tutorial/analysis.ipynb](docs/tutorial/analysis.ipynb). It covers model
 fitting, derivative analysis, parameter extraction, and cross-model comparison
 using a realistic microbial growth dataset.
 

@@ -1,5 +1,3 @@
-# Python Package Documentation
-
 ```{include} ../README.md
 :start-line: 0
 :relative-docs: docs

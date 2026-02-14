@@ -47,6 +47,7 @@ def fit_sliding_window(t, y_raw, window_points=15, step=None, n_fits=None):
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "sliding_window"
         Returns None if calculation fails.
+
     """
     if len(t) < window_points or np.ptp(t) <= 0:
         return None
@@ -122,6 +123,7 @@ def fit_spline(t, y, spline_s=None):
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "spline"
         Returns None if calculation fails.
+
     """
     if len(t) < 5:
         return None
