@@ -86,7 +86,9 @@ def _estimate_lag_time(time, dy, threshold_frac=0.1):
     return time[lag_idx[0]] if len(lag_idx) > 0 else time[0]
 
 
-def _fit_model_generic(time, data, model_func, param_names, p0_func, bounds_func, model_type):
+def _fit_model_generic(
+    time, data, model_func, param_names, p0_func, bounds_func, model_type
+):
     """
     Generic wrapper for fitting parametric growth models.
 

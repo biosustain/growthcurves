@@ -1747,7 +1747,7 @@ def compute_instantaneous_mu(time, data):
     Returns
     -------
     tuple of (np.ndarray, np.ndarray)
-        Tuple of (time, mu) where mu is the specific growth rate μ = (1/data) × d(data)/dt
+        Tuple (time, mu) where mu is the specific growth rate μ = (1/data) × d(data)/dt
     """
     time = np.asarray(time, dtype=float)
     data = np.asarray(data, dtype=float)
