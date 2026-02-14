@@ -45,7 +45,7 @@ def get_all_parametric_models():
 
 def get_all_models():
     """Return a set of all model names (parametric + non-parametric)."""
-    return set(
+    return list(
         MODEL_REGISTRY["mechanistic"]
         + MODEL_REGISTRY["phenomenological"]
         + MODEL_REGISTRY["non_parametric"]

@@ -9,7 +9,7 @@ All methods operate in linear OD space (not log-transformed).
 import numpy as np
 from scipy.stats import theilslopes
 
-from .inference import bad_fit_stats, calculate_phase_ends, smooth
+from .inference import bad_fit_stats
 from .models import spline_model
 
 # -----------------------------------------------------------------------------
@@ -22,7 +22,7 @@ from .models import spline_model
 # -----------------------------------------------------------------------------
 
 
-def fit_sliding_window(t, y_raw, window_points=15):
+def fit_sliding_window(t, y_raw, window_points=15, step=None, n_fits=None):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -34,6 +34,10 @@ def fit_sliding_window(t, y_raw, window_points=15):
         t: Time array (hours)
         y_raw: OD values (baseline-corrected, must be positive)
         window_points: Number of points in each sliding window
+        step: Step size for sliding window (default: 1 if step is None and
+              `n_fits` is None)
+        n_fits: Approximate number of fits to perform (default: None). Ignored
+                if `step` is provided.
 
     Returns:
         Dict with model parameters:
@@ -58,7 +62,14 @@ def fit_sliding_window(t, y_raw, window_points=15):
     best_window_start = np.nan
     best_window_end = np.nan
 
-    for i in range(len(t) - w + 1):
+    if step is None:
+        if n_fits is None:
+            step = 1
+        else:
+            step = max(1, int(len(t) / n_fits))
+
+    # limit number of fits to avoid excessive computation using step parameter
+    for i in range(0, len(t) - w + 1, step):
         t_win = t[i : i + w]
         y_log_win = y_log[i : i + w]
 
@@ -170,6 +181,7 @@ def fit_non_parametric(
     method="sliding_window",
     window_points=15,
     spline_s=None,
+    **kwargs,
 ):
     """
     Calculate growth statistics using non-parametric methods.

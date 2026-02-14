@@ -7,6 +7,10 @@ derivative calculations, and RMSE computation.
 import numpy as np
 from scipy.signal import savgol_filter
 
+import growthcurves as gc
+
+from .models import MODEL_REGISTRY
+
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
@@ -1513,10 +1517,11 @@ def detect_no_growth(
     Detect whether a growth curve shows no significant growth.
 
     Performs multiple checks to determine if a well should be marked as "no growth":
-    1. Insufficient data points
-    2. Low signal-to-noise ratio (max/min OD ratio)
-    3. Insufficient OD increase (flat curve)
-    4. Zero or near-zero growth rate (from fitted stats)
+    1. All OD values are <= 0
+    2. Insufficient data points
+    3. Low signal-to-noise ratio (max/min OD ratio)
+    4. Insufficient OD increase (flat curve)
+    5. Zero or near-zero growth rate (from fitted stats)
 
     Parameters:
         t: Time array
@@ -1538,6 +1543,19 @@ def detect_no_growth(
     """
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
+
+    # Check if all OD values are <= 0
+    if np.all(y <= 0):
+        return {
+            "is_no_growth": True,
+            "reason": "All OD values <= 0",
+            "checks": {
+                "has_sufficient_data": False,
+                "has_sufficient_snr": False,
+                "has_sufficient_od_increase": False,
+                "has_positive_growth_rate": False,
+            },
+        }
 
     # Filter to finite positive values
     mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
@@ -1758,7 +1776,7 @@ def compute_sliding_window_growth_rate(t, y, window_points=15):
 def compare_methods(
     time: np.ndarray,
     data: np.ndarray,
-    model_family: str = "mechanistic",
+    model_family: str = "all",
     phase_boundary_method: str = None,
     **fit_kwargs,
 ) -> tuple:
@@ -1779,13 +1797,13 @@ def compare_methods(
         - "mechanistic" : All mechanistic models (mech_logistic, mech_gompertz, etc.)
         - "phenomenological" : All phenomenological models
         - "all" : All available models
-        Default: "mechanistic"
+        Default: "all"
     phase_boundary_method : str, optional
         Method for calculating phase boundaries ("threshold" or "tangent").
         If None, uses default for each model type.
     **fit_kwargs
         Additional keyword arguments to pass to fitting functions
-        (e.g., spline_s, window_points)
+        (e.g., spline_s=100, window_points=15)
 
     Returns
     -------
@@ -1813,10 +1831,6 @@ def compare_methods(
     ...     phase_boundary_method="tangent"
     ... )
     """
-    from .models import MODEL_REGISTRY
-    from .non_parametric import fit_non_parametric
-    from .parametric import fit_parametric
-
     # Get list of models to fit
     if model_family == "all":
         models_to_fit = (
@@ -1832,56 +1846,15 @@ def compare_methods(
             f"Choose from: {list(MODEL_REGISTRY.keys()) + ['all']}"
         )
 
-    # Get non-parametric models from registry
-    non_parametric_models = MODEL_REGISTRY["non_parametric"]
-    spline_kwargs = ["spline_s", "k"]
-    sliding_window_kwargs = ["window_points", "poly_order"]
+    # spline_kwargs = ["spline_s", "k"]
+    # sliding_window_kwargs = ["window_points", "poly_order"]
 
     # Fit all models
     fits = {}
-    for model_name in models_to_fit:
-        try:
-            if model_name in non_parametric_models:
-                # Filter kwargs for non-parametric models
-                if model_name == "spline":
-                    model_kwargs = {
-                        k: v for k, v in fit_kwargs.items() if k in spline_kwargs
-                    }
-                elif model_name == "sliding_window":
-                    model_kwargs = {
-                        k: v
-                        for k, v in fit_kwargs.items()
-                        if k in sliding_window_kwargs
-                    }
-                else:
-                    model_kwargs = {}
-
-                fits[model_name] = fit_non_parametric(
-                    time, data, method=model_name, **model_kwargs
-                )
-            else:
-                # Parametric models - exclude non-parametric specific kwargs
-                excluded_kwargs = spline_kwargs + sliding_window_kwargs
-                model_kwargs = {
-                    k: v for k, v in fit_kwargs.items() if k not in excluded_kwargs
-                }
-
-                fits[model_name] = fit_parametric(
-                    time, data, method=model_name, **model_kwargs
-                )
-        except Exception:
-            # If fitting fails, store None
-            fits[model_name] = None
-
-    # Extract statistics from all fits
     stats = {}
-    for model_name, fit_result in fits.items():
-        if fit_result is not None:
-            stats[model_name] = extract_stats(
-                fit_result, time, data, phase_boundary_method=phase_boundary_method
-            )
-        else:
-            # If fit failed, include empty stats
-            stats[model_name] = bad_fit_stats()
+    for model_name in models_to_fit:
+        fits[model_name], stats[model_name] = gc.fit_model(
+            time=time, data=data, model_name=model_name, **fit_kwargs
+        )
 
     return fits, stats

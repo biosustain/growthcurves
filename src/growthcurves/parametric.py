@@ -15,6 +15,7 @@ from scipy.optimize import curve_fit
 
 from .inference import validate_data
 from .models import (
+    get_all_models,
     mech_baranyi_model,
     mech_gompertz_model,
     mech_logistic_model,
@@ -423,7 +424,7 @@ def fit_phenom_richards(t, y):
 # -----------------------------------------------------------------------------
 
 
-def fit_parametric(t, y, method="mech_logistic"):
+def fit_parametric(t, y, method="mech_logistic", **kwargs):
     """
     Fit a growth model to data.
 
@@ -439,23 +440,11 @@ def fit_parametric(t, y, method="mech_logistic"):
     Returns:
         Fit result dict or None if fitting fails.
     """
-    fit_funcs = {
-        # Mechanistic models (ODE-based)
-        "mech_logistic": fit_mech_logistic,
-        "mech_gompertz": fit_mech_gompertz,
-        "mech_richards": fit_mech_richards,
-        "mech_baranyi": fit_mech_baranyi,
-        # Phenomenological models (ln-space)
-        "phenom_logistic": fit_phenom_logistic,
-        "phenom_gompertz": fit_phenom_gompertz,
-        "phenom_gompertz_modified": fit_phenom_gompertz_modified,
-        "phenom_richards": fit_phenom_richards,
-    }
-    fit_func = fit_funcs.get(method)
+    fit_func = globals().get(f"fit_{method}")
 
     if fit_func is None:
         raise ValueError(
-            f"Unknown method '{method}'. Must be one of {list(fit_funcs.keys())}"
+            f"Unknown method '{method}'. Must be one of {list(get_all_models())}."
         )
 
     result = fit_func(t, y)
@@ -466,8 +455,3 @@ def fit_parametric(t, y, method="mech_logistic"):
         result["params"]["fit_t_min"] = float(np.min(t_valid))
         result["params"]["fit_t_max"] = float(np.max(t_valid))
     return result
-
-
-# -----------------------------------------------------------------------------
-# Growth Statistics Extraction
-# -----------------------------------------------------------------------------
