@@ -51,7 +51,7 @@ def fit_model(
             stacklevel=2,
         )
         return None, inference.bad_fit_stats()
-    stats_res = inference.extract_stats(fit_res, t=time, y=data)
+    stats_res = inference.extract_stats(fit_res, time=time, data=data)
     stats_res["model_name"] = model_name
     return fit_res, stats_res
 

@@ -684,8 +684,8 @@ def annotate_plot(
 
 
 def plot_derivative_metric(
-    t: np.ndarray,
-    y: np.ndarray,
+    time: np.ndarray,
+    data: np.ndarray,
     metric: str = "mu",
     fit_result: Optional[Dict[str, Any]] = None,
     sg_window: int = 11,
@@ -703,9 +703,9 @@ def plot_derivative_metric(
 
     Parameters
     ----------
-    t : numpy.ndarray
+    time : numpy.ndarray
         Time array
-    y : numpy.ndarray
+    data : numpy.ndarray
         OD600 values (baseline-corrected)
     metric : str, optional
         Either "dndt" for dN/dt or "mu" for μ (default: "mu")
@@ -734,16 +734,16 @@ def plot_derivative_metric(
     >>> from growthcurves import plot_derivative_metric, fit_non_parametric
     >>>
     >>> # Generate some example data
-    >>> t = np.linspace(0, 24, 100)
-    >>> y = 0.05 * np.exp(0.5 * t) / (1 + (0.05/2.0) * (np.exp(0.5 * t) - 1))
+    >>> time = np.linspace(0, 24, 100)
+    >>> data = 0.05 * np.exp(0.5 * time) / (1 + (0.05/2.0) * (np.exp(0.5 * time) - 1))
     >>>
     >>> # Plot specific growth rate without fit
-    >>> fig = plot_derivative_metric(t, y, metric="mu")
+    >>> fig = plot_derivative_metric(time, data, metric="mu")
     >>>
     >>> # Plot with fitted model
-    >>> fit_result = fit_non_parametric(t, y, umax_method="spline")
+    >>> fit_result = fit_non_parametric(time, data, umax_method="spline")
     >>> fig = plot_derivative_metric(
-    ...     t, y,
+    ...     time, data,
     ...     metric="mu",
     ...     fit_result=fit_result,
     ...     phase_boundaries=(5, 15)
@@ -761,40 +761,40 @@ def plot_derivative_metric(
         raise ValueError(f"metric must be 'dndt' or 'mu', got '{metric}'")
 
     # Convert to numpy arrays
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
+    time = np.asarray(time, dtype=float)
+    data = np.asarray(data, dtype=float)
 
     # Remove non-finite and non-positive values (needed for mu calculation)
-    mask = np.isfinite(t) & np.isfinite(y) & (y > 0)
-    t = t[mask]
-    y = y[mask]
+    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
+    time = time[mask]
+    data = data[mask]
 
-    if len(t) < 3:
+    if len(time) < 3:
         return go.Figure()
 
     # Store full time range for x-axis
-    x_range = [float(t.min()), float(t.max())]
+    x_range = [float(time.min()), float(time.max())]
 
     # Step 1: Calculate metric on raw data
     if metric == "dndt":
-        t_metric_raw, metric_raw = compute_first_derivative(t, y)
+        t_metric_raw, metric_raw = compute_first_derivative(time, data)
         metric_label = "dN/dt"
         y_axis_title = "dN/dt"
         plot_title = title or "First Derivative (dN/dt)"
     else:  # mu
-        t_metric_raw, metric_raw = compute_instantaneous_mu(t, y)
+        t_metric_raw, metric_raw = compute_instantaneous_mu(time, data)
         metric_label = "μ"
         y_axis_title = "μ (h⁻¹)"
         plot_title = title or "Specific Growth Rate (μ)"
 
     # Step 2: Smooth the data
-    y_smooth = smooth(y, sg_window, sg_poly)
+    y_smooth = smooth(data, sg_window, sg_poly)
 
     # Step 3: Calculate metric on smoothed data
     if metric == "dndt":
-        t_metric_smooth, metric_smooth = compute_first_derivative(t, y_smooth)
+        t_metric_smooth, metric_smooth = compute_first_derivative(time, y_smooth)
     else:  # mu
-        t_metric_smooth, metric_smooth = compute_instantaneous_mu(t, y_smooth)
+        t_metric_smooth, metric_smooth = compute_instantaneous_mu(time, y_smooth)
 
     # Create figure
     fig = go.Figure()
@@ -842,14 +842,14 @@ def plot_derivative_metric(
 
         # Filter to fitted range if available
         if fit_t_min is not None and fit_t_max is not None:
-            fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
-            t_model = t[fit_mask]
-            y_model_raw = y[fit_mask]
+            fit_mask = (time >= fit_t_min) & (time <= fit_t_max)
+            t_model = time[fit_mask]
+            y_model_raw = data[fit_mask]
             y_model_smooth = y_smooth[fit_mask]
         else:
             # Use full range if fit bounds not available
-            t_model = t
-            y_model_raw = y
+            t_model = time
+            y_model_raw = data
             y_model_smooth = y_smooth
 
         if len(t_model) >= 2:
