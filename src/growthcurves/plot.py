@@ -17,8 +17,8 @@ from .models import (
 
 
 def create_base_plot(
-    time: np.ndarray,
-    data: np.ndarray,
+    t: np.ndarray,
+    N: np.ndarray,
     scale: str = "linear",
     xlabel: str = "Time (hours)",
     ylabel: Optional[str] = None,
@@ -27,14 +27,14 @@ def create_base_plot(
     marker_color: str = "gray",
 ) -> go.Figure:
     """
-    Create a base plot with raw data points.
+    Create a base plot with raw N points.
 
     Parameters
     ----------
-    time : numpy.ndarray
+    t : numpy.ndarray
         Time points
-    data : numpy.ndarray
-        OD measurements or other growth data
+    N : numpy.ndarray
+        OD measurements or other growth N
     scale : str, optional
         'linear' or 'log' scale for y-axis (default: 'linear')
     xlabel : str, optional
@@ -42,43 +42,43 @@ def create_base_plot(
     ylabel : str, optional
         Y-axis label. If None, automatically set based on scale
     marker_size : int, optional
-        Size of data point markers (default: 5)
+        Size of N point markers (default: 5)
     marker_opacity : float, optional
-        Opacity of data point markers (default: 0.3)
+        Opacity of N point markers (default: 0.3)
     marker_color : str, optional
-        Color of data point markers (default: 'gray')
+        Color of N point markers (default: 'gray')
 
     Returns
     -------
     plotly.graph_objects.Figure
-        Plotly figure object with raw data
+        Plotly figure object with raw N
     """
     # Convert to numpy arrays
-    time = np.asarray(time, dtype=float)
-    data = np.asarray(data, dtype=float)
+    t = np.asarray(t, dtype=float)
+    N = np.asarray(N, dtype=float)
 
     # Filter out non-positive and non-finite values for valid plotting
-    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
-    time = time[mask]
-    data = data[mask]
+    mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
+    t = t[mask]
+    N = N[mask]
 
-    # Determine y-axis data based on scale
+    # Determine y-axis N based on scale
     if scale == "log":
-        y_data = np.log(data)
+        y_data = np.log(N)
         if ylabel is None:
             ylabel = "ln(OD)"
     else:
-        y_data = data
+        y_data = N
         if ylabel is None:
             ylabel = "OD"
 
     # Create figure
     fig = go.Figure()
 
-    # Add raw data trace
+    # Add raw N trace
     fig.add_trace(
         go.Scatter(
-            x=time,
+            x=t,
             y=y_data,
             mode="markers",
             name="Data",
@@ -684,8 +684,8 @@ def annotate_plot(
 
 
 def plot_derivative_metric(
-    time: np.ndarray,
-    data: np.ndarray,
+    t: np.ndarray,
+    N: np.ndarray,
     metric: str = "mu",
     fit_result: Optional[Dict[str, Any]] = None,
     sg_window: int = 11,
@@ -697,15 +697,15 @@ def plot_derivative_metric(
     Plot either dN/dt or μ (specific growth rate) for a growth curve.
 
     This function generates up to three traces:
-    1. Raw data metric (light grey)
-    2. Smoothed data metric (main trace, pink/red)
+    1. Raw N metric (light grey)
+    2. Smoothed N metric (main trace, pink/red)
     3. Model fit metric (dashed blue line, if fit_result provided)
 
     Parameters
     ----------
-    time : numpy.ndarray
+    t : numpy.ndarray
         Time array
-    data : numpy.ndarray
+    N : numpy.ndarray
         OD600 values (baseline-corrected)
     metric : str, optional
         Either "dndt" for dN/dt or "mu" for μ (default: "mu")
@@ -733,17 +733,17 @@ def plot_derivative_metric(
     >>> import numpy as np
     >>> from growthcurves import plot_derivative_metric, fit_non_parametric
     >>>
-    >>> # Generate some example data
-    >>> time = np.linspace(0, 24, 100)
-    >>> data = 0.05 * np.exp(0.5 * time) / (1 + (0.05/2.0) * (np.exp(0.5 * time) - 1))
+    >>> # Generate some example N
+    >>> t = np.linspace(0, 24, 100)
+    >>> N = 0.05 * np.exp(0.5 * t) / (1 + (0.05/2.0) * (np.exp(0.5 * t) - 1))
     >>>
     >>> # Plot specific growth rate without fit
-    >>> fig = plot_derivative_metric(time, data, metric="mu")
+    >>> fig = plot_derivative_metric(t, N, metric="mu")
     >>>
     >>> # Plot with fitted model
-    >>> fit_result = fit_non_parametric(time, data, umax_method="spline")
+    >>> fit_result = fit_non_parametric(t, N, umax_method="spline")
     >>> fig = plot_derivative_metric(
-    ...     time, data,
+    ...     t, N,
     ...     metric="mu",
     ...     fit_result=fit_result,
     ...     phase_boundaries=(5, 15)
@@ -761,40 +761,40 @@ def plot_derivative_metric(
         raise ValueError(f"metric must be 'dndt' or 'mu', got '{metric}'")
 
     # Convert to numpy arrays
-    time = np.asarray(time, dtype=float)
-    data = np.asarray(data, dtype=float)
+    t = np.asarray(t, dtype=float)
+    N = np.asarray(N, dtype=float)
 
     # Remove non-finite and non-positive values (needed for mu calculation)
-    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
-    time = time[mask]
-    data = data[mask]
+    mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
+    t = t[mask]
+    N = N[mask]
 
-    if len(time) < 3:
+    if len(t) < 3:
         return go.Figure()
 
-    # Store full time range for x-axis
-    x_range = [float(time.min()), float(time.max())]
+    # Store full t range for x-axis
+    x_range = [float(t.min()), float(t.max())]
 
-    # Step 1: Calculate metric on raw data
+    # Step 1: Calculate metric on raw N
     if metric == "dndt":
-        t_metric_raw, metric_raw = compute_first_derivative(time, data)
+        t_metric_raw, metric_raw = compute_first_derivative(t, N)
         metric_label = "dN/dt"
         y_axis_title = "dN/dt"
         plot_title = title or "First Derivative (dN/dt)"
     else:  # mu
-        t_metric_raw, metric_raw = compute_instantaneous_mu(time, data)
+        t_metric_raw, metric_raw = compute_instantaneous_mu(t, N)
         metric_label = "μ"
         y_axis_title = "μ (h⁻¹)"
         plot_title = title or "Specific Growth Rate (μ)"
 
-    # Step 2: Smooth the data
-    y_smooth = smooth(data, sg_window, sg_poly)
+    # Step 2: Smooth the N
+    y_smooth = smooth(N, sg_window, sg_poly)
 
-    # Step 3: Calculate metric on smoothed data
+    # Step 3: Calculate metric on smoothed N
     if metric == "dndt":
-        t_metric_smooth, metric_smooth = compute_first_derivative(time, y_smooth)
+        t_metric_smooth, metric_smooth = compute_first_derivative(t, y_smooth)
     else:  # mu
-        t_metric_smooth, metric_smooth = compute_instantaneous_mu(time, y_smooth)
+        t_metric_smooth, metric_smooth = compute_instantaneous_mu(t, y_smooth)
 
     # Create figure
     fig = go.Figure()
@@ -836,31 +836,31 @@ def plot_derivative_metric(
         metric_model = None
         t_model = None
 
-        # Get the fitted data range
+        # Get the fitted N range
         fit_t_min = params.get("fit_t_min")
         fit_t_max = params.get("fit_t_max")
 
         # Filter to fitted range if available
         if fit_t_min is not None and fit_t_max is not None:
-            fit_mask = (time >= fit_t_min) & (time <= fit_t_max)
-            t_model = time[fit_mask]
-            y_model_raw = data[fit_mask]
+            fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
+            t_model = t[fit_mask]
+            y_model_raw = N[fit_mask]
             y_model_smooth = y_smooth[fit_mask]
         else:
             # Use full range if fit bounds not available
-            t_model = time
-            y_model_raw = data
+            t_model = t
+            y_model_raw = N
             y_model_smooth = y_smooth
 
         if len(t_model) >= 2:
             if model_type == "sliding_window":
-                # For sliding window, calculate from raw data (as growthcurves does)
+                # For sliding window, calculate from raw N (as growthcurves does)
                 window_points = params.get("window_points", 15)
                 if metric == "dndt":
                     # For dN/dt, we need to smooth first then compute derivative
                     _, metric_model = compute_first_derivative(t_model, y_model_smooth)
                 else:  # mu
-                    # For μ, use sliding window on raw data
+                    # For μ, use sliding window on raw N
                     _, metric_model = compute_sliding_window_growth_rate(
                         t_model, y_model_raw, window_points=window_points
                     )

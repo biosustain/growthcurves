@@ -78,50 +78,50 @@ def get_model_category(model_type):
 # =============================================================================
 
 
-def mech_logistic_ode(time, data, mu, K):
+def mech_logistic_ode(t, N, mu, K):
     """
     Logistic growth ODE: dN/dt = μ * (1 - N/K) * N
 
     Parameters:
-        time: Time (scalar)
-        data: Population (OD) at time
+        t: Time (scalar)
+        N: Population (OD) at t
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity (maximum OD)
 
     Returns:
         dN/dt: Rate of change
     """
-    return mu * (1 - data / K) * data
+    return mu * (1 - N / K) * N
 
 
-def mech_gompertz_ode(time, data, mu, K):
+def mech_gompertz_ode(t, N, mu, K):
     """
     Gompertz growth ODE: dN/dt = μ * log(K/N) * N
 
     Parameters:
-        time: Time (scalar)
-        data: Population (OD) at time
+        t: Time (scalar)
+        N: Population (OD) at t
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity (maximum OD)
 
     Returns:
         dN/dt: Rate of change
     """
-    if data <= 0:
+    if N <= 0:
         return 0.0
-    # Ensure data is at least 0.1% of K to prevent log from exploding
+    # Ensure N is at least 0.1% of K to prevent log from exploding
     # This provides numerical stability without affecting realistic growth dynamics
-    data_safe = np.maximum(data, K * 0.001)
-    return mu * np.log(K / data_safe) * data
+    data_safe = np.maximum(N, K * 0.001)
+    return mu * np.log(K / data_safe) * N
 
 
-def mech_richards_ode(time, data, mu, K, beta):
+def mech_richards_ode(t, N, mu, K, beta):
     """
     Richards growth ODE: dN/dt = μ * (1 - (N/K)^β) * N
 
     Parameters:
-        time: Time (scalar)
-        data: Population (OD) at time
+        t: Time (scalar)
+        N: Population (OD) at t
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity (maximum OD)
         beta: Shape parameter
@@ -129,22 +129,22 @@ def mech_richards_ode(time, data, mu, K, beta):
     Returns:
         dN/dt: Rate of change
     """
-    if data <= 0:
+    if N <= 0:
         return 0.0
-    ratio = data / K
+    ratio = N / K
     if ratio >= 1:
         return 0.0
-    return mu * (1 - ratio**beta) * data
+    return mu * (1 - ratio**beta) * N
 
 
-def mech_baranyi_ode(time, data, mu, K, h0):
+def mech_baranyi_ode(t, N, mu, K, h0):
     """
     Baranyi-Roberts growth ODE: dN/dt = μ * A(t) * (1 - N/K) * N
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
 
     Parameters:
-        time: Time (scalar)
-        data: Population (OD) at time
+        t: Time (scalar)
+        N: Population (OD) at t
         mu: Maximum specific growth rate (h^-1)
         K: Carrying capacity (maximum OD)
         h0: Dimensionless lag parameter
@@ -153,88 +153,88 @@ def mech_baranyi_ode(time, data, mu, K, h0):
         dN/dt: Rate of change
     """
     # Adjustment function A(t)
-    exp_mu_t = np.exp(mu * time)
+    exp_mu_t = np.exp(mu * t)
     exp_h0 = np.exp(h0)
     A_t = exp_mu_t / (exp_h0 - 1 + exp_mu_t)
 
-    return mu * A_t * (1 - data / K) * data
+    return mu * A_t * (1 - N / K) * N
 
 
-def mech_logistic_model(time, mu, K, N0, y0):
+def mech_logistic_model(t, mu, K, N0, y0):
     """
-    Solve logistic ODE and return OD values at time points.
+    Solve logistic ODE and return OD values at t points.
 
     ODE: dN/dt = μ * (1 - N/K) * N
     OD(t) = y0 + N(t)
 
     Parameters:
-        time: Time array
+        t: Time array
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity above baseline (maximum ΔOD)
         N0: Initial population above baseline at t=0
         y0: Baseline OD (offset parameter)
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
-    if np.isscalar(time):
-        time = np.array([time])
+    t = np.asarray(t, dtype=float)
+    if np.isscalar(t):
+        t = np.array([t])
 
     # Solve ODE
     sol = solve_ivp(
         lambda time_val, N: mech_logistic_ode(time_val, N[0], mu, K),
-        [time.min(), time.max()],
+        [t.min(), t.max()],
         [N0],
-        t_eval=time,
+        t_eval=t,
         method="RK45",
     )
 
     return y0 + sol.y[0]
 
 
-def mech_gompertz_model(time, mu, K, N0, y0):
+def mech_gompertz_model(t, mu, K, N0, y0):
     """
-    Solve Gompertz ODE and return OD values at time points.
+    Solve Gompertz ODE and return OD values at t points.
 
     ODE: dN/dt = μ * log(K/N) * N
     OD(t) = y0 + N(t)
 
     Parameters:
-        time: Time array
+        t: Time array
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity above baseline (maximum ΔOD)
         N0: Initial population above baseline at t=0
         y0: Baseline OD (offset parameter)
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
-    if np.isscalar(time):
-        time = np.array([time])
+    t = np.asarray(t, dtype=float)
+    if np.isscalar(t):
+        t = np.array([t])
 
     # Solve ODE
     sol = solve_ivp(
         lambda time_val, N: mech_gompertz_ode(time_val, N[0], mu, K),
-        [time.min(), time.max()],
+        [t.min(), t.max()],
         [N0],
-        t_eval=time,
+        t_eval=t,
         method="RK45",
     )
 
     return y0 + sol.y[0]
 
 
-def mech_richards_model(time, mu, K, N0, beta, y0):
+def mech_richards_model(t, mu, K, N0, beta, y0):
     """
-    Solve Richards ODE and return OD values at time points.
+    Solve Richards ODE and return OD values at t points.
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
     OD(t) = y0 + N(t)
 
     Parameters:
-        time: Time array
+        t: Time array
         mu: Intrinsic growth rate (h^-1)
         K: Carrying capacity above baseline (maximum ΔOD)
         N0: Initial population above baseline at t=0
@@ -242,34 +242,34 @@ def mech_richards_model(time, mu, K, N0, beta, y0):
         y0: Baseline OD (offset parameter)
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
-    if np.isscalar(time):
-        time = np.array([time])
+    t = np.asarray(t, dtype=float)
+    if np.isscalar(t):
+        t = np.array([t])
 
     # Solve ODE
     sol = solve_ivp(
         lambda time_val, N: mech_richards_ode(time_val, N[0], mu, K, beta),
-        [time.min(), time.max()],
+        [t.min(), t.max()],
         [N0],
-        t_eval=time,
+        t_eval=t,
         method="RK45",
     )
 
     return y0 + sol.y[0]
 
 
-def mech_baranyi_model(time, mu, K, N0, h0, y0):
+def mech_baranyi_model(t, mu, K, N0, h0, y0):
     """
-    Solve Baranyi-Roberts ODE and return OD values at time points.
+    Solve Baranyi-Roberts ODE and return OD values at t points.
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
     OD(t) = y0 + N(t)
 
     Parameters:
-        time: Time array
+        t: Time array
         mu: Maximum specific growth rate (h^-1)
         K: Carrying capacity above baseline (maximum ΔOD)
         N0: Initial population above baseline at t=0
@@ -277,18 +277,18 @@ def mech_baranyi_model(time, mu, K, N0, h0, y0):
         y0: Baseline OD (offset parameter)
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
-    if np.isscalar(time):
-        time = np.array([time])
+    t = np.asarray(t, dtype=float)
+    if np.isscalar(t):
+        t = np.array([t])
 
     # Solve ODE
     sol = solve_ivp(
         lambda time_val, N: mech_baranyi_ode(time_val, N[0], mu, K, h0),
-        [time.min(), time.max()],
+        [t.min(), t.max()],
         [N0],
-        t_eval=time,
+        t_eval=t,
         method="RK45",
     )
 
@@ -300,96 +300,96 @@ def mech_baranyi_model(time, mu, K, N0, h0, y0):
 # =============================================================================
 
 
-def phenom_logistic_model(time, A, mu_max, lam, N0):
+def phenom_logistic_model(t, A, mu_max, lam, N0):
     """
     Phenomenological logistic model in ln-space.
 
     ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
 
     Parameters:
-        time: Time array
+        t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag time (hours)
+        lam: Lag t (hours)
         N0: Initial OD at t=0
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
-    ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - time) / A + 2))
+    t = np.asarray(t, dtype=float)
+    ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - t) / A + 2))
     return N0 * np.exp(ln_ratio)
 
 
-def phenom_gompertz_model(time, A, mu_max, lam, N0):
+def phenom_gompertz_model(t, A, mu_max, lam, N0):
     """
     Phenomenological Gompertz model in ln-space.
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1))
 
     Parameters:
-        time: Time array
+        t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag time (hours)
+        lam: Lag t (hours)
         N0: Initial OD at t=0
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
+    t = np.asarray(t, dtype=float)
     e = np.e
-    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - time) / A + 1))
+    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1))
     return N0 * np.exp(ln_ratio)
 
 
-def phenom_gompertz_modified_model(time, A, mu_max, lam, alpha, t_shift, N0):
+def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
     """
     Phenomenological modified Gompertz model with decay term.
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1)) + A * exp(α * (t - t_shift))
 
     Parameters:
-        time: Time array
+        t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag time (hours)
+        lam: Lag t (hours)
         alpha: Decay rate (h^-1)
         t_shift: Time shift for decay (hours)
         N0: Initial OD at t=0
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
+    t = np.asarray(t, dtype=float)
     e = np.e
-    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - time) / A + 1)) + A * np.exp(
-        alpha * (time - t_shift)
+    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1)) + A * np.exp(
+        alpha * (t - t_shift)
     )
     return N0 * np.exp(ln_ratio)
 
 
-def phenom_richards_model(time, A, mu_max, lam, nu, N0):
+def phenom_richards_model(t, A, mu_max, lam, nu, N0):
     """
     Phenomenological Richards model in ln-space.
 
     ln(Nt/N0)= A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
     Parameters:
-        time: Time array
+        t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag time (hours)
+        lam: Lag t (hours)
         nu: Shape parameter
         N0: Initial OD at t=0
 
     Returns:
-        OD values at each time point
+        OD values at each t point
     """
-    time = np.asarray(time, dtype=float)
+    t = np.asarray(t, dtype=float)
     # Avoid division by very small nu
     nu = np.maximum(nu, 0.01)
-    exponent = 1 + nu + mu_max * (1 + nu) ** (1 + 1 / nu) * (lam - time) / A
+    exponent = 1 + nu + mu_max * (1 + nu) ** (1 + 1 / nu) * (lam - t) / A
     ln_ratio = A * (1 + nu * np.exp(exponent)) ** (-1 / nu)
     return N0 * np.exp(ln_ratio)
 
@@ -399,26 +399,26 @@ def phenom_richards_model(time, A, mu_max, lam, nu, N0):
 # =============================================================================
 
 
-def spline_model(time, data, spline_s=None, k=3):
+def spline_model(t, N, spline_s=None, k=3):
     """
-    Fit a smoothing spline to data.
+    Fit a smoothing spline to N.
 
     Parameters:
-        time: Time array
-        data: Values array (e.g., log-transformed OD)
+        t: Time array
+        N: Values array (e.g., log-transformed OD)
         spline_s: Smoothing factor (None = automatic)
         k: Spline degree (default: 3)
 
     Returns:
         Tuple of (spline, spline_s) where spline is a UnivariateSpline instance.
     """
-    time = np.asarray(time, dtype=float)
-    data = np.asarray(data, dtype=float)
+    t = np.asarray(t, dtype=float)
+    N = np.asarray(N, dtype=float)
 
     if spline_s is None:
         spline_s = 0.01
 
-    spline = UnivariateSpline(time, data, s=spline_s, k=k)
+    spline = UnivariateSpline(t, N, s=spline_s, k=k)
     return spline, spline_s
 
 
@@ -454,27 +454,27 @@ def spline_from_params(params):
 # =============================================================================
 
 
-def evaluate_parametric_model(time, model_type, params):
+def evaluate_parametric_model(t, model_type, params):
     """
-    Evaluate a fitted parametric model at given time points.
+    Evaluate a fitted parametric model at given t points.
 
     This function provides a unified interface for evaluating any parametric
     growth model, eliminating the need for repeated if-elif chains.
 
     Parameters:
-        time: Time array or scalar
+        t: Time array or scalar
         model_type: Model type string (e.g., 'mech_logistic', 'phenom_gompertz')
         params: Parameter dictionary containing model-specific parameters
 
     Returns:
-        OD values predicted by the model at time points
+        OD values predicted by the model at t points
 
     Raises:
         ValueError: If model_type is not recognized
 
     Example:
         >>> params = {"mu": 0.5, "K": 0.5, "N0": 0.001, "y0": 0.05}
-        >>> y_fit = evaluate_parametric_model(time, "mech_logistic", params)
+        >>> y_fit = evaluate_parametric_model(t, "mech_logistic", params)
     """
     # Model function registry: maps model_type to (function, required_param_names)
     PARAMETRIC_MODEL_FUNCTIONS = {
@@ -502,4 +502,4 @@ def evaluate_parametric_model(time, model_type, params):
     model_func, param_names = PARAMETRIC_MODEL_FUNCTIONS[model_type]
     model_args = [params[name] for name in param_names]
 
-    return model_func(time, *model_args)
+    return model_func(t, *model_args)

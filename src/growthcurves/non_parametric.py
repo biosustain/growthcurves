@@ -22,17 +22,17 @@ from .models import spline_model
 # -----------------------------------------------------------------------------
 
 
-def fit_sliding_window(time, data, window_points=15, step=None, n_fits=None):
+def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
     Finds the maximum specific growth rate by fitting a line to log-transformed
-    OD data in consecutive windows using the Theil-Sen estimator, selecting the
+    OD N in consecutive windows using the Theil-Sen estimator, selecting the
     window with the steepest slope.
 
     Parameters:
-        time: Time array (hours)
-        data: OD values (baseline-corrected, must be positive)
+        t: Time array (hours)
+        N: OD values (baseline-corrected, must be positive)
         window_points: Number of points in each sliding window
         step: Step size for sliding window (default: 1 if step is None and
               `n_fits` is None)
@@ -49,13 +49,13 @@ def fit_sliding_window(time, data, window_points=15, step=None, n_fits=None):
         Returns None if calculation fails.
 
     """
-    if len(time) < window_points or np.ptp(time) <= 0:
+    if len(t) < window_points or np.ptp(t) <= 0:
         return None
 
     # Log-transform for growth rate calculation
-    y_log = np.log(data)
+    y_log = np.log(N)
 
-    # Find window with maximum slope on log-transformed data
+    # Find window with maximum slope on log-transformed N
     w = window_points
     best_slope = -np.inf
     best_intercept = np.nan
@@ -67,11 +67,11 @@ def fit_sliding_window(time, data, window_points=15, step=None, n_fits=None):
         if n_fits is None:
             step = 1
         else:
-            step = max(1, int(len(time) / n_fits))
+            step = max(1, int(len(t) / n_fits))
 
     # limit number of fits to avoid excessive computation using step parameter
-    for i in range(0, len(time) - w + 1, step):
-        t_win = time[i : i + w]
+    for i in range(0, len(t) - w + 1, step):
+        t_win = t[i : i + w]
         y_log_win = y_log[i : i + w]
 
         if np.ptp(t_win) <= 0:
@@ -103,21 +103,21 @@ def fit_sliding_window(time, data, window_points=15, step=None, n_fits=None):
     }
 
 
-def fit_spline(time, data, spline_s=None):
+def fit_spline(t, N, spline_s=None):
     """
     Calculate maximum specific growth rate using spline fitting.
 
-    Fits a smoothing spline to log-transformed OD data and calculates
+    Fits a smoothing spline to log-transformed OD N and calculates
     the maximum specific growth rate from the spline's derivative.
 
     Parameters:
-        time: Time array (hours)
-        data: OD values
+        t: Time array (hours)
+        N: OD values
         spline_s: Smoothing factor for spline (None = automatic)
 
     Returns:
         Dict with model parameters:
-            - t_knots: Spline knot points (time values)
+            - t_knots: Spline knot points (t values)
             - spline_coeffs: Spline coefficients
             - spline_k: Spline degree (3)
             - time_at_umax: Time at maximum growth rate (hours)
@@ -125,22 +125,22 @@ def fit_spline(time, data, spline_s=None):
         Returns None if calculation fails.
 
     """
-    if len(time) < 5:
+    if len(t) < 5:
         return None
 
-    # Fit spline to log-transformed data
-    y_log = np.log(data)
+    # Fit spline to log-transformed N
+    y_log = np.log(N)
 
     try:
         # Fit spline with automatic or specified smoothing
         if spline_s is None:
-            # Low smoothing for tight fit to data
+            # Low smoothing for tight fit to N
             spline_s = 0.01
 
-        spline, spline_s = spline_model(time, y_log, spline_s, k=3)
+        spline, spline_s = spline_model(t, y_log, spline_s, k=3)
 
         # Evaluate spline on dense grid for accurate derivative calculation
-        t_eval = np.linspace(time.min(), time.max(), 200)
+        t_eval = np.linspace(t.min(), t.max(), 200)
 
         # Calculate specific growth rate: μ = d(ln(N))/dt
         mu_eval = spline.derivative()(t_eval)
@@ -178,8 +178,8 @@ def fit_spline(time, data, spline_s=None):
 
 
 def fit_non_parametric(
-    time,
-    data,
+    t,
+    N,
     method="sliding_window",
     window_points=15,
     spline_s=None,
@@ -194,8 +194,8 @@ def fit_non_parametric(
     - "spline": Fits spline to entire curve and calculates from derivative
 
     Parameters:
-        time: Time array (hours)
-        data: OD values (baseline-corrected, must be positive)
+        t: Time array (hours)
+        N: OD values (baseline-corrected, must be positive)
         method: Method for calculating Umax ("sliding_window" or "spline")
         window_points: Number of points in sliding window (for sliding_window method)
         spline_s: Smoothing factor for spline (for spline method, None = automatic)
@@ -207,21 +207,21 @@ def fit_non_parametric(
                       method-specific values)
             - model_type: Method used for fitting
     """
-    time = np.asarray(time, dtype=float)
-    data = np.asarray(data, dtype=float)
+    t = np.asarray(t, dtype=float)
+    N = np.asarray(N, dtype=float)
 
-    # Filter valid data (data must be positive for log transform)
-    mask = np.isfinite(time) & np.isfinite(data) & (data > 0)
-    time, y_raw = time[mask], data[mask]
+    # Filter valid N (N must be positive for log transform)
+    mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
+    t, y_raw = t[mask], N[mask]
 
-    # Check minimum data requirements
+    # Check minimum N requirements
     min_points = window_points if method == "sliding_window" else 10
-    if len(time) < min_points or np.ptp(time) <= 0:
+    if len(t) < min_points or np.ptp(t) <= 0:
         return bad_fit_stats()
 
     # Calculate Umax using specified method
     if method == "sliding_window":
-        umax_result = fit_sliding_window(time, y_raw, window_points)
+        umax_result = fit_sliding_window(t, y_raw, window_points)
 
         if umax_result is None:
             return None
@@ -236,17 +236,17 @@ def fit_non_parametric(
 
     elif method == "spline":
         # Fit spline to the entire dataset
-        umax_result = fit_spline(time, y_raw, spline_s)
+        umax_result = fit_spline(t, y_raw, spline_s)
 
         if umax_result is None:
             return None
 
-        # Store fit_t_min and fit_t_max as the full data range
+        # Store fit_t_min and fit_t_max as the full N range
         return {
             "params": {
                 **umax_result["params"],
-                "fit_t_min": float(time.min()),
-                "fit_t_max": float(time.max()),
+                "fit_t_min": float(t.min()),
+                "fit_t_max": float(t.max()),
             },
             "model_type": "spline",
         }

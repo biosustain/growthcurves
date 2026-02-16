@@ -35,15 +35,15 @@ __all__ = [
 
 
 def fit_model(
-    time: np.ndarray, data: np.ndarray, model_name: str, **fit_kwargs
+    t: np.ndarray, N: np.ndarray, model_name: str, **fit_kwargs
 ) -> tuple[dict, dict]:
 
     if model_name in models.MODEL_REGISTRY["non_parametric"]:
         fit_res = non_parametric.fit_non_parametric(
-            time, data, method=model_name, **fit_kwargs
+            t, N, method=model_name, **fit_kwargs
         )
     else:
-        fit_res = parametric.fit_parametric(time, data, method=model_name, **fit_kwargs)
+        fit_res = parametric.fit_parametric(t, N, method=model_name, **fit_kwargs)
     # return None if fit fails, along with bad fit stats
     if fit_res is None:
         warnings.warn(
@@ -51,20 +51,20 @@ def fit_model(
             stacklevel=2,
         )
         return None, inference.bad_fit_stats()
-    stats_res = inference.extract_stats(fit_res, time=time, data=data)
+    stats_res = inference.extract_stats(fit_res, t=t, N=N)
     stats_res["model_name"] = model_name
     return fit_res, stats_res
 
 
 # ! not so good for dynamic inspection tools...
-fit_model.__doc__ = f"""Fit a growth model to the provided time and data.
+fit_model.__doc__ = f"""Fit a growth model to the provided t and N.
 
     Parameters
     ----------
-    time : np.ndarray
-        Time points corresponding to the data (in hours).
-    data : np.ndarray
-        Growth data points corresponding to the time points.
+    t : np.ndarray
+        Time points corresponding to N (in hours).
+    N : np.ndarray
+        Growth data points corresponding to t.
     model_name : str
         One of the models in {', '.join(get_all_models())}.
 

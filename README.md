@@ -25,20 +25,20 @@ import growthcurves as gc
 import numpy as np
 
 # Example time series (hours) and OD measurements
-time = np.linspace(0, 24, 100)
-od = 0.01 + 1.5 / (1 + np.exp(-0.5 * (time - 10)))  # synthetic logistic data
+t = np.linspace(0, 24, 100)
+N = 0.01 + 1.5 / (1 + np.exp(-0.5 * (t - 10)))  # synthetic logistic data
 
 # Fit a parametric model and extract growth statistics
-fit_result = gc.parametric.fit_parametric(time, od, method="mech_logistic")
-stats = gc.inference.extract_stats(fit_result, time, od)
+fit_result = gc.parametric.fit_parametric(t, N, method="mech_logistic")
+stats = gc.inference.extract_stats(fit_result, t, N)
 
 print(f"Max OD:               {stats['max_od']:.3f}")
 print(f"Specific growth rate: {stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 
 # Or use a non-parametric spline fit
-spline_fit = gc.non_parametric.fit_non_parametric(time, od, umax_method="spline")
-spline_stats = gc.inference.extract_stats(spline_fit, time, od)
+spline_fit = gc.non_parametric.fit_non_parametric(t, N, umax_method="spline")
+spline_stats = gc.inference.extract_stats(spline_fit, t, N)
 
 print(f"\nSpline fit results:")
 print(f"Specific growth rate: {spline_stats['mu_max']:.4f} h⁻¹")
