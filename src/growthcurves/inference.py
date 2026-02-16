@@ -117,7 +117,7 @@ def compute_rmse(y_observed, y_predicted, in_log_space=False):
     return float(np.sqrt(np.mean(residuals**2)))
 
 
-def calculate_mu_max(t, N):
+def compute_mu_max(t, N):
     """
     Calculate the maximum specific growth rate from a fitted curve.
 
@@ -191,7 +191,7 @@ def _linear_interpolate_crossing(t, values, threshold, search_condition):
     return float(t0 + frac * (t1 - t0))
 
 
-def calculate_phase_ends(t, N, mu_max, lag_frac=0.15, exp_frac=0.15):
+def compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac=0.15, exp_frac=0.15):
     """
     Calculate lag and exponential phase end times from specific growth rate.
 
@@ -242,7 +242,7 @@ def calculate_phase_ends(t, N, mu_max, lag_frac=0.15, exp_frac=0.15):
     return lag_end, max(exp_end, lag_end)
 
 
-def calculate_phase_boundaries_tangent(
+def compute_phase_boundaries_tangent(
     t, N, time_at_umax, od_at_umax, mu_max, baseline_od=None, plateau_od=None
 ):
     """
@@ -317,7 +317,7 @@ def calculate_phase_boundaries_tangent(
     return float(t_start), float(t_end)
 
 
-def calculate_phase_boundaries(
+def compute_phase_boundaries(
     t,
     N,
     method="tangent",
@@ -368,11 +368,11 @@ def calculate_phase_boundaries(
             raise ValueError(
                 "Tangent method requires time_at_umax, od_at_umax, and mu_max"
             )
-        return calculate_phase_boundaries_tangent(
+        return compute_phase_boundaries_tangent(
             t, N, time_at_umax, od_at_umax, mu_max, baseline_od, plateau_od
         )
     elif method == "threshold":
-        return calculate_phase_ends(t, N, mu_max, lag_frac, exp_frac)
+        return compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac, exp_frac)
     else:
         raise ValueError(f"Unknown method '{method}'. Choose 'tangent' or 'threshold'.")
 
@@ -416,7 +416,7 @@ def _extract_stats_mech_logistic(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_logistic", params)
-    mu_max = calculate_mu_max(t, y_fit)
+    mu_max = compute_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -440,7 +440,7 @@ def _extract_stats_mech_logistic(
         return stats
 
     # Phase boundaries using specified method
-    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+    exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -510,7 +510,7 @@ def _extract_stats_mech_gompertz(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_gompertz", params)
-    mu_max = calculate_mu_max(t, y_fit)
+    mu_max = compute_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -534,7 +534,7 @@ def _extract_stats_mech_gompertz(
         return stats
 
     # Phase boundaries using specified method
-    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+    exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -604,7 +604,7 @@ def _extract_stats_mech_richards(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_richards", params)
-    mu_max = calculate_mu_max(t, y_fit)
+    mu_max = compute_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -628,7 +628,7 @@ def _extract_stats_mech_richards(
         return stats
 
     # Phase boundaries using specified method
-    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+    exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -699,7 +699,7 @@ def _extract_stats_mech_baranyi(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_baranyi", params)
-    mu_max = calculate_mu_max(t, y_fit)
+    mu_max = compute_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -723,7 +723,7 @@ def _extract_stats_mech_baranyi(
         return stats
 
     # Phase boundaries using specified method
-    exp_phase_start, exp_phase_end = calculate_phase_boundaries(
+    exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -825,7 +825,7 @@ def _extract_stats_phenom_logistic(
     exp_phase_start = lam
 
     # Exp phase end using specified method
-    _, exp_phase_end = calculate_phase_boundaries(
+    _, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -927,7 +927,7 @@ def _extract_stats_phenom_gompertz(
     exp_phase_start = lam
 
     # Exp phase end using specified method
-    _, exp_phase_end = calculate_phase_boundaries(
+    _, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -1033,7 +1033,7 @@ def _extract_stats_phenom_gompertz_modified(
     exp_phase_start = lam
 
     # Exp phase end using specified method
-    _, exp_phase_end = calculate_phase_boundaries(
+    _, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -1135,7 +1135,7 @@ def _extract_stats_phenom_richards(
     exp_phase_start = lam
 
     # Exp phase end using specified method
-    _, exp_phase_end = calculate_phase_boundaries(
+    _, exp_phase_end = compute_phase_boundaries(
         t_dense,
         y_dense,
         method=phase_boundary_method,
@@ -1284,7 +1284,7 @@ def _extract_stats_sliding_window(
     # Calculate phase boundaries using specified method
     baseline_od = float(np.min(y_clean))
     plateau_od = max_od
-    exp_start, exp_end = calculate_phase_boundaries(
+    exp_start, exp_end = compute_phase_boundaries(
         t_clean,
         y_smooth,
         method=phase_boundary_method,
@@ -1435,7 +1435,7 @@ def _extract_stats_spline(
     # Calculate phase boundaries using specified method
     baseline_od = float(np.min(y_clean))
     plateau_od = max_od
-    exp_start, exp_end = calculate_phase_boundaries(
+    exp_start, exp_end = compute_phase_boundaries(
         t_clean,
         y_smooth,
         method=phase_boundary_method,
@@ -1532,9 +1532,7 @@ def extract_stats(
         "phenom_gompertz_modified",
         "phenom_richards",
     }:
-        return _extract_stats_parametric(
-            fit_result, t, N, lag_frac, exp_frac, method
-        )
+        return _extract_stats_parametric(fit_result, t, N, lag_frac, exp_frac, method)
     elif model_type == "sliding_window":
         return _extract_stats_sliding_window(
             fit_result, t, N, lag_frac, exp_frac, method
