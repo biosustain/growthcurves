@@ -1724,7 +1724,7 @@ def compute_first_derivative(t, N):
     """
     t = np.asarray(t, dtype=float)
     N = np.asarray(N, dtype=float)
-    dy = np.gradient(N, t)
+    dN = np.gradient(N, t)
     return t, dy
 
 
