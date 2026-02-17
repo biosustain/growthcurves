@@ -9,7 +9,7 @@ import numpy as np
 
 def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
     """
-    Subtract blank values from N series.
+    Subtract blank values from time data series of growth measurements.
 
     Performs element-wise subtraction of blank measurements from N measurements.
     This is commonly used for baseline correction in optical density measurements.
