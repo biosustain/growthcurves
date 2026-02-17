@@ -1720,7 +1720,7 @@ def compute_first_derivative(t, N):
     Returns
     -------
     tuple of (np.ndarray, np.ndarray)
-        Tuple of (t, dy) where dy is the first derivative dy/dt
+        Tuple of (t, dN) where dy is the first derivative dy/dt
     """
     t = np.asarray(t, dtype=float)
     N = np.asarray(N, dtype=float)
