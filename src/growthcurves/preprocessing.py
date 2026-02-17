@@ -11,7 +11,7 @@ def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
     """
     Subtract blank values from time data series of growth measurements.
 
-    Performs element-wise subtraction of blank measurements from N measurements.
+    Performs element-wise subtraction of blank measurements from measurements.
     This is commonly used for baseline correction in optical density measurements.
 
     Parameters
