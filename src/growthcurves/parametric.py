@@ -163,7 +163,7 @@ def fit_mech_logistic(t, N):
 
 def fit_mech_gompertz(t, N):
     """
-    Fit mechanistic Gompertz model (ODE) to growth N.
+    Fit mechanistic Gompertz model (ODE) to growth data.
 
     ODE: dN/dt = μ * log(K/N) * N
     OD(t) = y0 + N(t)
