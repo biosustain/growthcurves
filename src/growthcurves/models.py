@@ -228,7 +228,7 @@ def mech_gompertz_model(t, mu, K, N0, y0):
 
 def mech_richards_model(t, mu, K, N0, beta, y0):
     """
-    Solve Richards ODE and return OD values at t points.
+    Solve Richards ODE and return OD values at time points.
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
     OD(t) = y0 + N(t)
