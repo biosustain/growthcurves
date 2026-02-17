@@ -566,7 +566,7 @@ def annotate_plot(
                 time_fit,
                 od_fit,
                 name="Fitted curve",
-                color="blue",
+                color="#8dcde0",
                 scale=scale,
                 row=row,
                 col=col,
