@@ -509,7 +509,7 @@ def _extract_stats_mech_gompertz(
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
-    y_fit = evaluate_parametric_model(t, "mech_gompertz", params)
+    N_fit = evaluate_parametric_model(t, "mech_gompertz", params)
     mu_max = compute_mu_max(t, y_fit)
 
     # Dense grid for accurate calculations
