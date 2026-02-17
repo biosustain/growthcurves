@@ -923,7 +923,7 @@ def plot_derivative_metric(
                     x=t_model,
                     y=metric_model,
                     mode="lines",
-                    line=dict(width=fitted_line_width, dash="dash", color="#8dcde0"),
+                    line=dict(width=fitted_line_width, color="#8dcde0"),
                     hovertemplate=template,
                     showlegend=False,
                     name="Fitted",
