@@ -132,14 +132,14 @@ def compute_mu_max(t, N):
     """
     # Use dense t points for accurate derivative
     t_dense = np.linspace(t.min(), t.max(), 1000)
-    y_interp = np.interp(t_dense, t, N)
+    N_interp = np.interp(t_dense, t, N)
 
     # Calculate specific growth rate: μ = (1/N) * dN/dt
-    dN_dt = np.gradient(y_interp, t_dense)
+    dN_dt = np.gradient(N_interp, t_dense)
 
     # Avoid division by very small values
-    y_safe = np.maximum(y_interp, 1e-10)
-    mu = dN_dt / y_safe
+    N_safe = np.maximum(N_interp, 1e-10)
+    mu = dN_dt / N_safe
 
     # Return maximum specific growth rate
     return float(np.max(mu))
@@ -420,16 +420,16 @@ def _extract_stats_mech_logistic(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "mech_logistic", params)
+    N_dense = evaluate_parametric_model(t_dense, "mech_logistic", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -442,12 +442,12 @@ def _extract_stats_mech_logistic(
     # Phase boundaries using specified method
     exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
+        baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
         lag_frac=lag_frac,
         exp_frac=exp_frac,
@@ -514,16 +514,16 @@ def _extract_stats_mech_gompertz(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "mech_gompertz", params)
+    N_dense = evaluate_parametric_model(t_dense, "mech_gompertz", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -536,12 +536,12 @@ def _extract_stats_mech_gompertz(
     # Phase boundaries using specified method
     exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
+        baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
         lag_frac=lag_frac,
         exp_frac=exp_frac,
@@ -608,16 +608,16 @@ def _extract_stats_mech_richards(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "mech_richards", params)
+    N_dense = evaluate_parametric_model(t_dense, "mech_richards", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -630,12 +630,12 @@ def _extract_stats_mech_richards(
     # Phase boundaries using specified method
     exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
+        baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
         lag_frac=lag_frac,
         exp_frac=exp_frac,
@@ -703,16 +703,16 @@ def _extract_stats_mech_baranyi(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "mech_baranyi", params)
+    N_dense = evaluate_parametric_model(t_dense, "mech_baranyi", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -725,12 +725,12 @@ def _extract_stats_mech_baranyi(
     # Phase boundaries using specified method
     exp_phase_start, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
+        baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
         lag_frac=lag_frac,
         exp_frac=exp_frac,
@@ -797,19 +797,19 @@ def _extract_stats_phenom_logistic(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
+    N_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     # Max OD is the maximum of the fitted model trace
-    max_od = float(np.max(y_dense))
+    max_od = float(np.max(N_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -827,13 +827,13 @@ def _extract_stats_phenom_logistic(
     # Exp phase end using specified method
     _, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
-        plateau_od=float(np.max(y_dense)),
+        baseline_od=float(np.min(N_dense)),
+        plateau_od=float(np.max(N_dense)),
         lag_frac=lag_frac,
         exp_frac=exp_frac,
     )
@@ -899,19 +899,19 @@ def _extract_stats_phenom_gompertz(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "phenom_gompertz", params)
+    N_dense = evaluate_parametric_model(t_dense, "phenom_gompertz", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     # Max OD is the maximum of the fitted model trace
-    max_od = float(np.max(y_dense))
+    max_od = float(np.max(N_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -929,13 +929,13 @@ def _extract_stats_phenom_gompertz(
     # Exp phase end using specified method
     _, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
-        plateau_od=float(np.max(y_dense)),
+        baseline_od=float(np.min(N_dense)),
+        plateau_od=float(np.max(N_dense)),
         lag_frac=lag_frac,
         exp_frac=exp_frac,
     )
@@ -1001,23 +1001,23 @@ def _extract_stats_phenom_gompertz_modified(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params)
+    N_dense = evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params)
     # For the modified Gompertz form, the fitted N0 parameter is not always the
     # model value at the earliest timepoint. Use model-predicted initial OD for stats.
     first_idx = int(np.argmin(t))
     N0 = float(y_fit[first_idx]) if len(y_fit) > 0 else N0_param
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     # Max OD is the maximum of the fitted model trace
-    max_od = float(np.max(y_dense))
+    max_od = float(np.max(N_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -1035,13 +1035,13 @@ def _extract_stats_phenom_gompertz_modified(
     # Exp phase end using specified method
     _, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
-        plateau_od=float(np.max(y_dense)),
+        baseline_od=float(np.min(N_dense)),
+        plateau_od=float(np.max(N_dense)),
         lag_frac=lag_frac,
         exp_frac=exp_frac,
     )
@@ -1107,19 +1107,19 @@ def _extract_stats_phenom_richards(
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    y_dense = evaluate_parametric_model(t_dense, "phenom_richards", params)
+    N_dense = evaluate_parametric_model(t_dense, "phenom_richards", params)
 
     # Calculate specific growth rate curve
-    y_safe = np.maximum(y_dense, 1e-10)
-    mu_dense = np.gradient(np.log(y_safe), t_dense)
+    N_safe = np.maximum(N_dense, 1e-10)
+    mu_dense = np.gradient(np.log(N_safe), t_dense)
 
     # Find t of maximum specific growth rate
     max_mu_idx = int(np.argmax(mu_dense))
     time_at_umax = float(t_dense[max_mu_idx])
-    od_at_umax = float(y_dense[max_mu_idx])
+    od_at_umax = float(N_dense[max_mu_idx])
 
     # Max OD is the maximum of the fitted model trace
-    max_od = float(np.max(y_dense))
+    max_od = float(np.max(N_dense))
 
     if mu_max <= 0:
         stats = bad_fit_stats()
@@ -1137,13 +1137,13 @@ def _extract_stats_phenom_richards(
     # Exp phase end using specified method
     _, exp_phase_end = compute_phase_boundaries(
         t_dense,
-        y_dense,
+        N_dense,
         method=phase_boundary_method,
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(y_dense)),
-        plateau_od=float(np.max(y_dense)),
+        baseline_od=float(np.min(N_dense)),
+        plateau_od=float(np.max(N_dense)),
         lag_frac=lag_frac,
         exp_frac=exp_frac,
     )
