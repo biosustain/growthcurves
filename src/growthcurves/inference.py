@@ -415,7 +415,7 @@ def _extract_stats_mech_logistic(
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
-    y_fit = evaluate_parametric_model(t, "mech_logistic", params)
+    N_fit = evaluate_parametric_model(t, "mech_logistic", params)
     mu_max = compute_mu_max(t, N_fit)
 
     # Dense grid for accurate calculations
