@@ -277,7 +277,7 @@ def mech_baranyi_model(t, mu, K, N0, h0, y0):
         y0: Baseline OD (offset parameter)
 
     Returns:
-        OD values at each t point
+        OD values at each time point
     """
     t = np.asarray(t, dtype=float)
     if np.isscalar(t):
