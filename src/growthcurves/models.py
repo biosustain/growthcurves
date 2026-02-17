@@ -310,7 +310,7 @@ def phenom_logistic_model(t, A, mu_max, lam, N0):
         t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
-        lam: Lag t (hours)
+        lam: Lag time (hours)
         N0: Initial OD at t=0
 
     Returns:
