@@ -516,6 +516,8 @@ def annotate_plot(
     show_umax_marker: bool = True,
     show_tangent: bool = True,
     scale: str = "linear",
+    fitted_curve_color: str = "#8dcde0",
+    fitted_curve_width: int = 5,
     row: Optional[int] = None,
     col: Optional[int] = None,
 ) -> go.Figure:
@@ -546,6 +548,10 @@ def annotate_plot(
         Whether to show tangent line at umax (default: True)
     scale : str, optional
         'linear' or 'log' for y-axis scale (default: 'linear')
+    fitted_curve_color : str, optional
+        Color of the fitted model curve (default: '#8dcde0')
+    fitted_curve_width : int, optional
+        Line width of the fitted model curve (default: 5)
     row : int, optional
         Subplot row for subplots
     col : int, optional
@@ -566,7 +572,8 @@ def annotate_plot(
                 time_fit,
                 od_fit,
                 name="Fitted curve",
-                color="#8dcde0",
+                color=fitted_curve_color,
+                line_width=fitted_curve_width,
                 scale=scale,
                 row=row,
                 col=col,
@@ -692,6 +699,9 @@ def plot_derivative_metric(
     sg_poly: int = 2,
     phase_boundaries: Optional[Tuple[float, float]] = None,
     title: Optional[str] = None,
+    raw_line_width: int = 1,
+    smoothed_line_width: int = 2,
+    fitted_line_width: int = 2,
 ) -> go.Figure:
     """
     Plot either dN/dt or μ (specific growth rate) for a growth curve.
@@ -722,6 +732,12 @@ def plot_derivative_metric(
         If provided, adds shading for the phase.
     title : str, optional
         Plot title. If None, automatically generated based on metric.
+    raw_line_width : int, optional
+        Line width of the raw metric trace (default: 1)
+    smoothed_line_width : int, optional
+        Line width of the smoothed metric trace (default: 2)
+    fitted_line_width : int, optional
+        Line width of the fitted model metric trace (default: 2)
 
     Returns
     -------
@@ -806,7 +822,7 @@ def plot_derivative_metric(
             x=t_metric_raw,
             y=metric_raw,
             mode="lines",
-            line=dict(width=1, color="lightgrey"),
+            line=dict(width=raw_line_width, color="lightgrey"),
             hovertemplate=template,
             showlegend=False,
             name="Raw",
@@ -822,7 +838,7 @@ def plot_derivative_metric(
             x=t_metric_smooth,
             y=metric_smooth,
             mode="lines",
-            line=dict(width=2, color="#FF6692"),
+            line=dict(width=smoothed_line_width, color="#FF6692"),
             hovertemplate=template,
             showlegend=False,
             name="Smoothed",
@@ -907,7 +923,7 @@ def plot_derivative_metric(
                     x=t_model,
                     y=metric_model,
                     mode="lines",
-                    line=dict(width=2, dash="dash", color="#636EFA"),
+                    line=dict(width=fitted_line_width, dash="dash", color="#8dcde0"),
                     hovertemplate=template,
                     showlegend=False,
                     name="Fitted",
