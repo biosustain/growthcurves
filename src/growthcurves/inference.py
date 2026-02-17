@@ -416,7 +416,7 @@ def _extract_stats_mech_logistic(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_logistic", params)
-    mu_max = compute_mu_max(t, y_fit)
+    mu_max = compute_mu_max(t, N_fit)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
