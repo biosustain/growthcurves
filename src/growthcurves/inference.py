@@ -1725,7 +1725,7 @@ def compute_first_derivative(t, N):
     t = np.asarray(t, dtype=float)
     N = np.asarray(N, dtype=float)
     dN = np.gradient(N, t)
-    return t, dy
+    return t, dN
 
 
 def compute_instantaneous_mu(t, N):
