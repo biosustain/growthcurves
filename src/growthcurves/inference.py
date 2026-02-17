@@ -145,17 +145,17 @@ def compute_mu_max(t, N):
     return float(np.max(mu))
 
 
-def smooth(y, window=11, poly=1, passes=2):
+def smooth(N, window=11, poly=1, passes=2):
     """Apply Savitzky-Golay smoothing filter."""
-    n = len(y)
+    n = len(N)
     if n < 7:
-        return y
+        return N
     w = int(window) | 1  # Ensure odd
     w = min(w, n if n % 2 else n - 1)
     p = min(int(poly), w - 1)
     for _ in range(passes):
-        y = savgol_filter(y, w, p, mode="interp")
-    return y
+        N = savgol_filter(N, w, p, mode="interp")
+    return N
 
 
 def _linear_interpolate_crossing(t, values, threshold, search_condition):
@@ -457,7 +457,7 @@ def _extract_stats_mech_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N, N_fit)
 
     return {
         "max_od": y0 + K,
@@ -551,7 +551,7 @@ def _extract_stats_mech_gompertz(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N, N_fit)
 
     return {
         "max_od": y0 + K,
@@ -1749,10 +1749,10 @@ def compute_instantaneous_mu(t, N):
     """
     t = np.asarray(t, dtype=float)
     N = np.asarray(N, dtype=float)
-    dy = np.gradient(N, t)
+    dN = np.gradient(N, t)
 
     # Avoid division by zero - set mu to nan where N is too small
-    mu = np.where(np.abs(N) > 1e-10, dy / N, np.nan)
+    mu = np.where(np.abs(N) > 1e-10, dN / N, np.nan)
 
     return t, mu
 
