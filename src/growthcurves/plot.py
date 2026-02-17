@@ -167,7 +167,7 @@ def add_exponential_phase(
 def add_fitted_curve(
     fig: go.Figure,
     time_fit: np.ndarray,
-    y_fit: np.ndarray,
+    N_fit: np.ndarray,
     name: str = "Fitted curve",
     color: str = "blue",
     line_width: int = 5,
@@ -186,7 +186,7 @@ def add_fitted_curve(
         Plotly figure to annotate
     time_fit : numpy.ndarray
         Time points for fitted curve
-    y_fit : numpy.ndarray
+    N_fit : numpy.ndarray
         Fitted y values
     name : str, optional
         Legend name for fitted curve (default: 'Fitted curve')
@@ -210,28 +210,28 @@ def add_fitted_curve(
     plotly.graph_objects.Figure
         Updated figure with fitted curve
     """
-    if time_fit is None or y_fit is None:
+    if time_fit is None or N_fit is None:
         return fig
 
     # Convert to numpy arrays
     time_fit = np.asarray(time_fit, dtype=float)
-    y_fit = np.asarray(y_fit, dtype=float)
+    N_fit = np.asarray(N_fit, dtype=float)
 
     # Filter to window if specified
     if window_start is not None and window_end is not None:
         mask = (time_fit >= window_start) & (time_fit <= window_end)
         time_fit = time_fit[mask]
-        y_fit = y_fit[mask]
+        N_fit = N_fit[mask]
 
     # Transform y-values based on scale
     if scale == "log":
-        y_fit = np.log(y_fit)
+        N_fit = np.log(N_fit)
 
     # Add fitted curve
     fig.add_trace(
         go.Scatter(
             x=time_fit,
-            y=y_fit,
+            y=N_fit,
             mode="lines",
             name=name,
             line=dict(color=color, width=line_width),
