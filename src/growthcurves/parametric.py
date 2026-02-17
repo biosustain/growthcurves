@@ -48,12 +48,12 @@ def _estimate_initial_params(t, N):
 
     """
     K_init = np.max(N)
-    y0_init = np.min(N)
-    dy = np.gradient(N, t)
-    return K_init, y0_init, dy
+    N0_init = np.min(N)
+    dN = np.gradient(N, t)
+    return K_init, N0_init, dN
 
 
-def _estimate_inflection_time(t, dy):
+def _estimate_inflection_time(t, dN):
     """
     Estimate t at inflection point (maximum growth rate).
 
@@ -65,10 +65,10 @@ def _estimate_inflection_time(t, dy):
         Time at maximum derivative (inflection point)
 
     """
-    return t[np.argmax(dy)]
+    return t[np.argmax(dN)]
 
 
-def _estimate_lag_time(t, dy, threshold_frac=0.1):
+def _estimate_lag_time(t, dN, threshold_frac=0.1):
     """
     Estimate lag t from growth rate threshold.
 
@@ -81,8 +81,8 @@ def _estimate_lag_time(t, dy, threshold_frac=0.1):
         Estimated lag t (t when growth rate exceeds threshold)
 
     """
-    threshold = threshold_frac * np.max(dy)
-    lag_idx = np.where(dy > threshold)[0]
+    threshold = threshold_frac * np.max(dN)
+    lag_idx = np.where(dN > threshold)[0]
     return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
@@ -111,11 +111,11 @@ def _fit_model_generic(t, N, model_func, param_names, p0_func, bounds_func, mode
         return None
 
     # Estimate common initial parameters
-    K_init, y0_init, dy = _estimate_initial_params(t, N)
+    K_init, N0_init, dN = _estimate_initial_params(t, N)
 
     # Generate initial guess and bounds
-    p0 = p0_func(K_init, y0_init, t, dy)
-    bounds = bounds_func(K_init, y0_init, t)
+    p0 = p0_func(K_init, N0_init, t, dN)
+    bounds = bounds_func(K_init, N0_init, t)
 
     # Fit the model
     params, _ = curve_fit(model_func, t, N, p0=p0, bounds=bounds, maxfev=20000)
