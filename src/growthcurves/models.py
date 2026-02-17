@@ -314,7 +314,7 @@ def phenom_logistic_model(t, A, mu_max, lam, N0):
         N0: Initial OD at t=0
 
     Returns:
-        OD values at each t point
+        OD values at each time point
     """
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - t) / A + 2))
