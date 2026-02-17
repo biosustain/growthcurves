@@ -195,7 +195,7 @@ def mech_logistic_model(t, mu, K, N0, y0):
 
 def mech_gompertz_model(t, mu, K, N0, y0):
     """
-    Solve Gompertz ODE and return OD values at t points.
+    Solve Gompertz ODE and return OD values at time points.
 
     ODE: dN/dt = μ * log(K/N) * N
     OD(t) = y0 + N(t)
