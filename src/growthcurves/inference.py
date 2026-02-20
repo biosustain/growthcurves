@@ -1466,7 +1466,7 @@ def _extract_stats_spline(
 
 
 def extract_stats(
-    fit_result, t, N, lag_frac=0.15, exp_frac=0.15, phase_boundary_method=None
+    fit_result, t, N, lag_frac=0.15, exp_frac=0.15, phase_boundary_method=None, **kwargs
 ):
     """
     Extract growth statistics from parametric or non-parametric fit results.

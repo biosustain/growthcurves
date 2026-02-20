@@ -35,7 +35,12 @@ __all__ = [
 
 
 def fit_model(
-    t: np.ndarray, N: np.ndarray, model_name: str, **fit_kwargs
+    t: np.ndarray,
+    N: np.ndarray,
+    model_name: str,
+    lag_frac: float = 0.15,
+    exp_frac: float = 0.15,
+    **fit_kwargs,
 ) -> tuple[dict, dict]:
 
     if model_name in models.MODEL_REGISTRY["non_parametric"]:
@@ -51,7 +56,9 @@ def fit_model(
             stacklevel=2,
         )
         return None, inference.bad_fit_stats()
-    stats_res = inference.extract_stats(fit_res, t=t, N=N)
+    stats_res = inference.extract_stats(
+        fit_res, t=t, N=N, lag_frac=lag_frac, exp_frac=exp_frac, **fit_kwargs
+    )
     stats_res["model_name"] = model_name
     return fit_res, stats_res
 

@@ -53,19 +53,6 @@ def _estimate_initial_params(t, N):
     return K_init, N0_init, dN
 
 
-def _estimate_inflection_time(t, dN):
-    """
-    Estimate t at inflection point (maximum growth rate).
-
-    Parameters:
-        t: Time array
-        dy: First derivative of OD
-
-    Returns:
-        Time at maximum derivative (inflection point)
-
-    """
-    return t[np.argmax(dN)]
 
 
 def _estimate_lag_time(t, dN, threshold_frac=0.1):
