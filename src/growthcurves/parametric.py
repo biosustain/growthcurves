@@ -53,8 +53,6 @@ def _estimate_initial_params(t, N):
     return K_init, N0_init, dN
 
 
-
-
 def _estimate_lag_time(t, dN, threshold_frac=0.1):
     """
     Estimate lag t from growth rate threshold.
