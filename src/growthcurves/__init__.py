@@ -56,8 +56,13 @@ def fit_model(
             stacklevel=2,
         )
         return None, inference.bad_fit_stats()
+    # Extract only statistics-related keyword arguments to avoid mixing
+    # fitting parameters with stats extraction parameters.
+    stats_kwargs = {}
+    if "phase_boundary_method" in fit_kwargs:
+        stats_kwargs["phase_boundary_method"] = fit_kwargs["phase_boundary_method"]
     stats_res = inference.extract_stats(
-        fit_res, t=t, N=N, lag_frac=lag_frac, exp_frac=exp_frac, **fit_kwargs
+        fit_res, t=t, N=N, lag_frac=lag_frac, exp_frac=exp_frac, **stats_kwargs
     )
     stats_res["model_name"] = model_name
     return fit_res, stats_res
