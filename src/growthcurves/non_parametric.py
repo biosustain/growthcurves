@@ -221,7 +221,7 @@ def fit_non_parametric(
 
     # Calculate Umax using specified method
     if method == "sliding_window":
-        umax_result = fit_sliding_window(t, y_raw, window_points)
+        umax_result = fit_sliding_window(t, y_raw, window_points, **kwargs)
 
         if umax_result is None:
             return None

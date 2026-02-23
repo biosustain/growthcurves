@@ -8,6 +8,7 @@ import numpy as np
 __version__ = metadata.version("growthcurves")
 
 from . import inference, models, non_parametric, parametric, plot, preprocessing
+from .inference import compare_methods
 from .models import (
     MODEL_REGISTRY,
     get_all_models,
@@ -31,6 +32,7 @@ __all__ = [
     "get_model_category",
     "blank_subtraction",
     "path_correct",
+    "compare_methods",
 ]
 
 
