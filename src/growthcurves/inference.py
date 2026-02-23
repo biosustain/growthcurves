@@ -1929,7 +1929,11 @@ def compare_methods(
     stats = {}
     for model_name in models_to_fit:
         fits[model_name], stats[model_name] = gc.fit_model(
-            t=t, N=N, model_name=model_name, **fit_kwargs
+            t=t,
+            N=N,
+            model_name=model_name,
+            phase_boundary_method=phase_boundary_method,
+            **fit_kwargs,
         )
 
     return fits, stats
