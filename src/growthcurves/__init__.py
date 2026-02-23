@@ -35,15 +35,18 @@ __all__ = [
 
 
 def fit_model(
-    t: np.ndarray, N: np.ndarray, model_name: str, **fit_kwargs
+    t: np.ndarray,
+    N: np.ndarray,
+    model_name: str,
+    lag_threshold: float = 0.15,
+    exp_threshold: float = 0.15,
+    phase_boundary_method=None,
+    **kwargs,
 ) -> tuple[dict, dict]:
-
     if model_name in models.MODEL_REGISTRY["non_parametric"]:
-        fit_res = non_parametric.fit_non_parametric(
-            t, N, method=model_name, **fit_kwargs
-        )
+        fit_res = non_parametric.fit_non_parametric(t, N, method=model_name, **kwargs)
     else:
-        fit_res = parametric.fit_parametric(t, N, method=model_name, **fit_kwargs)
+        fit_res = parametric.fit_parametric(t, N, method=model_name, **kwargs)
     # return None if fit fails, along with bad fit stats
     if fit_res is None:
         warnings.warn(
@@ -51,7 +54,17 @@ def fit_model(
             stacklevel=2,
         )
         return None, inference.bad_fit_stats()
-    stats_res = inference.extract_stats(fit_res, t=t, N=N)
+
+    stats_res = inference.extract_stats(
+        fit_res,
+        t=t,
+        N=N,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
+        phase_boundary_method=phase_boundary_method,
+        **kwargs,
+    )
+
     stats_res["model_name"] = model_name
     return fit_res, stats_res
 
@@ -67,6 +80,16 @@ fit_model.__doc__ = f"""Fit a growth model to the provided t and N.
         Growth data points corresponding to t.
     model_name : str
         One of the models in {', '.join(get_all_models())}.
+    lag_threshold : float, optional
+        Fraction of μ_max to define end of lag phase (threshold method, default: 0.15).
+    exp_threshold : float, optional
+        Fraction of μ_max to define end of exponential phase (threshold method,
+        default: 0.15).
+    phase_boundary_method : str, optional
+        Method to determine phase boundaries ("tangent", "threshold",
+        or None for default for model class).
+    **kwargs
+        Additiona keyword arguments to be passed to fitting and inference functions.
 
     Returns
     -------

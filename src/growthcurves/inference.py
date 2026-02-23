@@ -8,8 +8,7 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 import growthcurves as gc
-
-from .models import MODEL_REGISTRY
+from growthcurves.models import MODEL_REGISTRY, evaluate_parametric_model
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -191,7 +190,9 @@ def _linear_interpolate_crossing(t, values, threshold, search_condition):
     return float(t0 + frac * (t1 - t0))
 
 
-def compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac=0.15, exp_frac=0.15):
+def compute_phase_boundaries_mu_threshold(
+    t, N, mu_max, lag_threshold=0.15, exp_threshold=0.15
+):
     """
     Calculate lag and exponential phase end times from specific growth rate.
 
@@ -199,8 +200,8 @@ def compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac=0.15, exp_frac=
         t: Time array
         N: OD values (should be from fitted/idealized curve)
         mu_max: Pre-calculated maximum specific growth rate (required)
-        lag_frac: Fraction of μ_max for lag phase end detection
-        exp_frac: Fraction of μ_max for exponential phase end detection
+        lag_threshold: Fraction of μ_max for lag phase end detection
+        exp_threshold: Fraction of μ_max for exponential phase end detection
 
     Returns:
         Tuple of (lag_end, exp_end) times.
@@ -223,8 +224,8 @@ def compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac=0.15, exp_frac=
     if peak_val <= 0:
         return float(t[0]), float(t[-1])
 
-    lag_threshold = lag_frac * peak_val
-    exp_threshold = exp_frac * peak_val
+    lag_threshold = lag_threshold * peak_val
+    exp_threshold = exp_threshold * peak_val
 
     # Find lag phase end (first crossing of lag threshold)
     lag_end = _linear_interpolate_crossing(t, mu, lag_threshold, mu >= lag_threshold)
@@ -326,8 +327,8 @@ def compute_phase_boundaries(
     mu_max=None,
     baseline_od=None,
     plateau_od=None,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
 ):
     """
     Calculate exponential phase boundaries using specified method.
@@ -346,8 +347,10 @@ def compute_phase_boundaries(
         mu_max: Maximum specific growth rate (required for "tangent" method)
         baseline_od: Baseline OD for tangent method (defaults to min(N))
         plateau_od: Plateau OD for tangent method (defaults to max(N))
-        lag_frac: Fraction of μ_max for lag phase end (threshold method, default: 0.15)
-        exp_frac: Fraction of μ_max for exp phase end (threshold method, default: 0.15)
+        lag_threshold: Fraction of μ_max for lag phase end
+                       (threshold method, default: 0.15)
+        exp_threshold: Fraction of μ_max for exp phase end
+                       (threshold method, default: 0.15)
 
     Returns:
         Tuple of (exp_phase_start, exp_phase_end) times.
@@ -360,7 +363,7 @@ def compute_phase_boundaries(
         ... )
         >>> # Threshold method (for parametric fits)
         >>> exp_start, exp_end = calculate_phase_boundaries(
-        ...     t, N, method="threshold", lag_frac=0.15, exp_frac=0.15
+        ...     t, N, method="threshold", lag_threshold=0.15, exp_threshold=0.15
         ... )
     """
     if method == "tangent":
@@ -372,7 +375,9 @@ def compute_phase_boundaries(
             t, N, time_at_umax, od_at_umax, mu_max, baseline_od, plateau_od
         )
     elif method == "threshold":
-        return compute_phase_boundaries_mu_threshold(t, N, mu_max, lag_frac, exp_frac)
+        return compute_phase_boundaries_mu_threshold(
+            t, N, mu_max, lag_threshold, exp_threshold
+        )
     else:
         raise ValueError(f"Unknown method '{method}'. Choose 'tangent' or 'threshold'.")
 
@@ -386,8 +391,8 @@ def _extract_stats_mech_logistic(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="threshold",
 ):
     """
@@ -399,14 +404,12 @@ def _extract_stats_mech_logistic(
         fit_result: Dict containing 'params' with mu, K, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -449,8 +452,8 @@ def _extract_stats_mech_logistic(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -480,8 +483,8 @@ def _extract_stats_mech_gompertz(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="threshold",
 ):
     """
@@ -493,7 +496,7 @@ def _extract_stats_mech_gompertz(
         fit_result: Dict containing 'params' with mu, K, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -543,8 +546,8 @@ def _extract_stats_mech_gompertz(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -574,8 +577,8 @@ def _extract_stats_mech_richards(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="threshold",
 ):
     """
@@ -587,7 +590,7 @@ def _extract_stats_mech_richards(
         fit_result: Dict containing 'params' with mu, K, N0, beta
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -637,8 +640,8 @@ def _extract_stats_mech_richards(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -668,8 +671,8 @@ def _extract_stats_mech_baranyi(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="threshold",
 ):
     """
@@ -682,7 +685,7 @@ def _extract_stats_mech_baranyi(
         fit_result: Dict containing 'params' with mu, K, N0, h0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -732,8 +735,8 @@ def _extract_stats_mech_baranyi(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=y0 + K,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -763,8 +766,8 @@ def _extract_stats_phenom_logistic(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -776,7 +779,7 @@ def _extract_stats_phenom_logistic(
         fit_result: Dict containing 'params' with A, mu_max, lam, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -834,8 +837,8 @@ def _extract_stats_phenom_logistic(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=float(np.max(N_dense)),
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -865,8 +868,8 @@ def _extract_stats_phenom_gompertz(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -878,7 +881,7 @@ def _extract_stats_phenom_gompertz(
         fit_result: Dict containing 'params' with A, mu_max, lam, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -936,8 +939,8 @@ def _extract_stats_phenom_gompertz(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=float(np.max(N_dense)),
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -967,8 +970,8 @@ def _extract_stats_phenom_gompertz_modified(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -980,7 +983,7 @@ def _extract_stats_phenom_gompertz_modified(
         fit_result: Dict containing 'params' with A, mu_max, lam, alpha, t_shift, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -1042,8 +1045,8 @@ def _extract_stats_phenom_gompertz_modified(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=float(np.max(N_dense)),
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -1073,8 +1076,8 @@ def _extract_stats_phenom_richards(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -1086,7 +1089,7 @@ def _extract_stats_phenom_richards(
         fit_result: Dict containing 'params' with A, mu_max, lam, nu, N0
         t: Time array
         N: OD values
-        lag_frac, exp_frac: Phase detection thresholds
+        lag_threshold, exp_threshold: Phase detection thresholds
         phase_boundary_method: "threshold" or "tangent"
 
     Returns:
@@ -1144,8 +1147,8 @@ def _extract_stats_phenom_richards(
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
         plateau_od=float(np.max(N_dense)),
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     # Doubling t from mu_max
@@ -1175,8 +1178,8 @@ def _extract_stats_parametric(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="threshold",
 ):
     """
@@ -1191,8 +1194,8 @@ def _extract_stats_parametric(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         N: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection
-        exp_frac: Fraction of peak growth rate for exponential phase end detection
+        lag_threshold: Fraction of peak growth rate for lag phase detection
+        exp_threshold: Fraction of peak growth rate for exponential phase end detection
         phase_boundary_method: Method for phase boundary calculation
 
     Returns:
@@ -1203,47 +1206,49 @@ def _extract_stats_parametric(
     # Dispatch to model-specific extraction function
     if model_type == "mech_logistic":
         return _extract_stats_mech_logistic(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "mech_gompertz":
         return _extract_stats_mech_gompertz(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "mech_richards":
         return _extract_stats_mech_richards(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "mech_baranyi":
         return _extract_stats_mech_baranyi(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "phenom_logistic":
         return _extract_stats_phenom_logistic(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "phenom_gompertz":
         return _extract_stats_phenom_gompertz(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "phenom_gompertz_modified":
         return _extract_stats_phenom_gompertz_modified(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     elif model_type == "phenom_richards":
         return _extract_stats_phenom_richards(
-            fit_result, t, N, lag_frac, exp_frac, phase_boundary_method
+            fit_result, t, N, lag_threshold, exp_threshold, phase_boundary_method
         )
     else:
         # Unknown parametric model
-        return bad_fit_stats()
+        raise ValueError(
+            f"Unknown model type for parametric stats extraction: {model_type}"
+        )
 
 
 def _extract_stats_sliding_window(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -1253,8 +1258,8 @@ def _extract_stats_sliding_window(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         N: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection
-        exp_frac: Fraction of peak growth rate for exponential phase end detection
+        lag_threshold: Fraction of peak growth rate for lag phase detection
+        exp_threshold: Fraction of peak growth rate for exponential phase end detection
         phase_boundary_method: "threshold" or "tangent" (default: "tangent")
 
     Returns:
@@ -1293,8 +1298,8 @@ def _extract_stats_sliding_window(
         mu_max=mu_max,
         baseline_od=baseline_od,
         plateau_od=plateau_od,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     window_points = params.get("window_points", 15)
@@ -1350,8 +1355,8 @@ def _extract_stats_spline(
     fit_result,
     t,
     N,
-    lag_frac=0.15,
-    exp_frac=0.15,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
     phase_boundary_method="tangent",
 ):
     """
@@ -1368,9 +1373,9 @@ def _extract_stats_spline(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         N: OD values used for fitting
-        lag_frac: Fraction of peak growth rate for lag phase detection
+        lag_threshold: Fraction of peak growth rate for lag phase detection
                   (threshold method)
-        exp_frac: Fraction of peak growth rate for exponential phase end
+        exp_threshold: Fraction of peak growth rate for exponential phase end
                   (threshold method)
         phase_boundary_method: "threshold" or "tangent" (default: "tangent")
 
@@ -1444,8 +1449,8 @@ def _extract_stats_spline(
         mu_max=mu_max,
         baseline_od=baseline_od,
         plateau_od=plateau_od,
-        lag_frac=lag_frac,
-        exp_frac=exp_frac,
+        lag_threshold=lag_threshold,
+        exp_threshold=exp_threshold,
     )
 
     return {
@@ -1466,7 +1471,13 @@ def _extract_stats_spline(
 
 
 def extract_stats(
-    fit_result, t, N, lag_frac=0.15, exp_frac=0.15, phase_boundary_method=None
+    fit_result,
+    t,
+    N,
+    lag_threshold=0.15,
+    exp_threshold=0.15,
+    phase_boundary_method=None,
+    **kwargs,
 ):
     """
     Extract growth statistics from parametric or non-parametric fit results.
@@ -1478,8 +1489,8 @@ def extract_stats(
         fit_result: Dict from fit_* functions (contains 'params' and 'model_type')
         t: Time array (hours) used for fitting
         N: OD values used for fitting
-        lag_frac: Fraction of u_max for lag phase detection (threshold method)
-        exp_frac: Fraction of u_max for exponential phase end (threshold method)
+        lag_threshold: Fraction of u_max for lag phase detection (threshold method)
+        exp_threshold: Fraction of u_max for exponential phase end (threshold method)
         phase_boundary_method: Method for calculating phase boundaries:
             - "threshold": Threshold-based method using fractions of μ_max
             - "tangent": Tangent line method at point of maximum growth rate
@@ -1489,6 +1500,11 @@ def extract_stats(
     """
     if fit_result is None:
         return bad_fit_stats()
+
+    if "lag_frac" in kwargs:
+        lag_threshold = kwargs["lag_frac"]
+    if "exp_frac" in kwargs:
+        exp_threshold = kwargs["exp_frac"]
 
     # Validate and filter N - remove non-positive and non-finite values
     t, N = validate_data(t, N, min_points=3)
@@ -1532,13 +1548,17 @@ def extract_stats(
         "phenom_gompertz_modified",
         "phenom_richards",
     }:
-        return _extract_stats_parametric(fit_result, t, N, lag_frac, exp_frac, method)
+        return _extract_stats_parametric(
+            fit_result, t, N, lag_threshold, exp_threshold, method
+        )
     elif model_type == "sliding_window":
         return _extract_stats_sliding_window(
-            fit_result, t, N, lag_frac, exp_frac, method
+            fit_result, t, N, lag_threshold, exp_threshold, method
         )
     elif model_type == "spline":
-        return _extract_stats_spline(fit_result, t, N, lag_frac, exp_frac, method)
+        return _extract_stats_spline(
+            fit_result, t, N, lag_threshold, exp_threshold, method
+        )
     else:
         # Unknown or unsupported model type
         return bad_fit_stats()
