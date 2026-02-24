@@ -99,24 +99,43 @@ def path_correct(N: np.ndarray, path_length_cm: float) -> np.ndarray:
     return data_array / float(path_length_cm)
 
 
-def out_of_iqr_numpy(values: np.ndarray, factor: float = 1.5) -> bool:
-    """Return True if the center value is an outlier based on the IQR method:
-    Determine 25th and 75th percentiles, calculate IQR, and check if the center value is
-    outside the bounds defined by Q1 - factor*IQR and Q3 + factor*IQR.
+def out_of_iqr(
+    values: np.ndarray, factor: float = 1.5, position: str = "center"
+) -> bool:
+    """Return True if the selected value is an outlier based on the IQR method.
+
+    Parameters
+    ----------
+    values : numpy.ndarray
+        Input window of values.
+    factor : float, default=1.5
+        IQR multiplier used to define outlier bounds.
+    position : {"center", "first", "last"}, default="center"
+        Which value in the window to test as the target point.
 
     Raises
     ------
     ValueError
-        If the input array does not have an odd number of elements, since a clear
-        center value cannot be identified in that case.
+        If `position` is invalid.
+        If `position="center"` and the input array does not have an odd
+        number of elements.
     """
-    values = np.asarray(values, dtype=float)
-    if len(values) % 2 == 0:
+    if position == "center":
+        if len(values) % 2 == 0:
+            raise ValueError(
+                "Input array must have an odd number of elements when "
+                "position='center'."
+            )
+        center = values[len(values) // 2]
+    elif position == "first":
+        center = values[0]
+    elif position == "last":
+        center = values[-1]
+    else:
         raise ValueError(
-            "Input array must have an odd number of elements to identify a "
-            "clear center value."
+            "position must be one of: 'center', 'first', 'last'."
         )
-    center = values[len(values) // 2]
+
     if np.isnan(center):
         return False
 
