@@ -12,6 +12,9 @@ from scipy.stats import theilslopes
 from .inference import bad_fit_stats
 from .models import spline_model
 
+# Default multiplier for automatic spline smoothing in log-space.
+_SPLINE_AUTO_SMOOTH_MULT = 5.0
+
 # -----------------------------------------------------------------------------
 # Sliding Window Helpers
 # -----------------------------------------------------------------------------
@@ -103,7 +106,72 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None):
     }
 
 
-def fit_spline(t, N, spline_s=None):
+def _robust_sigma_from_second_diff(t, y_log, trim_q=0.80):
+    """Estimate log-space noise using trimmed MAD on second divided differences."""
+    t = np.asarray(t, dtype=float)
+    y_log = np.asarray(y_log, dtype=float)
+
+    if len(t) < 4 or np.ptp(t) <= 0:
+        return 1e-4
+
+    order = np.argsort(t, kind="mergesort")
+    t = t[order]
+    y_log = y_log[order]
+
+    dt = np.diff(t)
+    if len(dt) < 2 or np.any(dt <= 0):
+        return 1e-4
+
+    d1 = np.diff(y_log) / dt
+    dt2 = 0.5 * (dt[:-1] + dt[1:])
+    if len(dt2) < 1 or np.any(dt2 <= 0):
+        return 1e-4
+
+    d2 = np.diff(d1) / dt2
+    if len(d2) < 3:
+        return 1e-4
+
+    h = float(np.median(dt))
+    d2y = np.asarray(d2 * h**2, dtype=float)
+
+    med = float(np.median(d2y))
+    abs_dev = np.abs(d2y - med)
+    if len(abs_dev) >= 5:
+        cutoff = float(np.quantile(abs_dev, trim_q))
+        core = d2y[abs_dev <= cutoff]
+        if len(core) >= 3:
+            d2y = core
+
+    mad = float(np.median(np.abs(d2y - np.median(d2y))))
+    sigma = float(1.4826 * mad / np.sqrt(6.0))
+
+    if (not np.isfinite(sigma)) or (sigma < 1e-8):
+        return 1e-4
+    return sigma
+
+
+def _auto_spline_smoothing_factor(t, y_log, smooth_mult=_SPLINE_AUTO_SMOOTH_MULT):
+    """
+    Compute automatic smoothing factor for spline fits in log-space.
+
+    Uses s = clip(m * n * sigma^2, s_min, s_max), where sigma is estimated from
+    trimmed second differences.
+    """
+    t = np.asarray(t, dtype=float)
+    y_log = np.asarray(y_log, dtype=float)
+    n = len(t)
+    if n < 2:
+        return 0.01
+
+    sigma = _robust_sigma_from_second_diff(t, y_log, trim_q=0.80)
+    m = float(np.clip(float(smooth_mult), 0.25, 30.0))
+
+    s_min = 0.01
+    s_max = max(s_min * 10.0, 0.8 * float(n) * float(np.var(y_log)))
+    return float(np.clip(m * float(n) * sigma**2, s_min, s_max))
+
+
+def fit_spline(t, N, spline_s="auto"):
     """
     Calculate maximum specific growth rate using spline fitting.
 
@@ -113,7 +181,8 @@ def fit_spline(t, N, spline_s=None):
     Parameters:
         t: Time array (hours)
         N: OD values
-        spline_s: Smoothing factor for spline (None = automatic)
+        spline_s: Smoothing factor for spline.
+                  Use "auto" (default) for robust automatic smoothing.
 
     Returns:
         Dict with model parameters:
@@ -132,10 +201,13 @@ def fit_spline(t, N, spline_s=None):
     y_log = np.log(N)
 
     try:
-        # Fit spline with automatic or specified smoothing
-        if spline_s is None:
-            # Low smoothing for tight fit to N
-            spline_s = 0.01
+        # Fit spline with automatic or specified smoothing.
+        if isinstance(spline_s, str):
+            if spline_s.strip().lower() != "auto":
+                raise ValueError("spline_s must be numeric or 'auto'.")
+            spline_s = _auto_spline_smoothing_factor(t, y_log)
+        else:
+            spline_s = float(spline_s)
 
         spline, spline_s = spline_model(t, y_log, spline_s, k=3)
 
@@ -182,7 +254,7 @@ def fit_non_parametric(
     N,
     method="sliding_window",
     window_points=15,
-    spline_s=None,
+    spline_s="auto",
     **kwargs,
 ):
     """
@@ -198,7 +270,8 @@ def fit_non_parametric(
         N: OD values (baseline-corrected, must be positive)
         method: Method for calculating Umax ("sliding_window" or "spline")
         window_points: Number of points in sliding window (for sliding_window method)
-        spline_s: Smoothing factor for spline (for spline method, None = automatic)
+        spline_s: Smoothing factor for spline (for spline method).
+                  Use "auto" (default) for robust automatic smoothing.
         **kwargs: Additional arguments (for compatibility)
 
     Returns:
