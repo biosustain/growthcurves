@@ -132,9 +132,7 @@ def out_of_iqr(
     elif position == "last":
         center = values[-1]
     else:
-        raise ValueError(
-            "position must be one of: 'center', 'first', 'last'."
-        )
+        raise ValueError("position must be one of: 'center', 'first', 'last'.")
 
     if np.isnan(center):
         return False
@@ -147,3 +145,52 @@ def out_of_iqr(
     upper_bound = q3 + factor * iqr
 
     return (center < lower_bound) or (center > upper_bound)
+
+
+if __name__ == "__main__":
+    # Example usage
+    data = np.array([20, 1, 2, 3, 4, 5, 20, 6, 7, 8, 9, 10, 25])
+    print(out_of_iqr(data))
+
+    # rolling windows of size 5: shape -> (len(data)-4, 5)
+    window_size = 5
+    edge_idx = window_size // 2
+    windows = np.lib.stride_tricks.sliding_window_view(data, window_size)
+
+    # outlier flag for each 5-value window (checks center element of each window)
+    # center points (indices 2..-3)
+    window_flags = np.apply_along_axis(out_of_iqr, 1, windows)
+
+    edge_window_size = window_size + window_size // 2 -1
+    start_windows = np.lib.stride_tricks.sliding_window_view(
+        data[:edge_window_size], window_size
+    )
+    start_window_flags = np.apply_along_axis(
+        out_of_iqr,
+        1,
+        start_windows,
+        position="first", # passed to out_of_iqr
+    )
+    end_windows = np.lib.stride_tricks.sliding_window_view(
+        data[-(edge_window_size) :], window_size
+    )
+    end_window_flags = np.apply_along_axis(
+        out_of_iqr,
+        1,
+        end_windows,
+        position="last", # passed to out_of_iqr
+    )
+
+    print("start edge windows:", start_windows)
+    print("start edge window flags:", start_window_flags)
+    print("end edge windows:", end_windows)
+    print("end edge window flags:", end_window_flags)
+    # optional: align back to original array length (center indices only)
+    flags = np.full(data.shape, False)
+
+    flags[:edge_idx] = start_window_flags #[:edge_idx]
+    flags[-edge_idx:] = end_window_flags
+
+    print("windows:\n", windows)
+    print("window_flags:", window_flags)
+    print("aligned flags:", flags)
