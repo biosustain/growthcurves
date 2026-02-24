@@ -210,7 +210,7 @@ def _od_weight_vector(
 
 
 def _fast_auto_lam(t, y_log):
-    """Compute notebook-style fast auto smoothing value for make_smoothing_spline(lam=...)."""
+    """Compute notebook-style fast auto smoothing value for make_smoothing_spline."""
     sigma = _sigma_second_diff_mad(t, y_log, trim_q=0.8)
     if not np.isfinite(sigma) or sigma < 1e-8:
         sigma = 1e-4
@@ -280,7 +280,9 @@ def fit_spline(
         else:
             lam = float(smooth)
             if (not np.isfinite(lam)) or (lam < 0):
-                raise ValueError("Manual smooth value must be a finite non-negative float.")
+                raise ValueError(
+                    "Manual smooth value must be a finite non-negative float."
+                )
             smooth_out = lam
 
         spline = make_smoothing_spline(t_fit, y_log, w=w, lam=lam)
