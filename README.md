@@ -37,7 +37,10 @@ print(f"Specific growth rate: {stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 
 # Or use a non-parametric spline fit
-spline_fit = gc.non_parametric.fit_non_parametric(t, N, umax_method="spline")
+# smooth: "fast" (auto-default), "slow" (GCV), or a float (manual lambda)
+spline_fit = gc.non_parametric.fit_non_parametric(
+    t, N, method="spline", smooth="fast"
+)
 spline_stats = gc.inference.extract_stats(spline_fit, t, N)
 
 print(f"\nSpline fit results:")
@@ -73,12 +76,15 @@ Phenomenological models are fitted directly to ln(OD/OD0) data.
 
 ### Non-parametric methods
 
-| Method         | Function                            | Key parameters       |
-| -------------- | ----------------------------------- | -------------------- |
-| Spline         | `non_parametric.fit_non_parametric` | spline_s (smoothing) |
-| Sliding window | `non_parametric.fit_non_parametric` | window_points        |
+| Method         | Function                            | Key parameters                   |
+| -------------- | ----------------------------------- | -------------------------------- |
+| Spline         | `non_parametric.fit_non_parametric` | `smooth`, `use_weights`          |
+| Sliding window | `non_parametric.fit_non_parametric` | `window_points`                  |
 
-The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. This provides a flexible, model-free approach that adapts to the data shape. The smoothing parameter `spline_s` controls the balance between fit quality and smoothness (default: `0.01` for tight fit to data).
+The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. Smoothing is controlled by `smooth`:
+- `"fast"`: automatic default lambda rule (fast)
+- `"slow"`: weighted GCV selection (slower)
+- `float`: manual lambda value
 
 The **sliding window method** estimates growth rate by fitting a linear regression to log-transformed data within a moving window, identifying the window with maximum slope.
 
@@ -87,16 +93,16 @@ The **sliding window method** estimates growth rate by fitting a linear regressi
 The spline method provides a model-free approach to growth curve analysis by fitting a smoothing spline to log-transformed OD data:
 
 1. Transform OD data: $y_{\text{log}} = \ln(N)$
-2. Fit a cubic smoothing spline $s(t)$ to $(t, y_{\text{log}})$ using `scipy.interpolate.UnivariateSpline`
+2. Fit a cubic smoothing spline $s(t)$ to $(t, y_{\text{log}})$ using `scipy.interpolate.make_smoothing_spline`
 3. Calculate specific growth rate: $\mu(t) = \frac{d\,s(t)}{dt}$
 4. Find maximum growth rate: $\mu_{\max} = \max_{t} \mu(t)$
 
-| Parameter  | Meaning                           |
-| ---------- | --------------------------------- |
-| `spline_s` | Smoothing factor (default: 0.01)  |
-| `k`        | Spline degree (default: 3, cubic) |
+| Parameter     | Meaning                                                       |
+| ------------- | ------------------------------------------------------------- |
+| `smooth`      | `"fast"`, `"slow"`, or manual float lambda value             |
+| `use_weights` | Apply OD-dependent weighting (default: `True`)               |
 
-The smoothing parameter `spline_s` controls the tradeoff between fit quality and smoothness. Lower values produce tighter fits to data; higher values produce smoother curves. The default of 0.01 produces a tight fit that closely follows the data, which can be increased for noisier datasets.
+When `smooth` is a float, higher values produce smoother curves and lower values follow the data more tightly.
 
 ### Derived growth statistics
 
