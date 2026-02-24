@@ -97,3 +97,34 @@ def path_correct(N: np.ndarray, path_length_cm: float) -> np.ndarray:
     data_array = np.asarray(N, dtype=float)
 
     return data_array / float(path_length_cm)
+
+
+def out_of_iqr_numpy(values: np.ndarray, factor: float = 1.5) -> bool:
+    """Return True if the center value is an outlier based on the IQR method:
+    Determine 25th and 75th percentiles, calculate IQR, and check if the center value is
+    outside the bounds defined by Q1 - factor*IQR and Q3 + factor*IQR.
+
+    Raises
+    ------
+    ValueError
+        If the input array does not have an odd number of elements, since a clear
+        center value cannot be identified in that case.
+    """
+    values = np.asarray(values, dtype=float)
+    if len(values) % 2 == 0:
+        raise ValueError(
+            "Input array must have an odd number of elements to identify a "
+            "clear center value."
+        )
+    center = values[len(values) // 2]
+    if np.isnan(center):
+        return False
+
+    q1 = np.nanquantile(values, 0.25)
+    q3 = np.nanquantile(values, 0.75)
+    iqr = q3 - q1
+
+    lower_bound = q1 - factor * iqr
+    upper_bound = q3 + factor * iqr
+
+    return (center < lower_bound) or (center > upper_bound)
