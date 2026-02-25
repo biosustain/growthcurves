@@ -152,8 +152,8 @@ def out_of_iqr_window(
 def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     """Return a boolean array indicating whether each value is an outlier
     based on the IQR method.
-    
-    The sliding window size gives for the middle values the central window points 
+
+    The sliding window size gives for the middle values the central window points
     IQR status. For the first and last points in data series N, the first and last
     point in window is respectively used instead of the center to label a value
     as an outlier.
@@ -164,7 +164,7 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     _out_of_iqr_window = partial(out_of_iqr_window, factor=factor)
     window_flags = np.apply_along_axis(_out_of_iqr_window, 1, windows)
 
-    edge_window_size = window_size + window_size // 2 -1
+    edge_window_size = window_size + window_size // 2 - 1
     start_windows = np.lib.stride_tricks.sliding_window_view(
         N[:edge_window_size], window_size
     )
@@ -172,21 +172,21 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
         _out_of_iqr_window,
         1,
         start_windows,
-        position="first", # passed to out_of_iqr_window
+        position="first",  # passed to out_of_iqr_window
     )
     end_windows = np.lib.stride_tricks.sliding_window_view(
-        N[-(edge_window_size) :], window_size
+        N[-(edge_window_size):], window_size
     )
     end_window_mask = np.apply_along_axis(
         _out_of_iqr_window,
         1,
         end_windows,
-        position="last", # passed to out_of_iqr_window
+        position="last",  # passed to out_of_iqr_window
     )
     # create mask of same length as array N
     mask = np.full(N.shape, False)
 
-    mask[:edge_idx] = start_window_mask #[:edge_idx]
+    mask[:edge_idx] = start_window_mask  # [:edge_idx]
     mask[edge_idx:-edge_idx] = window_flags
     mask[-edge_idx:] = end_window_mask
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     # outlier flag for each 5-value window (checks center element of each window)
     # center points (indices 2..-3)
     window_flags = np.apply_along_axis(out_of_iqr_window, 1, windows)
-    edge_window_size = window_size + window_size // 2 -1
+    edge_window_size = window_size + window_size // 2 - 1
     start_windows = np.lib.stride_tricks.sliding_window_view(
         data[:edge_window_size], window_size
     )
@@ -214,16 +214,16 @@ if __name__ == "__main__":
         out_of_iqr_window,
         1,
         start_windows,
-        position="first", # passed to out_of_iqr_window
+        position="first",  # passed to out_of_iqr_window
     )
     end_windows = np.lib.stride_tricks.sliding_window_view(
-        data[-(edge_window_size) :], window_size
+        data[-(edge_window_size):], window_size
     )
     end_window_flags = np.apply_along_axis(
         out_of_iqr_window,
         1,
         end_windows,
-        position="last", # passed to out_of_iqr_window
+        position="last",  # passed to out_of_iqr_window
     )
     print("center windows flags:", window_flags)
     print("start edge windows:", start_windows)
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     # optional: align back to original array length (center indices only)
     flags = np.full(data.shape, False)
 
-    flags[:edge_idx] = start_window_flags #[:edge_idx]
+    flags[:edge_idx] = start_window_flags  # [:edge_idx]
     flags[edge_idx:-edge_idx] = window_flags
     flags[-edge_idx:] = end_window_flags
 
