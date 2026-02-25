@@ -4,6 +4,8 @@ This module provides functions for common preprocessing steps such as blank
 subtraction and path length correction.
 """
 
+from functools import partial
+
 import numpy as np
 
 
@@ -158,14 +160,16 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     """
     edge_idx = window_size // 2
     windows = np.lib.stride_tricks.sliding_window_view(N, window_size)
-    window_flags = np.apply_along_axis(out_of_iqr_window, 1, windows)
+    # use partial to fix factor argument for out_of_iqr_window
+    _out_of_iqr_window = partial(out_of_iqr_window, factor=factor)
+    window_flags = np.apply_along_axis(_out_of_iqr_window, 1, windows)
 
     edge_window_size = window_size + window_size // 2 -1
     start_windows = np.lib.stride_tricks.sliding_window_view(
         N[:edge_window_size], window_size
     )
     start_window_mask = np.apply_along_axis(
-        out_of_iqr_window,
+        _out_of_iqr_window,
         1,
         start_windows,
         position="first", # passed to out_of_iqr_window
@@ -174,7 +178,7 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
         N[-(edge_window_size) :], window_size
     )
     end_window_mask = np.apply_along_axis(
-        out_of_iqr_window,
+        _out_of_iqr_window,
         1,
         end_windows,
         position="last", # passed to out_of_iqr_window
