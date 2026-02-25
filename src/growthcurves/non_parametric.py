@@ -5,6 +5,7 @@ including sliding window fitting and no-growth detection.
 
 All methods operate in linear OD space (not log-transformed).
 """
+
 from logging import getLogger
 
 import numpy as np
