@@ -6,6 +6,8 @@ including sliding window fitting and no-growth detection.
 All methods operate in linear OD space (not log-transformed).
 """
 
+from logging import getLogger
+
 import numpy as np
 import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
@@ -14,6 +16,8 @@ from .inference import bad_fit_stats
 
 # from scipy.stats import theilslopes
 
+
+logger = getLogger(__name__)
 
 # Default settings for the auto-spline (sigma-based smoothing + OD weights).
 _SPLINE_SMOOTH_MULT = 5.0
@@ -30,7 +34,7 @@ _SPLINE_GCV_WEIGHT_POWER = 1.0
 # -----------------------------------------------------------------------------
 
 
-def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None):
+def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -57,6 +61,8 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None):
         Returns None if calculation fails.
 
     """
+    if kwargs:
+        logger.warning("fit_sliding_window received unused kwargs: %s", kwargs)
     if len(t) < window_points or np.ptp(t) <= 0:
         return None
 
