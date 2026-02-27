@@ -12,6 +12,7 @@
 :hidden: true
 
 tutorial/analysis
+tutorial/preprocessing
 tutorial/plotting
 ```
 
