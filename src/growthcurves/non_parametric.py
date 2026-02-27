@@ -9,10 +9,13 @@ All methods operate in linear OD space (not log-transformed).
 from logging import getLogger
 
 import numpy as np
+import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
-from scipy.stats import theilslopes
 
 from .inference import bad_fit_stats
+
+# from scipy.stats import theilslopes
+
 
 logger = getLogger(__name__)
 
@@ -79,7 +82,7 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
             step = 1
         else:
             step = max(1, int(len(t) / n_fits))
-
+    huber_regressor = sklearn.linear_model.HuberRegressor()
     # limit number of fits to avoid excessive computation using step parameter
     for i in range(0, len(t) - w + 1, step):
         t_win = t[i : i + w]
@@ -88,9 +91,13 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
         if np.ptp(t_win) <= 0:
             continue
 
-        # Use Theil-Sen estimator for robust line fitting
-        result = theilslopes(y_log_win, t_win)
-        slope, intercept = result.slope, result.intercept
+        # # Use Theil-Sen estimator for robust line fitting
+        # result = theilslopes(y_log_win, t_win)
+        # slope, intercept = result.slope, result.intercept
+        # # Use HuberRegressor which uses L2 regularization and is twice as fast as
+        # # Theil-Sen.
+        result = huber_regressor.fit(t_win.reshape(-1, 1), y_log_win)
+        slope, intercept = result.coef_[0], result.intercept_
 
         if slope > best_slope:
             best_slope = slope
