@@ -1382,7 +1382,7 @@ def _extract_stats_spline(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import spline_model
+    from .models import spline_from_params, spline_model
 
     params = fit_result.get("params", {})
 
@@ -1420,7 +1420,10 @@ def _extract_stats_spline(
     # Reconstruct spline to calculate od_at_umax and RMSE
     y_log_exp = np.log(y_exp)
     try:
-        spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
+        if "tck_t" in params and "tck_c" in params:
+            spline = spline_from_params(params)
+        else:
+            spline, _ = spline_model(t_exp, y_log_exp, spline_s, k=3)
         # Evaluate spline at time_at_umax to get the OD value
         # Spline is fitted to log(y), so exponentiate to get actual OD
         od_at_umax = float(np.exp(spline(time_at_umax)))
