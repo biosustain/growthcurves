@@ -5,9 +5,9 @@ subtraction and path length correction.
 """
 
 from functools import partial
-from pyod.models.ecod import ECOD
 
 import numpy as np
+from pyod.models.ecod import ECOD
 
 
 def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
