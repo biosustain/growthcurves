@@ -5,6 +5,7 @@ subtraction and path length correction.
 """
 
 from functools import partial
+from pyod.models.ecod import ECOD
 
 import numpy as np
 
@@ -191,6 +192,49 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     mask[-edge_idx:] = end_window_mask
 
     return mask
+
+
+def detect_outliers(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
+    """Return a boolean array indicating whether each value is an outlier
+    using ECOD (Empirical Cumulative Distribution-based Outlier Detection).
+
+    Builds a 3-feature matrix per point — absolute rolling-mean residual,
+    raw OD value, and first difference — then fits ECOD and flags points
+    whose MAD z-score of the decision score exceeds `factor`.
+
+    Parameters
+    ----------
+    N : numpy.ndarray
+        Input time series of OD values.
+    factor : float, default=3.5
+        MAD z-score threshold for flagging outliers. Higher values flag
+        fewer, more extreme points.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of the same length as N where True indicates an outlier.
+    """
+
+    n = len(N)
+    half = 15 // 2
+    residual = np.zeros(n)
+    for i in range(n):
+        win = N[max(0, i - half) : min(n, i + half + 1)]
+        residual[i] = N[i] - win.mean()
+    d = np.diff(N, prepend=N[0])
+    X = np.column_stack([np.abs(residual), N, d])
+
+    clf = ECOD()
+    clf.fit(X)
+    scores = clf.decision_scores_
+
+    med = np.median(scores)
+    mad = np.median(np.abs(scores - med))
+    if mad < 1e-12:
+        return np.zeros(n, dtype=bool)
+    mad_z = np.abs(scores - med) / (1.4826 * mad)
+    return mad_z > factor
 
 
 if __name__ == "__main__":

@@ -49,6 +49,8 @@ docs = [
   "numpy",
   "matplotlib",
 ]
+# outlier detection extras
+outliers = ["pyod"]
 # local development options
 dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]
 
