@@ -7,6 +7,7 @@ subtraction and path length correction.
 from functools import partial
 
 import numpy as np
+from pyod.models.ecod import ECOD
 
 
 def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
@@ -149,7 +150,7 @@ def out_of_iqr_window(
     return (center < lower_bound) or (center > upper_bound)
 
 
-def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
+def detect_outliers_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     """Return a boolean array indicating whether each value is an outlier
     based on the IQR method.
 
@@ -191,6 +192,135 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     mask[-edge_idx:] = end_window_mask
 
     return mask
+
+
+def detect_outliers_hampel(
+    N: np.ndarray, window: int = 15, factor: float = 3.0
+) -> np.ndarray:
+    """Return a boolean array indicating whether each value is an outlier
+    using the Hampel identifier.
+
+    For each point, computes the median and MAD of a symmetric neighbourhood
+    window and flags points whose MAD z-score exceeds `factor`.
+
+    Parameters
+    ----------
+    N : numpy.ndarray
+        Input time series of OD values.
+    window : int, default=15
+        Total number of neighbours to include (window // 2 on each side).
+    factor : float, default=3.0
+        MAD z-score threshold. Points with score > factor are flagged.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of the same length as N where True indicates an outlier.
+    """
+    n = len(N)
+    half = window // 2
+    mask = np.zeros(n, dtype=bool)
+    for i in range(n):
+        nb = N[max(0, i - half) : min(n, i + half + 1)]
+        med = np.median(nb)
+        mad = np.median(np.abs(nb - med))
+        if mad > 1e-12:
+            mask[i] = abs(N[i] - med) / (1.4826 * mad) > factor
+    return mask
+
+
+def detect_outliers_ecod(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
+    """Return a boolean array indicating whether each value is an outlier
+    using ECOD (Empirical Cumulative Distribution-based Outlier Detection).
+
+    Builds a 3-feature matrix per point — absolute rolling-mean residual,
+    raw OD value, and first difference — then fits ECOD and flags points
+    whose MAD z-score of the decision score exceeds `factor`.
+
+    Parameters
+    ----------
+    N : numpy.ndarray
+        Input time series of OD values.
+    factor : float, default=3.5
+        MAD z-score threshold for flagging outliers. Higher values flag
+        fewer, more extreme points.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of the same length as N where True indicates an outlier.
+    """
+
+    n = len(N)
+    half = 15 // 2
+    residual = np.zeros(n)
+    for i in range(n):
+        win = N[max(0, i - half) : min(n, i + half + 1)]
+        residual[i] = N[i] - win.mean()
+    d = np.diff(N, prepend=N[0])
+    X = np.column_stack([np.abs(residual), N, d])
+
+    clf = ECOD()
+    clf.fit(X)
+    scores = clf.decision_scores_
+
+    med = np.median(scores)
+    mad = np.median(np.abs(scores - med))
+    if mad < 1e-12:
+        return np.zeros(n, dtype=bool)
+    mad_z = np.abs(scores - med) / (1.4826 * mad)
+    return mad_z > factor
+
+
+def detect_outliers(N: np.ndarray, method: str = "ecod", **kwargs) -> np.ndarray:
+    """Detect outliers in a growth curve time series.
+
+    Entry point that dispatches to the chosen detection method. All methods
+    return a boolean mask of the same length as ``N``.
+
+    Parameters
+    ----------
+    N : numpy.ndarray
+        Input time series of OD values.
+    method : {"iqr", "ecod", "hampel"}, default="ecod"
+        Outlier detection method to use:
+
+        - ``"iqr"`` — sliding-window IQR method (:func:`detect_outliers_iqr`).
+          Kwargs: ``window_size`` (int, required), ``factor`` (float, default 1.5).
+        - ``"ecod"`` — ECOD method (:func:`detect_outliers_ecod`).
+          Kwargs: ``factor`` (float, default 3.5).
+        - ``"hampel"`` — Hampel identifier (:func:`detect_outliers_hampel`).
+          Kwargs: ``window`` (int, default 15), ``factor`` (float, default 3.0).
+
+    **kwargs
+        Additional keyword arguments forwarded to the chosen method.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of the same length as N where True indicates an outlier.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not recognised.
+
+    Examples
+    --------
+    >>> mask = detect_outliers(N, method="iqr", window_size=11, factor=1.5)
+    >>> mask = detect_outliers(N, method="ecod", factor=3.5)
+    >>> mask = detect_outliers(N, method="hampel", window=15, factor=3.0)
+    """
+    if method == "iqr":
+        return detect_outliers_iqr(N, **kwargs)
+    elif method == "ecod":
+        return detect_outliers_ecod(N, **kwargs)
+    elif method == "hampel":
+        return detect_outliers_hampel(N, **kwargs)
+    else:
+        raise ValueError(
+            f"Unknown method '{method}'. Choose from: 'iqr', 'ecod', 'hampel'."
+        )
 
 
 if __name__ == "__main__":
@@ -240,7 +370,7 @@ if __name__ == "__main__":
     print("windows:\n", windows)
     print("window_flags:", window_flags)
     print("aligned flags:", flags)
-    mask = out_of_iqr(data, window_size=5)
+    mask = detect_outliers_iqr(data, window_size=5)
 
     print("final mask:", mask)
     assert (mask == flags).all()

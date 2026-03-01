@@ -20,7 +20,7 @@ classifiers = [
 license = "GPL-3.0-or-later" # https://choosealicense.com/licenses/gpl-3.0/
 # # add dependencies here: (use one of the two)
 dependencies = [
-  "numpy", "scipy", "plotly", "scikit-learn",
+  "numpy", "scipy", "plotly", "scikit-learn", "pyod",
 ]
 # use requirements.txt instead of pyproject.toml for dependencies
 # https://stackoverflow.com/a/73600610/9684872
