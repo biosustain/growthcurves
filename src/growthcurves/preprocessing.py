@@ -150,7 +150,7 @@ def out_of_iqr_window(
     return (center < lower_bound) or (center > upper_bound)
 
 
-def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
+def detect_outliers_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     """Return a boolean array indicating whether each value is an outlier
     based on the IQR method.
 
@@ -194,7 +194,7 @@ def out_of_iqr(N: np.array, window_size: int, factor: float = 1.5) -> np.array:
     return mask
 
 
-def detect_outliers(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
+def detect_outliers_ecod(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
     """Return a boolean array indicating whether each value is an outlier
     using ECOD (Empirical Cumulative Distribution-based Outlier Detection).
 
@@ -235,6 +235,50 @@ def detect_outliers(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
         return np.zeros(n, dtype=bool)
     mad_z = np.abs(scores - med) / (1.4826 * mad)
     return mad_z > factor
+
+
+def detect_outliers(N: np.ndarray, method: str = "ecod", **kwargs) -> np.ndarray:
+    """Detect outliers in a growth curve time series.
+
+    Entry point that dispatches to the chosen detection method. All methods
+    return a boolean mask of the same length as ``N``.
+
+    Parameters
+    ----------
+    N : numpy.ndarray
+        Input time series of OD values.
+    method : {"iqr", "ecod"}, default="ecod"
+        Outlier detection method to use:
+
+        - ``"iqr"`` — sliding-window IQR method (:func:`out_of_iqr`).
+          Kwargs: ``window_size`` (int, required), ``factor`` (float, default 1.5).
+        - ``"ecod"`` — ECOD method (:func:`_detect_outliers_ecod`).
+          Kwargs: ``factor`` (float, default 3.5).
+
+    **kwargs
+        Additional keyword arguments forwarded to the chosen method.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask of the same length as N where True indicates an outlier.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not recognised.
+
+    Examples
+    --------
+    >>> mask = detect_outliers(N, method="iqr", window_size=11, factor=1.5)
+    >>> mask = detect_outliers(N, method="ecod", factor=3.5)
+    """
+    if method == "iqr":
+        return detect_outliers_iqr(N, **kwargs)
+    elif method == "ecod":
+        return detect_outliers_ecod(N, **kwargs)
+    else:
+        raise ValueError(f"Unknown method '{method}'. Choose from: 'iqr', 'ecod'.")
 
 
 if __name__ == "__main__":
@@ -284,7 +328,7 @@ if __name__ == "__main__":
     print("windows:\n", windows)
     print("window_flags:", window_flags)
     print("aligned flags:", flags)
-    mask = out_of_iqr(data, window_size=5)
+    mask = detect_outliers_iqr(data, window_size=5)
 
     print("final mask:", mask)
     assert (mask == flags).all()
