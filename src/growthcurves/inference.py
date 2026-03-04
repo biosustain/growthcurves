@@ -725,8 +725,11 @@ def _extract_stats_mech_baranyi(
         stats["fit_method"] = "model_fitting_mech_baranyi"
         return stats
 
-    # Phase boundaries using specified method
-    exp_phase_start, exp_phase_end = compute_phase_boundaries(
+    # Lag time is the fitted h0 parameter directly
+    exp_phase_start = float(params["h0"])
+
+    # Exp phase end using specified method
+    _, exp_phase_end = compute_phase_boundaries(
         t_dense,
         N_dense,
         method=phase_boundary_method,
