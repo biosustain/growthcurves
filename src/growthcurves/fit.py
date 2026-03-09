@@ -7,7 +7,9 @@ import numpy as np
 from . import inference, models, non_parametric, parametric
 from .models import get_all_models
 
-__all__ = ["fit_model",]
+__all__ = [
+    "fit_model",
+]
 
 
 def fit_model(
