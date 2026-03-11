@@ -15,16 +15,16 @@ def logistic_growth(t, baseline, N0, K, mu, lag):
 def test_fit_parametric():
     np.random.seed(42)
     expected = {
-            "params": {
-                "mu":0.1499259523503361,
-                "K":0.4499768424238933,
-                "N0":0.0006250371640236538,
-                "y0":0.05000966836757205,
-                "fit_t_min": 0.0,
-                "fit_t_max": 87.8,
-            },
-            "model_type": "mech_logistic",
-        }
+        "params": {
+            "mu": 0.1499259523503361,
+            "K": 0.4499768424238933,
+            "N0": 0.0006250371640236538,
+            "y0": 0.05000966836757205,
+            "fit_t_min": 0.0,
+            "fit_t_max": 87.8,
+        },
+        "model_type": "mech_logistic",
+    }
     expected = expected["params"]
     # Test that the function returns expected values for known parameters
     n_points = 440
