@@ -1,9 +1,7 @@
 import numpy as np
-import pytest
 
-from growthcurves.non_parametric import fit_spline, fit_non_parametric
 from growthcurves.models import phenom_gompertz_model
-
+from growthcurves.non_parametric import fit_non_parametric, fit_spline
 
 # =============================================================================
 # Helpers

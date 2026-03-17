@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from growthcurves.non_parametric import fit_sliding_window, fit_non_parametric
-
+from growthcurves.non_parametric import fit_non_parametric, fit_sliding_window
 
 # =============================================================================
 # Helpers

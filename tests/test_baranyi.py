@@ -1,4 +1,5 @@
 import numpy as np
+
 import growthcurves as gc
 from growthcurves.models import mech_baranyi_model
 

@@ -11,7 +11,6 @@ from growthcurves.preprocessing import (
     path_correct,
 )
 
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -93,12 +92,12 @@ def test_path_correct_negative_raises():
 def test_out_of_iqr_window_detects_center_outlier():
     # Outlier at center of window
     values = np.array([1.0, 1.0, 100.0, 1.0, 1.0])
-    assert out_of_iqr_window(values, position="center") == True
+    assert out_of_iqr_window(values, position="center")
 
 
 def test_out_of_iqr_window_no_outlier():
     values = np.array([1.0, 1.1, 1.0, 1.1, 1.0])
-    assert out_of_iqr_window(values, position="center") == False
+    assert not out_of_iqr_window(values, position="center")
 
 
 def test_out_of_iqr_window_even_length_center_raises():
@@ -116,12 +115,12 @@ def test_out_of_iqr_window_invalid_position_raises():
 def test_out_of_iqr_window_first_position():
     # Outlier at first element
     values = np.array([100.0, 1.0, 1.0, 1.0, 1.0])
-    assert out_of_iqr_window(values, position="first") == True
+    assert out_of_iqr_window(values, position="first")
 
 
 def test_out_of_iqr_window_last_position():
     values = np.array([1.0, 1.0, 1.0, 1.0, 100.0])
-    assert out_of_iqr_window(values, position="last") == True
+    assert out_of_iqr_window(values, position="last")
 
 
 def test_out_of_iqr_window_nan_center_returns_false():

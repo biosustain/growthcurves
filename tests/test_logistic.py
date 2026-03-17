@@ -1,4 +1,5 @@
 import numpy as np
+
 import growthcurves as gc
 from growthcurves.models import mech_logistic_model, phenom_logistic_model
 

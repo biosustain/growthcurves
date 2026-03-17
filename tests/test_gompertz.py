@@ -1,8 +1,9 @@
 import numpy as np
+
 import growthcurves as gc
 from growthcurves.models import (
-    phenom_gompertz_model,
     mech_gompertz_model,
+    phenom_gompertz_model,
     phenom_gompertz_modified_model,
 )
 
@@ -16,9 +17,6 @@ def test_fit_parametric_phenom_gompertz():
     mu_max = 0.3
     lam = 5.0
     N0 = 0.05
-    mu = 0.3
-    K = 2.5
-    y0 = 0.05
 
     # test phenomenological Gompertz model fitting
 
@@ -92,8 +90,7 @@ def test_fit_phenom_gompertz_modified():
         "mu_max": mu_max,
         "A": A,
         "N0": N0,
-        "N0": N0,
-        # "t_shift": t_shift, # removed t_shift from expected since it's not identifiable
+        # "t_shift": t_shift,  # removed t_shift: not identifiable
         "alpha": alpha,
         "lam": lam,
     }
@@ -105,5 +102,8 @@ def test_fit_phenom_gompertz_modified():
         assert np.isclose(
             actual[k],
             v,
-            rtol=1e-1,  # need to loosen tolerance due to non-identifiability of parameters
-        ), f"Parameter {k} does not match expected value. Actual: {actual[k]}, Expected: {v}"
+            rtol=1e-1,  # loosen tolerance due to non-identifiability of parameters
+        ), (
+            f"Parameter {k} does not match expected value. "
+            f"Actual: {actual[k]}, Expected: {v}"
+        )

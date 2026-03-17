@@ -1,6 +1,7 @@
 import numpy as np
+
 import growthcurves as gc
-from growthcurves.models import phenom_richards_model, mech_richards_model
+from growthcurves.models import mech_richards_model, phenom_richards_model
 
 
 def test_fit_parametric():
@@ -22,15 +23,13 @@ def test_fit_parametric():
     actual = actual["params"]
     for k, v in expected.items():
         assert k in actual, f"Parameter {k} not found in actual output"
-        assert np.isclose(
-            actual[k], v, rtol=2e-1
-        ), f"Phenomenological parameter {k} does not match expected value. Actual: {actual[k]}, Expected: {v}"
+        assert np.isclose(actual[k], v, rtol=2e-1), (
+            f"Phenomenological parameter {k} does not match expected value. "
+            f"Actual: {actual[k]}, Expected: {v}"
+        )
 
     # test mechanistic Richards model fitting
 
-    K = 2.5
-    mu = 0.3
-    beta = 5.0
     y0 = 1.0
     N0 = 0.05
     expected = {"K": 2.41, "mu": 0.4, "beta": 2.64, "y0": y0, "N0": 0.016}
@@ -40,6 +39,7 @@ def test_fit_parametric():
     actual = actual["params"]
     for k, v in expected.items():
         assert k in actual, f"Parameter {k} not found in actual output"
-        assert np.isclose(
-            actual[k], v, rtol=2e-1
-        ), f"Mechanistic parameter {k} does not match expected value. Actual: {actual[k]}, Expected: {v}"
+        assert np.isclose(actual[k], v, rtol=2e-1), (
+            f"Mechanistic parameter {k} does not match expected value. "
+            f"Actual: {actual[k]}, Expected: {v}"
+        )
