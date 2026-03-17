@@ -17,12 +17,6 @@ def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N0=0.05, n_points=200):
     return t, N, mu_max
 
 
-def _logistic_curve(mu=0.4, K=2.5, N0=0.05, t_max=40.0, n_points=200):
-    t = np.linspace(0, t_max, n_points)
-    N = K / (1 + ((K - N0) / N0) * np.exp(-mu * t))
-    return t, N, mu
-
-
 # =============================================================================
 # fit_spline — output structure
 # =============================================================================
