@@ -105,5 +105,5 @@ def test_fit_phenom_gompertz_modified():
         assert np.isclose(
             actual[k],
             v,
-            rtol=1e1,  # need to loosen tolerance due to non-identifiability of parameters
+            rtol=1e-1,  # need to loosen tolerance due to non-identifiability of parameters
         ), f"Parameter {k} does not match expected value. Actual: {actual[k]}, Expected: {v}"
