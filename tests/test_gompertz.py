@@ -55,10 +55,6 @@ def test_fit_parametric_mech_gompertz():
 
 
 def test_fit_phenom_gompertz_modified():
-    # The modified Gompertz adds a decay term A·exp(α·(t−t_shift)).
-    # With α < 0 this term is largest at t=0, so the observed OD minimum is not N0
-    # and individual parameters are not identifiable in the same way as the base model.
-    # We therefore test fit quality (RMSE) rather than parameter recovery.
     n_points = 440
     measurement_interval_minutes = 12
     t = np.array([(measurement_interval_minutes * n) / 60 for n in range(n_points)])
@@ -66,9 +62,7 @@ def test_fit_phenom_gompertz_modified():
     A = 2.5
     mu_max = 0.3
     lam = 5.0
-    alpha = -0.001  # small negative: slow decay keeps A_init close to true A
-    # Note: larger |alpha| obscures the sigmoid in the initial parameter estimate,
-    # causing the fitter to start far from the solution.
+    alpha = 0.001
     t_shift = 50.0
     N0 = 0.05
 
