@@ -50,6 +50,12 @@ print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 
 ## Available models
 
+We use the formulations as stated in
+
+> Ghenu A-H, Marrec L and Bank C (2024) Challenges and pitfalls of inferring microbial
+> growth rates from lab cultures. Front. Ecol. Evol. 11:1313500.
+> doi: 10.3389/fevo.2023.1313500
+
 ### Parametric models
 
 #### Mechanistic models (ODE-based)
