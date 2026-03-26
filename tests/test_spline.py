@@ -67,7 +67,7 @@ def test_mu_max_close_to_known_value_slow():
     assert np.isclose(result["params"]["mu_max"], 0.4, rtol=0.01)
 
     t1, N1, _ = _gompertz_curve(mu_max=0.6)
-    result1 = fit_spline(t1, N1)
+    result1 = fit_spline(t1, N1, smooth="slow")
     assert np.isclose(result1["params"]["mu_max"], 0.6, rtol=0.01)
 
     t2, N2, _ = _gompertz_curve(mu_max=0.2)

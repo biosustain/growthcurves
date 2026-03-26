@@ -32,7 +32,7 @@ def test_fit_parametric():
 
     y0 = 1.0
     N0 = 0.05
-    expected = {"K": 2.41, "mu": 0.4, "beta": 2.64, "y0": y0, "N0": 0.016}
+    expected = {"K": A, "mu": mu_max, "beta": lam, "y0": y0, "N0": N0}
 
     N = mech_richards_model(t=t, mu=mu_max, K=A, N0=N0, beta=lam, y0=y0)
     actual = gc.parametric.fit_parametric(t, N, method="mech_richards")

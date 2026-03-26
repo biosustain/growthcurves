@@ -15,8 +15,6 @@ from growthcurves.preprocessing import (
 # Helpers
 # =============================================================================
 
-RNG = np.random.default_rng(42)
-
 
 def _smooth_sigmoid(n=100):
     """Synthetic smooth growth curve with no outliers."""
