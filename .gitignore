@@ -54,3 +54,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+tests/test_nb.ipynb
+
+# exploratory notebooks
+exploratory notebooks/
