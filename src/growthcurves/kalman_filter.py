@@ -1,4 +1,18 @@
-"""Based on the """
+"""Based on the grpredict package.
+
+The functionality is also included in piogrowth as of now (see update method of class):
+https://github.com/Pioreactor/pioreactor/blob/bf30d09646a8e38b79c81507f78afb75b8a22497/core/pioreactor/utils/streaming_calculations.py
+
+Articles describing the Kalman filter approach to growth rate estimation:
+- good for continous updates. Need to check how scalable the approach is to long
+  time series.
+- blog article highlights the three states that are modeled: log-level measurement,
+  growth rate, and growth rate drift.
+- preprocessing aligns the intial values to one, i.e. zero in non-log space
+  (we need to check how we do this elsewhere in the methods)
+https://pioreactor.com/en-dk/blogs/pioreactor/estimating-growth-rates-with-kalman-filters
+"""
+
 import grpredict
 import numpy as np
 
