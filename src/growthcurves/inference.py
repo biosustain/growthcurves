@@ -1580,7 +1580,7 @@ def bad_fit_stats():
 # No-Growth Detection
 # -----------------------------------------------------------------------------
 
-
+# ? maybe update that all checks are always performed
 def detect_no_growth(
     t,
     N,
@@ -1600,12 +1600,14 @@ def detect_no_growth(
     4. Insufficient OD increase (flat curve)
     5. Zero or near-zero growth rate (from fitted stats)
 
+    If any conditions is met, checking stops and the first reason is returned.
+
     Parameters:
         t: Time array
         N: OD values (baseline-corrected)
         growth_stats: Optional dict of fitted growth statistics
             (from extract_stats or sliding_window_fit).
-            If provided, growth rate is checked.
+            If provided, minimum growth rate is checked.
         min_data_points: Minimum number of valid N points required (default: 5)
         min_signal_to_noise: Minimum ratio of max/min OD values (default: 5.0)
         min_od_increase: Minimum absolute OD increase required (default: 0.05)
