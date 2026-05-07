@@ -60,7 +60,13 @@ jobs:
           pip install -e .
       - name: Run tests
         run: python -m pytest tests
-
+      - name: Run nb tests
+        run: |
+          pip install jupytext
+          jupytext --to py tests/*.ipynb
+          for notebook in tests/*.py; do
+            python "$notebook"
+          done
   build_source_dist:
     name: Build source distribution
     if: startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/tags')
