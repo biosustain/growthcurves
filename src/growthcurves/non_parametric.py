@@ -239,7 +239,7 @@ def fit_spline(
     t,
     N,
     smooth="fast",
-    use_weights=True,
+    use_weights=False,
 ):
     """
     Calculate maximum specific growth rate using spline fitting.
@@ -254,7 +254,7 @@ def fit_spline(
                 - "fast": notebook auto-default rule mapped to lam
                 - "slow": GCV-selected smoothing (lam=None)
                 - float: manual lam value
-        use_weights: Whether to apply OD-dependent weighting (default: True)
+        use_weights: Whether to apply OD-dependent weighting (default: False)
 
     Returns:
         Dict with model parameters:
@@ -278,6 +278,7 @@ def fit_spline(
                 power=_SPLINE_GCV_WEIGHT_POWER,
             )
         else:
+            # Default in scipy.interpolate.make_smoothing_spline are uniform weights.
             w = np.ones_like(y_log, dtype=float)
 
         # Fit spline with selected smoothing mode/value.
