@@ -54,6 +54,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+
+# local test folders
 tests/test_nb.ipynb
 
 # exploratory notebooks

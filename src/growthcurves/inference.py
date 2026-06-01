@@ -413,8 +413,8 @@ def _extract_stats_mech_logistic(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    K = float(params["K"])  # Carrying capacity above baseline
-    y0 = float(params["y0"])  # Baseline OD
+    K = float(params["K"])  # Carrying capacity
+    N0 = float(params["N0"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -436,8 +436,8 @@ def _extract_stats_mech_logistic(
 
     if mu_max <= 0:
         stats = bad_fit_stats()
-        stats["max_od"] = y0 + K
-        stats["N0"] = y0
+        stats["max_od"] = K
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_logistic"
         return stats
@@ -451,7 +451,7 @@ def _extract_stats_mech_logistic(
         od_at_umax=od_at_umax,
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
-        plateau_od=y0 + K,
+        plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
     )
@@ -463,8 +463,8 @@ def _extract_stats_mech_logistic(
     rmse = compute_rmse(N, N_fit)
 
     return {
-        "max_od": y0 + K,
-        "N0": y0,
+        "max_od": K,
+        "N0": N0,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -507,8 +507,8 @@ def _extract_stats_mech_gompertz(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    K = float(params["K"])  # Carrying capacity above baseline
-    y0 = float(params["y0"])  # Baseline OD
+    K = float(params["K"])  # Carrying capacity
+    N0 = float(params["N0"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -530,8 +530,8 @@ def _extract_stats_mech_gompertz(
 
     if mu_max <= 0:
         stats = bad_fit_stats()
-        stats["max_od"] = y0 + K
-        stats["N0"] = y0
+        stats["max_od"] = K
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_gompertz"
         return stats
@@ -545,7 +545,7 @@ def _extract_stats_mech_gompertz(
         od_at_umax=od_at_umax,
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
-        plateau_od=y0 + K,
+        plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
     )
@@ -557,8 +557,8 @@ def _extract_stats_mech_gompertz(
     rmse = compute_rmse(N, N_fit)
 
     return {
-        "max_od": y0 + K,
-        "N0": y0,
+        "max_od": K,
+        "N0": N0,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -601,8 +601,8 @@ def _extract_stats_mech_richards(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    K = float(params["K"])  # Carrying capacity above baseline
-    y0 = float(params["y0"])  # Baseline OD
+    K = float(params["K"])  # Carrying capacity
+    N0 = float(params["N0"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -624,8 +624,8 @@ def _extract_stats_mech_richards(
 
     if mu_max <= 0:
         stats = bad_fit_stats()
-        stats["max_od"] = y0 + K
-        stats["N0"] = y0
+        stats["max_od"] = K
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_richards"
         return stats
@@ -639,7 +639,7 @@ def _extract_stats_mech_richards(
         od_at_umax=od_at_umax,
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
-        plateau_od=y0 + K,
+        plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
     )
@@ -651,8 +651,8 @@ def _extract_stats_mech_richards(
     rmse = compute_rmse(N, y_fit)
 
     return {
-        "max_od": y0 + K,
-        "N0": y0,
+        "max_od": K,
+        "N0": N0,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -696,8 +696,8 @@ def _extract_stats_mech_baranyi(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    K = float(params["K"])  # Carrying capacity above baseline
-    y0 = float(params["y0"])  # Baseline OD
+    K = float(params["K"])  # Carrying capacity
+    N0 = float(params["N0"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -719,8 +719,8 @@ def _extract_stats_mech_baranyi(
 
     if mu_max <= 0:
         stats = bad_fit_stats()
-        stats["max_od"] = y0 + K
-        stats["N0"] = y0
+        stats["max_od"] = K
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_baranyi"
         return stats
@@ -737,7 +737,7 @@ def _extract_stats_mech_baranyi(
         od_at_umax=od_at_umax,
         mu_max=mu_max,
         baseline_od=float(np.min(N_dense)),
-        plateau_od=y0 + K,
+        plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
     )
@@ -749,8 +749,8 @@ def _extract_stats_mech_baranyi(
     rmse = compute_rmse(N, y_fit)
 
     return {
-        "max_od": y0 + K,
-        "N0": y0,
+        "max_od": K,
+        "N0": N0,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),

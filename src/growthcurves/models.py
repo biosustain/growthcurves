@@ -160,19 +160,20 @@ def mech_baranyi_ode(t, N, mu, K, h0):
     return mu * A_t * (1 - N / K) * N
 
 
-def mech_logistic_model(t, mu, K, N0, y0):
+def mech_logistic_model(t, mu, K, N0):
     """
     Solve logistic ODE and return OD values at t points.
 
     ODE: dN/dt = μ * (1 - N/K) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array
         mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity above baseline (maximum ΔOD)
-        N0: Initial population above baseline at t=0
-        y0: Baseline OD (offset parameter)
+        K: Carrying capacity (maximum OD)
+        N0: Initial population at t=0
 
     Returns:
         OD values at each t point
@@ -190,22 +191,23 @@ def mech_logistic_model(t, mu, K, N0, y0):
         method="RK45",
     )
 
-    return y0 + sol.y[0]
+    return sol.y[0]
 
 
-def mech_gompertz_model(t, mu, K, N0, y0):
+def mech_gompertz_model(t, mu, K, N0):
     """
     Solve Gompertz ODE and return OD values at time points.
 
     ODE: dN/dt = μ * log(K/N) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array
         mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity above baseline (maximum ΔOD)
-        N0: Initial population above baseline at t=0
-        y0: Baseline OD (offset parameter)
+        K: Carrying capacity (maximum OD)
+        N0: Initial population at t=0
 
     Returns:
         OD values at each t point
@@ -223,23 +225,24 @@ def mech_gompertz_model(t, mu, K, N0, y0):
         method="RK45",
     )
 
-    return y0 + sol.y[0]
+    return sol.y[0]
 
 
-def mech_richards_model(t, mu, K, N0, beta, y0):
+def mech_richards_model(t, mu, K, N0, beta):
     """
     Solve Richards ODE and return OD values at time points.
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array
         mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity above baseline (maximum ΔOD)
-        N0: Initial population above baseline at t=0
+        K: Carrying capacity (maximum OD)
+        N0: Initial population at t=0
         beta: Shape parameter
-        y0: Baseline OD (offset parameter)
 
     Returns:
         OD values at each time point
@@ -257,24 +260,25 @@ def mech_richards_model(t, mu, K, N0, beta, y0):
         method="RK45",
     )
 
-    return y0 + sol.y[0]
+    return sol.y[0]
 
 
-def mech_baranyi_model(t, mu, K, N0, h0, y0):
+def mech_baranyi_model(t, mu, K, N0, h0):
     """
     Solve Baranyi-Roberts ODE and return OD values at t points.
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array
         mu: Maximum specific growth rate (h^-1)
-        K: Carrying capacity above baseline (maximum ΔOD)
-        N0: Initial population above baseline at t=0
+        K: Carrying capacity (maximum OD)
+        N0: Initial population at t=0
         h0: Dimensionless lag parameter
-        y0: Baseline OD (offset parameter)
 
     Returns:
         OD values at each time point
@@ -292,7 +296,7 @@ def mech_baranyi_model(t, mu, K, N0, h0, y0):
         method="RK45",
     )
 
-    return y0 + sol.y[0]
+    return sol.y[0]
 
 
 # =============================================================================
@@ -473,16 +477,16 @@ def evaluate_parametric_model(t, model_type, params):
         ValueError: If model_type is not recognized
 
     Example:
-        >>> params = {"mu": 0.5, "K": 0.5, "N0": 0.001, "y0": 0.05}
+        >>> params = {"mu": 0.5, "K": 0.5, "N0": 0.001}
         >>> y_fit = evaluate_parametric_model(t, "mech_logistic", params)
     """
     # Model function registry: maps model_type to (function, required_param_names)
     PARAMETRIC_MODEL_FUNCTIONS = {
         # Mechanistic models (ODE-based)
-        "mech_logistic": (mech_logistic_model, ["mu", "K", "N0", "y0"]),
-        "mech_gompertz": (mech_gompertz_model, ["mu", "K", "N0", "y0"]),
-        "mech_richards": (mech_richards_model, ["mu", "K", "N0", "beta", "y0"]),
-        "mech_baranyi": (mech_baranyi_model, ["mu", "K", "N0", "h0", "y0"]),
+        "mech_logistic": (mech_logistic_model, ["mu", "K", "N0"]),
+        "mech_gompertz": (mech_gompertz_model, ["mu", "K", "N0"]),
+        "mech_richards": (mech_richards_model, ["mu", "K", "N0", "beta"]),
+        "mech_baranyi": (mech_baranyi_model, ["mu", "K", "N0", "h0"]),
         # Phenomenological models (ln-space)
         "phenom_logistic": (phenom_logistic_model, ["A", "mu_max", "lam", "N0"]),
         "phenom_gompertz": (phenom_gompertz_model, ["A", "mu_max", "lam", "N0"]),

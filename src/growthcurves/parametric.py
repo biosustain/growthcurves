@@ -38,19 +38,17 @@ def _estimate_initial_params(t, N):
 
     Parameters:
         t: Time array
-        N: OD values
+        N: OD values (assumed baseline-corrected)
 
     Returns:
-        Tuple of (K_init, y0_init, dy) where:
+        Tuple of (K_init, dN) where:
             K_init: Initial carrying capacity (max OD)
-            y0_init: Initial baseline OD (min OD)
-            dy: First derivative (gradient) of OD with respect to t
+            dN: First derivative (gradient) of OD with respect to t
 
     """
     K_init = np.max(N)
-    N0_init = np.min(N)
     dN = np.gradient(N, t)
-    return K_init, N0_init, dN
+    return K_init, dN
 
 
 def _estimate_lag_time(t, dN, threshold_frac=0.1):
@@ -71,7 +69,9 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
     return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
-def _fit_model_generic(t, N, model_func, param_names, p0_func, bounds_func, model_type):
+def _fit_model_generic(
+    t, N, model_func, param_names, p0_func, bounds_func, model_type, log_space=False
+):
     """
     Generic wrapper for fitting parametric growth models.
 
@@ -83,8 +83,8 @@ def _fit_model_generic(t, N, model_func, param_names, p0_func, bounds_func, mode
         N: OD values
         model_func: Model function to fit (e.g., mech_logistic_model)
         param_names: List of parameter names in order
-        p0_func: Function that takes (K_init, y0_init, t, dy) and returns p0
-        bounds_func: Function that takes (K_init, y0_init, t) and returns bounds
+        p0_func: Function that takes (K_init, t, dN) and returns p0
+        bounds_func: Function that takes (K_init, t) and returns bounds
         model_type: String identifier for the model
 
     Returns:
@@ -96,14 +96,24 @@ def _fit_model_generic(t, N, model_func, param_names, p0_func, bounds_func, mode
         return None
 
     # Estimate common initial parameters
-    K_init, N0_init, dN = _estimate_initial_params(t, N)
+    K_init, dN = _estimate_initial_params(t, N)
 
     # Generate initial guess and bounds
-    p0 = p0_func(K_init, N0_init, t, dN)
-    bounds = bounds_func(K_init, N0_init, t)
+    p0 = p0_func(K_init, t, dN)
+    bounds = bounds_func(K_init, t)
 
     # Fit the model
-    params, _ = curve_fit(model_func, t, N, p0=p0, bounds=bounds, maxfev=20000)
+    if log_space:
+        N_pos = np.maximum(N, 1e-8)
+
+        def log_model(tt, *p):
+            return np.log(np.maximum(model_func(tt, *p), 1e-8))
+
+        params, _ = curve_fit(
+            log_model, t, np.log(N_pos), p0=p0, bounds=bounds, maxfev=20000
+        )
+    else:
+        params, _ = curve_fit(model_func, t, N, p0=p0, bounds=bounds, maxfev=20000)
 
     # Return structured result
     return {
@@ -122,7 +132,9 @@ def fit_mech_logistic(t, N):
     Fit mechanistic logistic model (ODE) to growth N.
 
     ODE: dN/dt = μ * (1 - N/K) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array (hours)
@@ -136,13 +148,14 @@ def fit_mech_logistic(t, N):
         t,
         N,
         model_func=mech_logistic_model,
-        param_names=["mu", "K", "N0", "y0"],
-        p0_func=lambda K, y0, t, dy: [0.5, K - y0, 0.001, y0],
-        bounds_func=lambda K, y0, t: (
-            [0.0001, 0.001, 1e-6, 0],
-            [10, np.inf, 10, y0 * 2],
+        param_names=["mu", "K", "N0"],
+        p0_func=lambda K, t, dy: [0.5, K, 0.001],
+        bounds_func=lambda K, t: (
+            [0.0001, 0.001, 1e-6],
+            [10, np.inf, 10],
         ),
         model_type="mech_logistic",
+        log_space=True,
     )
 
 
@@ -151,7 +164,9 @@ def fit_mech_gompertz(t, N):
     Fit mechanistic Gompertz model (ODE) to growth data.
 
     ODE: dN/dt = μ * log(K/N) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array (hours)
@@ -171,13 +186,14 @@ def fit_mech_gompertz(t, N):
         t,
         N,
         model_func=mech_gompertz_model,
-        param_names=["mu", "K", "N0", "y0"],
-        p0_func=lambda K, y0, t, dy: [0.05, K - y0, 0.01, y0],
-        bounds_func=lambda K, y0, t: (
-            [0.0001, 0.01, 1e-4, y0 * 0.5],
-            [2, np.inf, 1, y0 * 2],
+        param_names=["mu", "K", "N0"],
+        p0_func=lambda K, t, dy: [0.05, K, 0.01],
+        bounds_func=lambda K, t: (
+            [0.0001, 0.01, 1e-4],
+            [2, np.inf, 1],
         ),
         model_type="mech_gompertz",
+        log_space=True,
     )
 
 
@@ -186,7 +202,9 @@ def fit_mech_richards(t, N):
     Fit mechanistic Richards model (ODE) to growth N.
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array (hours)
@@ -195,18 +213,35 @@ def fit_mech_richards(t, N):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    return _fit_model_generic(
-        t,
-        N,
-        model_func=mech_richards_model,
-        param_names=["mu", "K", "N0", "beta", "y0"],
-        p0_func=lambda K, y0, t, dy: [0.5, K - y0, 0.001, 1.0, y0],
-        bounds_func=lambda K, y0, t: (
-            [0.0001, 0.001, 1e-6, 0.01, 0],
-            [10, np.inf, 10, 100, y0 * 2],
-        ),
-        model_type="mech_richards",
-    )
+    # Multistart over β: a single seed often lands in the wrong basin for true
+    # β at the extremes of the (0.1, 10) range. Three log-spaced seeds at ~3× cost.
+    best, best_ssr = None, np.inf
+    for beta_init in (0.1, 1.0, 10.0):
+        try:
+            result = _fit_model_generic(
+                t,
+                N,
+                model_func=mech_richards_model,
+                param_names=["mu", "K", "N0", "beta"],
+                p0_func=lambda K, t, dy, b=beta_init: [0.5, K, 0.001, b],
+                bounds_func=lambda K, t: (
+                    [0.0001, 0.001, 1e-6, 0.01],
+                    [10, np.inf, 10, 100],
+                ),
+                model_type="mech_richards",
+                log_space=True,
+            )
+        except Exception:
+            continue
+        if result is None:
+            continue
+        p = result["params"]
+        pred = mech_richards_model(t, p["mu"], p["K"], p["N0"], p["beta"])
+        log_resid = np.log(np.maximum(pred, 1e-8)) - np.log(np.maximum(N, 1e-8))
+        ssr = float(np.sum(log_resid**2))
+        if ssr < best_ssr:
+            best_ssr, best = ssr, result
+    return best
 
 
 def fit_mech_baranyi(t, N):
@@ -215,7 +250,9 @@ def fit_mech_baranyi(t, N):
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
-    OD(t) = y0 + N(t)
+    OD(t) = N(t)
+
+    Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
         t: Time array (hours)
@@ -225,26 +262,27 @@ def fit_mech_baranyi(t, N):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
 
-    def p0_baranyi(K, y0_init, t, dy):
+    def p0_baranyi(K, t, dy):
         mu_init = 0.5
         h0_init = 1.0
         N0_init = 0.001
-        return [mu_init, K - y0_init, N0_init, h0_init, y0_init]
+        return [mu_init, K, N0_init, h0_init]
 
-    def bounds_baranyi(K, y0_init, t):
+    def bounds_baranyi(K, t):
         return (
-            [0.0001, 0.001, 1e-6, 0, 0],
-            [10, np.inf, 10, t.max() * 10, y0_init * 2],
+            [0.0001, 0.001, 1e-6, 0],
+            [10, np.inf, 10, t.max() * 10],
         )
 
     return _fit_model_generic(
         t,
         N,
         model_func=mech_baranyi_model,
-        param_names=["mu", "K", "N0", "h0", "y0"],
+        param_names=["mu", "K", "N0", "h0"],
         p0_func=p0_baranyi,
         bounds_func=bounds_baranyi,
         model_type="mech_baranyi",
+        log_space=True,
     )
 
 
@@ -348,17 +386,16 @@ def fit_phenom_gompertz_modified(t, N):
 
     # Estimate initial parameters
     N0 = float(np.min(N))
-    N_max = float(np.max(N))
-    A_init = np.log(N_max / N0)
+    A_init = max(float(np.log(N[len(t) // 3] / N0)), 0.1)
     mu_max_init = 0.5
-    lam_init = _estimate_lag_time(t, np.gradient(N, t))
-    alpha_init = -0.01  # Small negative decay rate
-    t_shift_init = t.max() * 0.5  # Midpoint
+    lam_init = t.max() * 0.1
+    alpha_init = 0.05
+    t_shift_init = t.max() * 0.8
 
     p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init, N0]
     bounds = (
-        [0.01, 0.0001, 0, -1, 0, N0 * 0.1],
-        [20, 10, t.max(), 1, t.max(), N0 * 5],
+        [0.01, 0.0001, 0, -1, 0, 1e-4],
+        [20, 10, t.max(), 1, t.max(), 1.0],
     )
 
     # Fit the model

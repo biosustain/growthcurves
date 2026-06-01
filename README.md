@@ -48,7 +48,25 @@ print(f"Specific growth rate: {spline_stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {spline_stats['doubling_time']:.2f} h")
 ```
 
+giving output like:
+
+```
+Max OD:               1.510
+Specific growth rate: 0.4422 h⁻¹
+Doubling time:        1.57 h
+
+Spline fit results:
+Specific growth rate: 0.4247 h⁻¹
+Doubling time:        1.63 h
+```
+
 ## Available models
+
+We use the formulations as stated in
+
+> Ghenu A-H, Marrec L and Bank C (2024) Challenges and pitfalls of inferring microbial
+> growth rates from lab cultures. Front. Ecol. Evol. 11:1313500.
+> https://doi.org/10.3389/fevo.2023.1313500
 
 ### Parametric models
 
