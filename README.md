@@ -11,7 +11,7 @@ phase boundaries) and non-parametric methods (spline fitting and sliding window)
 This package powers two browser-based apps for human-in-the-loop growth curve
 analysis, hosted at <https://biosustain.github.io/growthcurves_app/>:
 
-- **[MicroGrowth](https://thegrowthanalysisapp.streamlit.app/)** — analysis of
+- **[MicroGrowth](https://microgrowth.streamlit.app/)** — analysis of
   microtiter plate reader experiments, with support for multi-condition layouts
   and interactive quality control.
 - **[AutoGrowth](https://autogrowth.streamlit.app/)** — analysis of mini-bioreactor
