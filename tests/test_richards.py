@@ -30,12 +30,14 @@ def test_fit_parametric():
 
     # test mechanistic Richards model fitting
 
-    y0 = 1.0
-
-    # ! why should mechanistic not work, but phenomenological does?
-    # expected = {"K": A, "mu": mu_max, "beta": lam, "y0": y0, "N0": N0}
-    expected = {"K": 2.41, "mu": 0.4, "beta": 2.64, "y0": y0, "N0": 0.016}
-    N = mech_richards_model(t=t, mu=mu_max, K=A, N0=N0, beta=lam, y0=y0)
+    expected = {"K": 2.41, "mu": 0.4, "beta": 2.64, "N0": 0.016}
+    N = mech_richards_model(
+        t=t,
+        mu=expected["mu"],
+        K=expected["K"],
+        N0=expected["N0"],
+        beta=expected["beta"],
+    )
     actual = gc.parametric.fit_parametric(t, N, method="mech_richards")
     actual = actual["params"]
     for k, v in expected.items():

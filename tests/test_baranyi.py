@@ -13,12 +13,11 @@ def test_fit_parametric():
     K = 2.5
     N0 = 0.05
     h0 = 1.0
-    y0 = 0.05
-    expected = {"mu": mu, "K": K, "N0": N0, "h0": h0, "y0": y0}
+    expected = {"mu": mu, "K": K, "N0": N0, "h0": h0}
 
     # test mechanistic Baranyi-Roberts model fitting
 
-    N = mech_baranyi_model(t=t, mu=mu, K=K, N0=N0, h0=h0, y0=y0)
+    N = mech_baranyi_model(t=t, mu=mu, K=K, N0=N0, h0=h0)
     actual = gc.parametric.fit_parametric(t, N, method="mech_baranyi")
     actual = actual["params"]
     for k, v in expected.items():

@@ -39,10 +39,8 @@ def test_fit_parametric_mech_gompertz():
     mu = 0.3
     K = 2.5
     N0 = 0.05
-    y0 = 0.05
-
-    expected_mech = {"mu": mu, "K": K, "N0": N0, "y0": y0}
-    N = mech_gompertz_model(t=t, mu=mu, K=K, N0=N0, y0=y0)
+    expected_mech = {"mu": mu, "K": K, "N0": N0}
+    N = mech_gompertz_model(t=t, mu=mu, K=K, N0=N0)
     actual = gc.parametric.fit_parametric(t, N, method="mech_gompertz")
     actual = actual["params"]
     for k, v in expected_mech.items():

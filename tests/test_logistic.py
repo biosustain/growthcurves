@@ -12,12 +12,11 @@ def test_fit_parametric():
     mu = 0.15
     K = 0.45
     N0 = 0.05
-    y0 = 0.05
-    expected = {"mu": mu, "K": K, "N0": N0, "y0": y0}
+    expected = {"mu": mu, "K": K, "N0": N0}
 
     # test mechanistic logistic model fitting
 
-    N = mech_logistic_model(t=t, mu=mu, K=K, N0=N0, y0=y0)
+    N = mech_logistic_model(t=t, mu=mu, K=K, N0=N0)
     actual = gc.parametric.fit_parametric(t, N, method="mech_logistic")
     actual = actual["params"]
     for k, v in expected.items():
