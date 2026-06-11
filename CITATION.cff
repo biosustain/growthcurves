@@ -1,15 +1,24 @@
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
+type: article
+title: "growthcurves: A platform for human-in-the-loop analysis of biological growth curves"
 authors:
   - family-names: "Bradley"
-    given-names: "Samuel"
+    given-names: "Samuel A."
     orcid: "https://orcid.org/0009-0001-3756-1392"
-  - family-names: "Wobble"
+  - family-names: "Webel"
     given-names: "Henry"
     orcid: "https://orcid.org/0000-0001-8833-7617"
-title: "growthcurves"
-version: 0.0.1
-doi: 10.5281/zenodo.1234
-date-released: 2026-01-31
-url: "https://github.com/biosustain/growthcurves"
+  - family-names: "Donati"
+    given-names: "Stefano"
+  - family-names: "Acevedo-Rocha"
+    given-names: "Carlos"
+doi: 10.64898/2026.05.23.727125
+url: "https://www.biorxiv.org/content/10.64898/2026.05.23.727125v2"
+journal: "bioRxiv"
+publisher:
+  name: "Cold Spring Harbor Laboratory"
+year: 2026
+month: 5
+date-published: 2026-05-31
