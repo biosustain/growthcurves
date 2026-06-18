@@ -358,7 +358,7 @@ def fit_non_parametric(
     method="sliding_window",
     window_points=15,
     smooth="fast",
-    use_weights=True,
+    use_weights=False,
     **kwargs,
 ):
     """
