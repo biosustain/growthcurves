@@ -11,10 +11,10 @@ phase boundaries) and non-parametric methods (spline fitting and sliding window)
 This package powers two browser-based apps for human-in-the-loop growth curve
 analysis, hosted at <https://biosustain.github.io/growthcurves_app/>:
 
-- **[MicroGrowth](https://thegrowthanalysisapp.streamlit.app/)** — analysis of
+- **[MicroGrowth](https://microgrowth.streamlit.app/)** - analysis of
   microtiter plate reader experiments, with support for multi-condition layouts
   and interactive quality control.
-- **[AutoGrowth](https://autogrowth.streamlit.app/)** — analysis of mini-bioreactor
+- **[AutoGrowth](https://autogrowth.streamlit.app/)** - analysis of mini-bioreactor
   data (e.g. Pioreactor, Chi.Bio), built for continuous culture and real-time
   monitoring.
 
@@ -104,12 +104,13 @@ Phenomenological models are fitted directly to ln(OD/OD0) data.
 
 ### Non-parametric methods
 
-| Method         | Function                            | Key parameters                   |
-| -------------- | ----------------------------------- | -------------------------------- |
-| Spline         | `non_parametric.fit_non_parametric` | `smooth`, `use_weights`          |
-| Sliding window | `non_parametric.fit_non_parametric` | `window_points`                  |
+| Method         | Function                            | Key parameters          |
+| -------------- | ----------------------------------- | ----------------------- |
+| Spline         | `non_parametric.fit_non_parametric` | `smooth`, `use_weights` |
+| Sliding window | `non_parametric.fit_non_parametric` | `window_points`         |
 
 The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. Smoothing is controlled by `smooth`:
+
 - `"fast"`: automatic default lambda rule (fast)
 - `"slow"`: weighted GCV selection (slower)
 - `float`: manual lambda value
@@ -125,10 +126,10 @@ The spline method provides a model-free approach to growth curve analysis by fit
 3. Calculate specific growth rate: $\mu(t) = \frac{d\,s(t)}{dt}$
 4. Find maximum growth rate: $\mu_{\max} = \max_{t} \mu(t)$
 
-| Parameter     | Meaning                                                       |
-| ------------- | ------------------------------------------------------------- |
-| `smooth`      | `"fast"`, `"slow"`, or manual float lambda value             |
-| `use_weights` | Apply OD-dependent weighting (default: `True`)               |
+| Parameter     | Meaning                                          |
+| ------------- | ------------------------------------------------ |
+| `smooth`      | `"fast"`, `"slow"`, or manual float lambda value |
+| `use_weights` | Apply OD-dependent weighting (default: `True`)   |
 
 When `smooth` is a float, higher values produce smoother curves and lower values follow the data more tightly.
 
@@ -141,14 +142,14 @@ When `smooth` is a float, higher values produce smoother curves and lower values
 
 ## Key features
 
-- **Parametric fitting** — fit logistic, Gompertz, Richards, or Baranyi models with automatic parameter estimation
-- **Non-parametric methods** — model-free growth rate estimation using:
-  - **Spline fitting** — smoothing splines on log-transformed data with derivative-based growth rate calculation
-  - **Sliding window** — moving window linear fits to log-transformed data
-- **Growth statistics** — automatic extraction of max OD, specific growth rate (µ_max), doubling time, and exponential-phase boundaries
-- **Derivative analysis** — first and second derivatives with Savitzky-Golay smoothing
-- **No-growth detection** — automatic identification of non-growing samples
-- **Model comparison** — RMSE fit-quality metric for comparing fits
+- **Parametric fitting** - fit logistic, Gompertz, Richards, or Baranyi models with automatic parameter estimation
+- **Non-parametric methods** - model-free growth rate estimation using:
+  - **Spline fitting** - smoothing splines on log-transformed data with derivative-based growth rate calculation
+  - **Sliding window** - moving window linear fits to log-transformed data
+- **Growth statistics** - automatic extraction of max OD, specific growth rate (µ_max), doubling time, and exponential-phase boundaries
+- **Derivative analysis** - first and second derivatives with Savitzky-Golay smoothing
+- **No-growth detection** - automatic identification of non-growing samples
+- **Model comparison** - RMSE fit-quality metric for comparing fits
 
 ## Documentation and tutorial
 
