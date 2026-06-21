@@ -251,6 +251,12 @@ def detect_outliers_ecod(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
         Boolean mask of the same length as N where True indicates an outlier.
     """
 
+    N = np.asarray(N, dtype=float)
+    if np.any(np.isnan(N)):
+        raise ValueError(
+            "detect_outliers_ecod does not support missing values (NaN). "
+            "Remove or impute NaN values before calling this function."
+        )
     n = len(N)
     half = 15 // 2
     residual = np.zeros(n)
