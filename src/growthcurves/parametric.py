@@ -188,6 +188,7 @@ def fit_mech_gompertz(t, N):
         model_func=mech_gompertz_model,
         param_names=["mu", "K", "N0"],
         p0_func=lambda K, t, dy: [0.05, K, 0.01],
+        # ToDo: This should be a function to avoid hardcoding K bounds.
         bounds_func=lambda K, t: (
             [0.0001, 0.01, 1e-4],
             [2, np.inf, 1],
