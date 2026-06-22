@@ -1000,7 +1000,7 @@ def _extract_stats_phenom_gompertz_modified(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0_param = float(params["N0"])  # Fitted normalization parameter
+    # N0_param = float(params["N0"])  # Fitted normalization parameter
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_gompertz_modified", params)
@@ -1010,8 +1010,7 @@ def _extract_stats_phenom_gompertz_modified(
     N_dense = evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params)
     # For the modified Gompertz form, the fitted N0 parameter is not always the
     # model value at the earliest timepoint. Use model-predicted initial OD for stats.
-    first_idx = int(np.argmin(t))
-    N0 = float(y_fit[first_idx]) if len(y_fit) > 0 else N0_param
+    N0 = np.nan
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
