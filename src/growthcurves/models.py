@@ -29,7 +29,6 @@ MODEL_REGISTRY = {
         "phenom_logistic",
         "phenom_gompertz",
         "phenom_gompertz_modified",
-        "phenom_gompertz_modified_ln",
         "phenom_richards",
     ],
     "non_parametric": [
@@ -382,10 +381,10 @@ def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
     at time_shift.
 
     N_t = ( N0 * exp(A * exp(-exp(μ_max * e * (λ - t) / A + 1))
-                  + A * exp(α * (t - t_shift)))
-                )
+    + A * exp(α * (t - t_shift)))
 
-    Parameters:
+    Parameters
+    ----------
         t: Time array
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
@@ -394,8 +393,10 @@ def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
         t_shift: Time shift for decay (hours)
         N0: Initial OD at t=0
 
-    Returns:
+    Returns
+    -------
         OD values at each t point
+
     """
 
     return N0 * np.exp(
@@ -521,8 +522,8 @@ def evaluate_parametric_model(t, model_type, params):
         "phenom_logistic": (phenom_logistic_model, ["A", "mu_max", "lam", "N0"]),
         "phenom_gompertz": (phenom_gompertz_model, ["A", "mu_max", "lam", "N0"]),
         "phenom_gompertz_modified": (
-            phenom_gompertz_modified_model,
-            ["A", "mu_max", "lam", "alpha", "t_shift", "N0"],
+            phenom_gompertz_modified_model_ln,
+            ["A", "mu_max", "lam", "alpha", "t_shift"],
         ),
         "phenom_richards": (phenom_richards_model, ["A", "mu_max", "lam", "nu", "N0"]),
     }
