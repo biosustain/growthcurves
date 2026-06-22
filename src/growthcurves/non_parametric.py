@@ -58,8 +58,8 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
             - intercept: Intercept of the linear fit in log space
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "sliding_window"
-        Returns None if calculation fails.
 
+        Returns None if calculation fails.
     """
     if kwargs:
         logger.warning("fit_sliding_window received unused kwargs: %s", kwargs)
@@ -254,6 +254,7 @@ def fit_spline(
                 - "fast": notebook auto-default rule mapped to lam
                 - "slow": GCV-selected smoothing (lam=None)
                 - float: manual lam value
+
         use_weights: Whether to apply OD-dependent weighting (default: False)
 
     Returns:
@@ -263,8 +264,8 @@ def fit_spline(
             - spline_k: Spline degree (3)
             - time_at_umax: Time at maximum growth rate (hours)
             - model_type: "spline"
-        Returns None if calculation fails.
 
+        Returns None if calculation fails.
     """
     if len(t) < 5:
         return None
@@ -366,26 +367,43 @@ def fit_non_parametric(
 
     This unified function supports multiple methods for calculating the maximum
     specific growth rate (Umax):
+    
     - "sliding_window": Finds maximum slope in log-transformed OD across windows
     - "spline": Fits spline to entire curve and calculates from derivative
 
-    Parameters:
-        t: Time array (hours)
-        N: OD values (baseline-corrected, must be positive)
-        method: Method for calculating Umax ("sliding_window" or "spline")
-        window_points: Number of points in sliding window (for sliding_window method)
-        smooth: Smoothing mode/value for spline method.
-                - "fast": notebook auto-default rule mapped to lam
-                - "slow": GCV-selected smoothing (auto GCV)
-                - float: manual lam value
-        use_weights: Whether to apply OD-dependent weighting for spline method
-        **kwargs: Additional arguments (for compatibility)
 
-    Returns:
-        Dict containing:
-            - params: Model parameters (includes fit_t_min, fit_t_max, and other
-                      method-specific values)
-            - model_type: Method used for fitting
+    Parameters
+    ----------
+    t : Iterable[float]
+        Time array (hours)
+    N : Iterable[float]
+        OD values
+    method : str, optional
+        Method for calculating Umax ("sliding_window" or "spline"),
+        by default "sliding_window"
+    window_points : int, optional
+        Number of points in sliding window (for sliding_window method), by default 15
+    smooth : str, optional
+        Smoothing mode/value for spline method, by default "fast"
+            - "fast": notebook auto-default rule mapped to lam
+            - "slow": GCV-selected smoothing (auto GCV)
+            - float: manual lam value
+
+    use_weights : bool, optional
+        Whether to apply OD-dependent weighting for spline method, by default True
+
+    Returns
+    -------
+    dict
+        Dictionary with entries for
+        - params: Model parameters (includes fit_t_min, fit_t_max, and other method-specific values)
+        - model_type: Method used for fitting
+
+    Raises
+    ------
+    ValueError
+        Method must be "sliding_window" or "spline". Smooth must be "fast", "slow",
+        or a non-negative float.
     """
     t = np.asarray(t, dtype=float)
     N = np.asarray(N, dtype=float)

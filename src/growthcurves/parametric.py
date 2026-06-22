@@ -455,21 +455,36 @@ def fit_phenom_richards(t, N):
 
 
 def fit_parametric(t, N, method="mech_logistic", **kwargs):
-    """
-    Fit a growth model to N.
+    """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
 
-    Parameters:
-        t: Time array (hours)
-        N: OD values
-        method: Model type string. Options:
-            Mechanistic (ODE):  "mech_logistic", "mech_gompertz",
-                                "mech_richards", "mech_baranyi"
-            Phenomenological (ln-space): "phenom_logistic", "phenom_gompertz",
-                "phenom_gompertz_modified", "phenom_richards"
 
-    Returns:
+    Parameters
+    ----------
+    t : Iterable[float]
+        Time array (hours)
+    N : Iterable[float]
+        OD values
+    method : str, optional
+        Model type string. Options:
+
+        Mechanistic (ODE):
+            - "mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"
+
+        Phenomenological (ln-space):
+            - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified", \
+"phenom_richards"
+
+    Returns
+    -------
+    Optional[dict]
         Fit result dict or None if fitting fails.
+
+    Raises
+    ------
+    ValueError
+        Unknown method string.
     """
+
     fit_func = globals().get(f"fit_{method}")
 
     if fit_func is None:
