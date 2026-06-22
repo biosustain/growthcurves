@@ -367,7 +367,7 @@ def fit_non_parametric(
 
     This unified function supports multiple methods for calculating the maximum
     specific growth rate (Umax):
-    
+
     - "sliding_window": Finds maximum slope in log-transformed OD across windows
     - "spline": Fits spline to entire curve and calculates from derivative
 
@@ -396,7 +396,8 @@ def fit_non_parametric(
     -------
     dict
         Dictionary with entries for
-        - params: Model parameters (includes fit_t_min, fit_t_max, and other method-specific values)
+        - params: Model parameters (includes fit_t_min, fit_t_max, and other \
+method-specific values)
         - model_type: Method used for fitting
 
     Raises
