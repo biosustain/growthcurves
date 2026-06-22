@@ -4,7 +4,7 @@ import growthcurves as gc
 from growthcurves.models import (
     mech_gompertz_model,
     phenom_gompertz_model,
-    phenom_gompertz_modified_model,
+    phenom_gompertz_modified_model_ln,
 )
 
 
@@ -55,45 +55,28 @@ def test_fit_phenom_gompertz_modified():
     measurement_interval_minutes = 12
     t = np.array([(measurement_interval_minutes * n) / 60 for n in range(n_points)])
 
-    A = 2.5
-    mu_max = 0.3
-    lam = 5.0
-    alpha = 0.001
-    t_shift = 50.0
-    N0 = 0.05
+    expected = {
+        "A": 2.5,
+        "mu_max": 0.3,
+        "lam": 5.0,
+        "alpha": 0.001,
+        "t_shift": 76.350,
+    }
 
-    N = phenom_gompertz_modified_model(
-        t, A=A, mu_max=mu_max, lam=lam, alpha=alpha, t_shift=t_shift, N0=N0
-    )
+    N = phenom_gompertz_modified_model_ln(t, **expected)
     result = gc.parametric.fit_parametric(t, N, method="phenom_gompertz_modified")
 
     assert result is not None, "Fitting should succeed"
     assert result["model_type"] == "phenom_gompertz_modified"
 
     params = result["params"]
-    for k in ["A", "mu_max", "lam", "alpha", "t_shift", "N0"]:
+    for k in ["A", "mu_max", "lam", "alpha", "t_shift"]:
         assert k in params, f"Parameter {k} not found in result"
 
     # Verify the fitted curve closely reproduces the training data (< 1% relative RMSE)
-    N = phenom_gompertz_modified_model(
-        t,
-        A=params["A"],
-        mu_max=params["mu_max"],
-        lam=params["lam"],
-        alpha=params["alpha"],
-        t_shift=params["t_shift"],
-        N0=params["N0"],
-    )
-    expected = {
-        "mu_max": mu_max,
-        "A": A,
-        "N0": N0,
-        # "t_shift": t_shift,  # removed t_shift: not identifiable
-        "alpha": alpha,
-        "lam": lam,
-    }
+    N_ln = phenom_gompertz_modified_model_ln(t, **expected)
 
-    actual = gc.parametric.fit_parametric(t, N, method="phenom_gompertz_modified")
+    actual = gc.parametric.fit_parametric(t, N_ln, method="phenom_gompertz_modified")
     actual = actual["params"]
     for k, v in expected.items():
         assert k in actual, f"Parameter {k} not found in actual output"

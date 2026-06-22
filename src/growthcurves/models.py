@@ -29,6 +29,7 @@ MODEL_REGISTRY = {
         "phenom_logistic",
         "phenom_gompertz",
         "phenom_gompertz_modified",
+        "phenom_gompertz_modified_ln",
         "phenom_richards",
     ],
     "non_parametric": [
@@ -347,11 +348,42 @@ def phenom_gompertz_model(t, A, mu_max, lam, N0):
     return N0 * np.exp(ln_ratio)
 
 
-def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
+def phenom_gompertz_modified_model_ln(t, A, mu_max, lam, alpha, t_shift):
     """
-    Phenomenological modified Gompertz model with decay term.
+    Phenomenological modified Gompertz model with decay term. Models
+    biphasic growth where the second exponential growth phase starts taking effect
+    at time_shift.
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1)) + A * exp(α * (t - t_shift))
+
+    Parameters:
+        t: Time array
+        A: Maximum ln(OD/OD0) (amplitude)
+        mu_max: Maximum specific growth rate (h^-1)
+        lam: Lag t (hours)
+        alpha: Decay rate (h^-1)
+        t_shift: Time shift for decay (hours)
+
+    Returns:
+        OD values at each t point
+    """
+    t = np.asarray(t, dtype=float)
+    e = np.e
+    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1)) + A * np.exp(
+        alpha * (t - t_shift)
+    )
+    return ln_ratio
+
+
+def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
+    """
+    Phenomenological modified Gompertz model with decay term. Models
+    biphasic growth where the second exponential growth phase starts taking effect
+    at time_shift.
+
+    N_t = ( N0 * exp(A * exp(-exp(μ_max * e * (λ - t) / A + 1))
+                  + A * exp(α * (t - t_shift)))
+                )
 
     Parameters:
         t: Time array
@@ -365,12 +397,10 @@ def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
     Returns:
         OD values at each t point
     """
-    t = np.asarray(t, dtype=float)
-    e = np.e
-    ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1)) + A * np.exp(
-        alpha * (t - t_shift)
+
+    return N0 * np.exp(
+        phenom_gompertz_modified_model_ln(t, A, mu_max, lam, alpha, t_shift)
     )
-    return N0 * np.exp(ln_ratio)
 
 
 def phenom_richards_model(t, A, mu_max, lam, nu, N0):

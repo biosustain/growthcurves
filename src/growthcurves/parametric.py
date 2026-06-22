@@ -22,7 +22,7 @@ from .models import (
     mech_logistic_model,
     mech_richards_model,
     phenom_gompertz_model,
-    phenom_gompertz_modified_model,
+    phenom_gompertz_modified_model_ln,
     phenom_logistic_model,
     phenom_richards_model,
 )
@@ -392,19 +392,19 @@ def fit_phenom_gompertz_modified(t, N):
     alpha_init = 0.05
     t_shift_init = t.max() * 0.8
 
-    p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init, N0]
+    p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init]
     bounds = (
-        [0.01, 0.0001, 0, -1, 0, 1e-4],
-        [20, 10, t.max(), 1, t.max(), 1.0],
+        [0.01, 0.0001, 0, -1, 0],
+        [20, 10, t.max(), 1, t.max()],
     )
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_gompertz_modified_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_gompertz_modified_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "alpha", "t_shift", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam", "alpha", "t_shift"], params)),
         "model_type": "phenom_gompertz_modified",
     }
 
