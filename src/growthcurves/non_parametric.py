@@ -390,8 +390,7 @@ def fit_non_parametric(
             - float: manual lam value
 
     use_weights : bool, optional
-        Whether to apply OD-dependent weighting for spline method, by default True
-
+        Whether to apply OD-dependent weighting for spline method, by default False
     Returns
     -------
     dict

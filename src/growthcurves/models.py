@@ -363,7 +363,7 @@ def phenom_gompertz_modified_model_ln(t, A, mu_max, lam, alpha, t_shift):
         t_shift: Time shift for decay (hours)
 
     Returns:
-        OD values at each t point
+        ln(Nt/N0) values at each t point
     """
     t = np.asarray(t, dtype=float)
     e = np.e
@@ -387,7 +387,7 @@ def phenom_richards_model_ln(t, A, mu_max, lam, nu):
         nu: Shape parameter
 
     Returns:
-        OD values at each t point
+        ln(Nt/N0) values at each t point
     """
     t = np.asarray(t, dtype=float)
     # Avoid division by very small nu
@@ -397,7 +397,7 @@ def phenom_richards_model_ln(t, A, mu_max, lam, nu):
     return ln_ratio
 
 
-# Phenomological models are fitted to ln(OD/OD0) values, so the output of these
+# Phenomenological models are fitted to ln(OD/OD0) values, so the output of these
 # functions is in ln-space. To convert to linear space, use the log_to_linear function
 # below.
 def log_to_linear(ln_ratio, N0):
