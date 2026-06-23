@@ -1,7 +1,7 @@
 import numpy as np
 
 import growthcurves as gc
-from growthcurves.models import mech_richards_model, phenom_richards_model
+from growthcurves.models import mech_richards_model, phenom_richards_model_ln
 
 
 def test_fit_parametric():
@@ -13,12 +13,11 @@ def test_fit_parametric():
     mu_max = 0.3
     lam = 5.0
     nu = 1.0
-    N0 = 0.05
-    expected = {"A": A, "mu_max": mu_max, "lam": lam, "nu": nu, "N0": N0}
+    expected = {"A": A, "mu_max": mu_max, "lam": lam, "nu": nu}
 
     # test phenomenological Richards model fitting
 
-    N = phenom_richards_model(t, A=A, mu_max=mu_max, lam=lam, nu=nu, N0=N0)
+    N = phenom_richards_model_ln(t, A=A, mu_max=mu_max, lam=lam, nu=nu)
     actual = gc.parametric.fit_parametric(t, N, method="phenom_richards")
     actual = actual["params"]
     for k, v in expected.items():

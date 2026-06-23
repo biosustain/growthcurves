@@ -24,7 +24,7 @@ from .models import (
     phenom_gompertz_model_ln,
     phenom_gompertz_modified_model_ln,
     phenom_logistic_model,
-    phenom_richards_model,
+    phenom_richards_model_ln,
 )
 
 # -----------------------------------------------------------------------------
@@ -435,16 +435,16 @@ def fit_phenom_richards(t, N):
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
     nu_init = 1.0
 
-    p0 = [A_init, mu_max_init, lam_init, nu_init, N0]
-    bounds = ([0.01, 0.0001, 0, 0.01, N0 * 0.1], [20, 10, t.max(), 100, N0 * 5])
+    p0 = [A_init, mu_max_init, lam_init, nu_init]
+    bounds = ([0.01, 0.0001, 0, 0.01], [20, 10, t.max(), 100])
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_richards_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_richards_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "nu", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam", "nu"], params)),
         "model_type": "phenom_richards",
     }
 

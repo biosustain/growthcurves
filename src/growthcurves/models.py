@@ -373,7 +373,7 @@ def phenom_gompertz_modified_model_ln(t, A, mu_max, lam, alpha, t_shift):
     return ln_ratio
 
 
-def phenom_richards_model(t, A, mu_max, lam, nu, N0):
+def phenom_richards_model_ln(t, A, mu_max, lam, nu):
     """
     Phenomenological Richards model in ln-space.
 
@@ -385,7 +385,6 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag t (hours)
         nu: Shape parameter
-        N0: Initial OD at t=0
 
     Returns:
         OD values at each t point
@@ -395,7 +394,7 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
     nu = np.maximum(nu, 0.01)
     exponent = 1 + nu + mu_max * (1 + nu) ** (1 + 1 / nu) * (lam - t) / A
     ln_ratio = A * (1 + nu * np.exp(exponent)) ** (-1 / nu)
-    return N0 * np.exp(ln_ratio)
+    return ln_ratio
 
 
 # Phenomological models are fitted to ln(OD/OD0) values, so the output of these
@@ -511,7 +510,7 @@ def evaluate_parametric_model(t, model_type, params):
             phenom_gompertz_modified_model_ln,
             ["A", "mu_max", "lam", "alpha", "t_shift"],
         ),
-        "phenom_richards": (phenom_richards_model, ["A", "mu_max", "lam", "nu", "N0"]),
+        "phenom_richards": (phenom_richards_model_ln, ["A", "mu_max", "lam", "nu"]),
     }
 
     if model_type not in PARAMETRIC_MODEL_FUNCTIONS:
