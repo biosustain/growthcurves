@@ -796,7 +796,7 @@ def _extract_stats_phenom_logistic(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = float(params["N0"])  # Initial OD
+    N0 = np.nan  # undefined in log ratio space (ln(N/N0))
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_logistic", params)

@@ -304,7 +304,7 @@ def mech_baranyi_model(t, mu, K, N0, h0):
 # =============================================================================
 
 
-def phenom_logistic_model(t, A, mu_max, lam, N0):
+def phenom_logistic_model_ln(t, A, mu_max, lam):
     """
     Phenomenological logistic model in ln-space.
 
@@ -322,7 +322,7 @@ def phenom_logistic_model(t, A, mu_max, lam, N0):
     """
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - t) / A + 2))
-    return N0 * np.exp(ln_ratio)
+    return ln_ratio
 
 
 def phenom_gompertz_model_ln(t, A, mu_max, lam):
@@ -504,7 +504,7 @@ def evaluate_parametric_model(t, model_type, params):
         "mech_richards": (mech_richards_model, ["mu", "K", "N0", "beta"]),
         "mech_baranyi": (mech_baranyi_model, ["mu", "K", "N0", "h0"]),
         # Phenomenological models (ln-space)
-        "phenom_logistic": (phenom_logistic_model, ["A", "mu_max", "lam", "N0"]),
+        "phenom_logistic": (phenom_logistic_model_ln, ["A", "mu_max", "lam"]),
         "phenom_gompertz": (phenom_gompertz_model_ln, ["A", "mu_max", "lam"]),
         "phenom_gompertz_modified": (
             phenom_gompertz_modified_model_ln,
