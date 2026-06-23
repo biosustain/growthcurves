@@ -1,6 +1,6 @@
 import numpy as np
 
-from growthcurves.models import phenom_gompertz_model
+from growthcurves.models import log_to_linear, phenom_gompertz_model_ln
 from growthcurves.non_parametric import fit_non_parametric, fit_spline
 
 # =============================================================================
@@ -11,7 +11,8 @@ from growthcurves.non_parametric import fit_non_parametric, fit_spline
 def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N0=0.05, n_points=200):
     """Phenomenological Gompertz curve with known mu_max."""
     t = np.linspace(0, 88, n_points)
-    N = phenom_gompertz_model(t, A=A, mu_max=mu_max, lam=lam, N0=N0)
+    ln_ratio = phenom_gompertz_model_ln(t, A=A, mu_max=mu_max, lam=lam)
+    N = log_to_linear(ln_ratio, N0=N0)
     return t, N, mu_max
 
 

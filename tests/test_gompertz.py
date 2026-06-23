@@ -3,7 +3,7 @@ import numpy as np
 import growthcurves as gc
 from growthcurves.models import (
     mech_gompertz_model,
-    phenom_gompertz_model,
+    phenom_gompertz_model_ln,
     phenom_gompertz_modified_model_ln,
 )
 
@@ -16,12 +16,11 @@ def test_fit_parametric_phenom_gompertz():
     A = 2.5
     mu_max = 0.3
     lam = 5.0
-    N0 = 0.05
 
     # test phenomenological Gompertz model fitting
 
-    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam, "N0": N0}
-    N = phenom_gompertz_model(t, A=A, mu_max=mu_max, lam=lam, N0=N0)
+    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam}
+    N = phenom_gompertz_model_ln(t, A=A, mu_max=mu_max, lam=lam)
     actual = gc.parametric.fit_parametric(t, N, method="phenom_gompertz")
     actual = actual["params"]
     for k, v in expected_phenom.items():

@@ -898,7 +898,7 @@ def _extract_stats_phenom_gompertz(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = float(params["N0"])  # Initial OD
+    N0 = np.nan
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_gompertz", params)
@@ -922,7 +922,6 @@ def _extract_stats_phenom_gompertz(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
-        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )

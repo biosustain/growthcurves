@@ -21,7 +21,7 @@ from .models import (
     mech_gompertz_model,
     mech_logistic_model,
     mech_richards_model,
-    phenom_gompertz_model,
+    phenom_gompertz_model_ln,
     phenom_gompertz_modified_model_ln,
     phenom_logistic_model,
     phenom_richards_model,
@@ -354,16 +354,16 @@ def fit_phenom_gompertz(t, N):
     mu_max_init = 0.5
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
 
-    p0 = [A_init, mu_max_init, lam_init, N0]
-    bounds = ([0.01, 0.0001, 0, N0 * 0.1], [20, 10, t.max(), N0 * 5])
+    p0 = [A_init, mu_max_init, lam_init]
+    bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_gompertz_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_gompertz_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam"], params)),
         "model_type": "phenom_gompertz",
     }
 
