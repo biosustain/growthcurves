@@ -98,10 +98,10 @@ Mechanistic models are defined as ordinary differential equations (ODEs) and fit
 
 | Model              | Function                                   | Parameters                     |
 | ------------------ | ------------------------------------------ | ------------------------------ |
-| Phenom. Logistic   | `models.phenom_logistic_model`             | A, mu_max, lam, N0             |
+| Phenom. Logistic   | `models.phenom_logistic_model`             | A, mu_max, lam                 |
 | Phenom. Gompertz   | `models.phenom_gompertz_model_ln`          | A, mu_max, lam                 |
 | Phenom. Gompertz\* | `models.phenom_gompertz_modified_model_ln` | A, mu_max, lam, alpha, t_shift |
-| Phenom. Richards   | `models.phenom_richards_model`             | A, mu_max, lam, nu, N0         |
+| Phenom. Richards   | `models.phenom_richards_model`             | A, mu_max, lam, nu             |
 
 Phenomenological models are fitted directly to ln(OD/OD0) data.
 
