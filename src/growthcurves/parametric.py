@@ -471,8 +471,7 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
             - "mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"
 
         Phenomenological (ln-space):
-            - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified", \
-"phenom_richards"
+            - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified", "phenom_richards"
 
     Returns
     -------
