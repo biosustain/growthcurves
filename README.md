@@ -93,12 +93,15 @@ Mechanistic models are defined as ordinary differential equations (ODEs) and fit
 
 #### Phenomenological models (ln-space)
 
-| Model              | Function                                | Parameters                         |
-| ------------------ | --------------------------------------- | ---------------------------------- |
-| Phenom. Logistic   | `models.phenom_logistic_model`          | A, mu_max, lam, N0                 |
-| Phenom. Gompertz   | `models.phenom_gompertz_model`          | A, mu_max, lam, N0                 |
-| Phenom. Gompertz\* | `models.phenom_gompertz_modified_model` | A, mu_max, lam, alpha, t_shift, N0 |
-| Phenom. Richards   | `models.phenom_richards_model`          | A, mu_max, lam, nu, N0             |
+> No `N0` parameter is present in the phenomenological models. To apply a N0 constant use
+> `log_to_linear` function to convert the log-space model output to linear space.
+
+| Model              | Function                                   | Parameters                     |
+| ------------------ | ------------------------------------------ | ------------------------------ |
+| Phenom. Logistic   | `models.phenom_logistic_model`             | A, mu_max, lam                 |
+| Phenom. Gompertz   | `models.phenom_gompertz_model_ln`          | A, mu_max, lam                 |
+| Phenom. Gompertz\* | `models.phenom_gompertz_modified_model_ln` | A, mu_max, lam, alpha, t_shift |
+| Phenom. Richards   | `models.phenom_richards_model`             | A, mu_max, lam, nu             |
 
 Phenomenological models are fitted directly to ln(OD/OD0) data.
 

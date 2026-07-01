@@ -56,4 +56,7 @@ coverage.xml
 cover/
 
 # local test folders
+tests/test_nb.ipynb
+
+# exploratory notebooks
 exploratory notebooks/
