@@ -8,6 +8,11 @@ Models are categorized into two classes:
 
 2. **Phenomenological models**: Fitted directly to ln(OD/OD0)
    - phenom_logistic, phenom_gompertz, phenom_gompertz_modified, phenom_richards
+
+| parameter                   | mechanistic model | phenomological model |
+| --------------------------- | ----------------- | -------------------- |
+| lag phase                   | no                | yes                  |
+| initial starting conditions | yes               | no (estimate: min(N))|
 """
 
 import numpy as np
@@ -76,11 +81,14 @@ def get_model_category(model_type):
 # =============================================================================
 # MECHANISTIC MODELS (ODE-based)
 # =============================================================================
+# ! no lag phase directly modeled in these ODEs.
 
 
 def mech_logistic_ode(t, N, mu, K):
     """
-    Logistic growth ODE: dN/dt = μ * (1 - N/K) * N
+    Logistic growth Ordinary Differential Equation (ODE):
+
+    dN/dt = μ * (1 - N/K) * N
 
     Parameters:
         t: Time (scalar)
@@ -96,7 +104,9 @@ def mech_logistic_ode(t, N, mu, K):
 
 def mech_gompertz_ode(t, N, mu, K):
     """
-    Gompertz growth ODE: dN/dt = μ * log(K/N) * N
+    Gompertz growth Ordinary Differential Equation (ODE):
+
+    dN/dt = μ * log(K/N) * N
 
     Parameters:
         t: Time (scalar)
@@ -117,7 +127,9 @@ def mech_gompertz_ode(t, N, mu, K):
 
 def mech_richards_ode(t, N, mu, K, beta):
     """
-    Richards growth ODE: dN/dt = μ * (1 - (N/K)^β) * N
+    Richards growth Ordinary Differential Equation (ODE):
+
+    dN/dt = μ * (1 - (N/K)^β) * N
 
     Parameters:
         t: Time (scalar)
@@ -139,7 +151,10 @@ def mech_richards_ode(t, N, mu, K, beta):
 
 def mech_baranyi_ode(t, N, mu, K, h0):
     """
-    Baranyi-Roberts growth ODE: dN/dt = μ * A(t) * (1 - N/K) * N
+    Baranyi-Roberts growth Ordinary Differential Equation (ODE):
+
+    dN/dt = μ * A(t) * (1 - N/K) * N
+
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
 
     Parameters:
@@ -162,10 +177,10 @@ def mech_baranyi_ode(t, N, mu, K, h0):
 
 def mech_logistic_model(t, mu, K, N0):
     """
-    Solve logistic ODE and return OD values at t points.
+    Solve logistic ODE and return measurement values at t points. N(t) could be optical
+    density (OD) or any other measurement depending on variable t (which often is time).
 
     ODE: dN/dt = μ * (1 - N/K) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -196,10 +211,10 @@ def mech_logistic_model(t, mu, K, N0):
 
 def mech_gompertz_model(t, mu, K, N0):
     """
-    Solve Gompertz ODE and return OD values at time points.
+    Solve Gompertz ODE and return measurement values at t points. N(t) could be optical
+    density (OD) or any other measurement depending on variable t (which often is time).
 
     ODE: dN/dt = μ * log(K/N) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -230,10 +245,10 @@ def mech_gompertz_model(t, mu, K, N0):
 
 def mech_richards_model(t, mu, K, N0, beta):
     """
-    Solve Richards ODE and return OD values at time points.
+    Solve Richards ODE and return measurement values at t points. N(t) could be optical
+    density (OD) or any other measurement depending on variable t (which often is time).
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -265,11 +280,13 @@ def mech_richards_model(t, mu, K, N0, beta):
 
 def mech_baranyi_model(t, mu, K, N0, h0):
     """
-    Solve Baranyi-Roberts ODE and return OD values at t points.
+    Solve Baranyi-Roberts ODE and return measurement values at t points. N(t) could be
+    optical density (OD) or any other measurement depending on variable t (which often
+    is time).
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
+
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -308,7 +325,7 @@ def phenom_logistic_model_ln(t, A, mu_max, lam):
     """
     Phenomenological logistic model in ln-space.
 
-    ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
+    ln(Nt/N0) = A / (1 + exp((4 * μ_max / A * (λ - t) ) + 2))
 
     Parameters:
         t: Time array
@@ -320,7 +337,7 @@ def phenom_logistic_model_ln(t, A, mu_max, lam):
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
-    ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - t) / A + 2))
+    ln_ratio = A / (1 + np.exp((4 * mu_max / A * (lam - t)) + 2))
     return ln_ratio
 
 
