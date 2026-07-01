@@ -132,7 +132,7 @@ The spline method provides a model-free approach to growth curve analysis by fit
 | Parameter     | Meaning                                          |
 | ------------- | ------------------------------------------------ |
 | `smooth`      | `"fast"`, `"slow"`, or manual float lambda value |
-| `use_weights` | Apply OD-dependent weighting (default: `True`)   |
+| `use_weights` | Apply OD-dependent weighting (default: `False`)   |
 
 When `smooth` is a float, higher values produce smoother curves and lower values follow the data more tightly.
 
