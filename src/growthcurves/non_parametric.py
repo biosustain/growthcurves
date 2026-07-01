@@ -7,15 +7,13 @@ All methods operate in linear OD space (not log-transformed).
 """
 
 from logging import getLogger
+from typing import Union
 
 import numpy as np
 import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
 
 from .inference import bad_fit_stats
-
-# from scipy.stats import theilslopes
-
 
 logger = getLogger(__name__)
 
@@ -25,15 +23,11 @@ _SPLINE_GCV_WEIGHT_FLOOR_Q = 0.15
 _SPLINE_GCV_WEIGHT_POWER = 1.0
 
 # -----------------------------------------------------------------------------
-# Sliding Window Helpers
+# Sliding Window
 # -----------------------------------------------------------------------------
 
 
-# -----------------------------------------------------------------------------
-# Umax Calculation Methods
-# -----------------------------------------------------------------------------
-
-
+# region: sliding window method
 def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs):
     """
     Calculate maximum specific growth rate using the sliding window method.
@@ -44,7 +38,7 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
 
     Parameters:
         t: Time array (hours)
-        N: OD values (baseline-corrected, must be positive)
+        N: OD values (linear-scale, baseline-corrected, must be positive)
         window_points: Number of points in each sliding window
         step: Step size for sliding window (default: 1 if step is None and
               `n_fits` is None)
@@ -120,7 +114,13 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
         "model_type": "sliding_window",
     }
 
+# -----------------------------------------------------------------------------
+# Spline
+# -----------------------------------------------------------------------------
 
+
+# endregion
+# region: spline fitting helpers
 def _second_diff_series(t, y):
     """Compute second divided differences of y w.r.t. t, scaled by median(dt)^2."""
     t = np.asarray(t, dtype=float)
@@ -235,6 +235,10 @@ def _fast_auto_lam(t, y_log):
     return float(np.clip(raw_lam, 0.0, lam_max))
 
 
+# endregion
+
+
+# region: fit_spline
 def fit_spline(
     t,
     N,
@@ -249,7 +253,7 @@ def fit_spline(
 
     Parameters:
         t: Time array (hours)
-        N: OD values
+        N: OD values (linear space, must be positive)
         smooth: Smoothing mode/value.
                 - "fast": notebook auto-default rule mapped to lam
                 - "slow": GCV-selected smoothing (lam=None)
@@ -302,6 +306,8 @@ def fit_spline(
 
         spline = make_smoothing_spline(t_fit, y_log, w=w, lam=lam)
         if lam is None:
+            # ? is this correct? it gives the residual sum of squares?
+            # ! lam is not returned if not provided by make_smoothing_spline
             resid = y_log - np.asarray(spline(t_fit), dtype=float)
             spline_s = float(np.sum((w * resid) ** 2))
         else:
@@ -348,6 +354,8 @@ def fit_spline(
         return None
 
 
+# endregion
+
 # -----------------------------------------------------------------------------
 # Main API Functions
 # -----------------------------------------------------------------------------
@@ -358,7 +366,7 @@ def fit_non_parametric(
     N,
     method="sliding_window",
     window_points=15,
-    smooth="fast",
+    smooth: Union[str, float] = "fast",
     use_weights=False,
     **kwargs,
 ):
@@ -383,7 +391,7 @@ def fit_non_parametric(
         by default "sliding_window"
     window_points : int, optional
         Number of points in sliding window (for sliding_window method), by default 15
-    smooth : str, optional
+    smooth : str or float, optional
         Smoothing mode/value for spline method, by default "fast"
             - "fast": notebook auto-default rule mapped to lam
             - "slow": GCV-selected smoothing (auto GCV)
