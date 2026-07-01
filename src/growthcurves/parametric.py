@@ -55,24 +55,6 @@ def _estimate_initial_params(t, N):
     return K_init, dN
 
 
-def _estimate_lag_time(t, dN, threshold_frac=0.1):
-    """
-    Estimate lag t from growth rate threshold.
-
-    Parameters:
-        t: Time array
-        dy: First derivative of OD
-        threshold_frac: Fraction of max derivative to use as threshold
-
-    Returns:
-        Estimated lag t (t when growth rate exceeds threshold)
-
-    """
-    threshold = threshold_frac * np.max(dN)
-    lag_idx = np.where(dN > threshold)[0]
-    return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
-
-
 def _fit_model_generic(
     t, N, model_func, param_names, p0_func, bounds_func, model_type, log_space=False
 ):
@@ -292,6 +274,29 @@ def fit_mech_baranyi(t, N):
         model_type="mech_baranyi",
         log_space=True,
     )
+
+
+# -----------------------------------------------------------------------------
+# Helper Functions for phenomenological model fitting
+# -----------------------------------------------------------------------------
+
+
+def _estimate_lag_time(t, dN, threshold_frac=0.1):
+    """
+    Estimate lag t from growth rate threshold.
+
+    Parameters:
+        t: Time array
+        dN: First derivative of OD
+        threshold_frac: Fraction of max derivative to use as threshold
+
+    Returns:
+        Estimated lag t (t when growth rate exceeds threshold)
+
+    """
+    threshold = threshold_frac * np.max(dN)
+    lag_idx = np.where(dN > threshold)[0]
+    return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
 # -----------------------------------------------------------------------------
