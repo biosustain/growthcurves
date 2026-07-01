@@ -21,10 +21,10 @@ from .models import (
     mech_gompertz_model,
     mech_logistic_model,
     mech_richards_model,
-    phenom_gompertz_model,
-    phenom_gompertz_modified_model,
-    phenom_logistic_model,
-    phenom_richards_model,
+    phenom_gompertz_model_ln,
+    phenom_gompertz_modified_model_ln,
+    phenom_logistic_model_ln,
+    phenom_richards_model_ln,
 )
 
 # -----------------------------------------------------------------------------
@@ -188,6 +188,7 @@ def fit_mech_gompertz(t, N):
         model_func=mech_gompertz_model,
         param_names=["mu", "K", "N0"],
         p0_func=lambda K, t, dy: [0.05, K, 0.01],
+        # ToDo: This should be a function to avoid hardcoding K bounds.
         bounds_func=lambda K, t: (
             [0.0001, 0.01, 1e-4],
             [2, np.inf, 1],
@@ -315,16 +316,16 @@ def fit_phenom_logistic(t, N):
     mu_max_init = 0.5
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
 
-    p0 = [A_init, mu_max_init, lam_init, N0]
-    bounds = ([0.01, 0.0001, 0, N0 * 0.1], [20, 10, t.max(), N0 * 5])
+    p0 = [A_init, mu_max_init, lam_init]
+    bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_logistic_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam"], params)),
         "model_type": "phenom_logistic",
     }
 
@@ -353,16 +354,16 @@ def fit_phenom_gompertz(t, N):
     mu_max_init = 0.5
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
 
-    p0 = [A_init, mu_max_init, lam_init, N0]
-    bounds = ([0.01, 0.0001, 0, N0 * 0.1], [20, 10, t.max(), N0 * 5])
+    p0 = [A_init, mu_max_init, lam_init]
+    bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_gompertz_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_gompertz_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam"], params)),
         "model_type": "phenom_gompertz",
     }
 
@@ -392,19 +393,19 @@ def fit_phenom_gompertz_modified(t, N):
     alpha_init = 0.05
     t_shift_init = t.max() * 0.8
 
-    p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init, N0]
+    p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init]
     bounds = (
-        [0.01, 0.0001, 0, -1, 0, 1e-4],
-        [20, 10, t.max(), 1, t.max(), 1.0],
+        [0.01, 0.0001, 0, -1, 0],
+        [20, 10, t.max(), 1, t.max()],
     )
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_gompertz_modified_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_gompertz_modified_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "alpha", "t_shift", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam", "alpha", "t_shift"], params)),
         "model_type": "phenom_gompertz_modified",
     }
 
@@ -434,16 +435,16 @@ def fit_phenom_richards(t, N):
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
     nu_init = 1.0
 
-    p0 = [A_init, mu_max_init, lam_init, nu_init, N0]
-    bounds = ([0.01, 0.0001, 0, 0.01, N0 * 0.1], [20, 10, t.max(), 100, N0 * 5])
+    p0 = [A_init, mu_max_init, lam_init, nu_init]
+    bounds = ([0.01, 0.0001, 0, 0.01], [20, 10, t.max(), 100])
 
     # Fit the model
     params, _ = curve_fit(
-        phenom_richards_model, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_richards_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam", "nu", "N0"], params)),
+        "params": dict(zip(["A", "mu_max", "lam", "nu"], params)),
         "model_type": "phenom_richards",
     }
 
@@ -454,21 +455,36 @@ def fit_phenom_richards(t, N):
 
 
 def fit_parametric(t, N, method="mech_logistic", **kwargs):
-    """
-    Fit a growth model to N.
+    """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
 
-    Parameters:
-        t: Time array (hours)
-        N: OD values
-        method: Model type string. Options:
-            Mechanistic (ODE):  "mech_logistic", "mech_gompertz",
-                                "mech_richards", "mech_baranyi"
-            Phenomenological (ln-space): "phenom_logistic", "phenom_gompertz",
-                "phenom_gompertz_modified", "phenom_richards"
 
-    Returns:
+    Parameters
+    ----------
+    t : Iterable[float]
+        Time array (hours)
+    N : Iterable[float]
+        OD values
+    method : str, optional
+        Model type string. Options:
+
+        Mechanistic (ODE):
+            - "mech_logistic", "mech_gompertz", "mech_richards", "mech_baranyi"
+
+        Phenomenological (ln-space):
+            - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified",\
+ "phenom_richards"
+
+    Returns
+    -------
+    Optional[dict]
         Fit result dict or None if fitting fails.
+
+    Raises
+    ------
+    ValueError
+        Unknown method string.
     """
+
     fit_func = globals().get(f"fit_{method}")
 
     if fit_func is None:

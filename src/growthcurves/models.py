@@ -304,7 +304,7 @@ def mech_baranyi_model(t, mu, K, N0, h0):
 # =============================================================================
 
 
-def phenom_logistic_model(t, A, mu_max, lam, N0):
+def phenom_logistic_model_ln(t, A, mu_max, lam):
     """
     Phenomenological logistic model in ln-space.
 
@@ -315,17 +315,16 @@ def phenom_logistic_model(t, A, mu_max, lam, N0):
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag time (hours)
-        N0: Initial OD at t=0
 
     Returns:
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp(4 * mu_max * (lam - t) / A + 2))
-    return N0 * np.exp(ln_ratio)
+    return ln_ratio
 
 
-def phenom_gompertz_model(t, A, mu_max, lam, N0):
+def phenom_gompertz_model_ln(t, A, mu_max, lam):
     """
     Phenomenological Gompertz model in ln-space.
 
@@ -336,7 +335,6 @@ def phenom_gompertz_model(t, A, mu_max, lam, N0):
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag t (hours)
-        N0: Initial OD at t=0
 
     Returns:
         OD values at each t point
@@ -344,12 +342,14 @@ def phenom_gompertz_model(t, A, mu_max, lam, N0):
     t = np.asarray(t, dtype=float)
     e = np.e
     ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1))
-    return N0 * np.exp(ln_ratio)
+    return ln_ratio
 
 
-def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
+def phenom_gompertz_modified_model_ln(t, A, mu_max, lam, alpha, t_shift):
     """
-    Phenomenological modified Gompertz model with decay term.
+    Phenomenological modified Gompertz model with decay term. Models
+    biphasic growth where the second exponential growth phase starts taking effect
+    at time_shift.
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1)) + A * exp(α * (t - t_shift))
 
@@ -360,20 +360,19 @@ def phenom_gompertz_modified_model(t, A, mu_max, lam, alpha, t_shift, N0):
         lam: Lag t (hours)
         alpha: Decay rate (h^-1)
         t_shift: Time shift for decay (hours)
-        N0: Initial OD at t=0
 
     Returns:
-        OD values at each t point
+        ln(Nt/N0) values at each t point
     """
     t = np.asarray(t, dtype=float)
     e = np.e
     ln_ratio = A * np.exp(-np.exp(mu_max * e * (lam - t) / A + 1)) + A * np.exp(
         alpha * (t - t_shift)
     )
-    return N0 * np.exp(ln_ratio)
+    return ln_ratio
 
 
-def phenom_richards_model(t, A, mu_max, lam, nu, N0):
+def phenom_richards_model_ln(t, A, mu_max, lam, nu):
     """
     Phenomenological Richards model in ln-space.
 
@@ -385,16 +384,32 @@ def phenom_richards_model(t, A, mu_max, lam, nu, N0):
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag t (hours)
         nu: Shape parameter
-        N0: Initial OD at t=0
 
     Returns:
-        OD values at each t point
+        ln(Nt/N0) values at each t point
     """
     t = np.asarray(t, dtype=float)
     # Avoid division by very small nu
     nu = np.maximum(nu, 0.01)
     exponent = 1 + nu + mu_max * (1 + nu) ** (1 + 1 / nu) * (lam - t) / A
     ln_ratio = A * (1 + nu * np.exp(exponent)) ** (-1 / nu)
+    return ln_ratio
+
+
+# Phenomenological models are fitted to ln(OD/OD0) values, so the output of these
+# functions is in ln-space. To convert to linear space, use the log_to_linear function
+# below.
+def log_to_linear(ln_ratio, N0):
+    """
+    Convert log-space values to linear-space values.
+
+    Parameters:
+        ln_ratio: Log-space values
+        N0: Initial OD at t=0
+
+    Returns:
+        Linear-space values
+    """
     return N0 * np.exp(ln_ratio)
 
 
@@ -488,13 +503,13 @@ def evaluate_parametric_model(t, model_type, params):
         "mech_richards": (mech_richards_model, ["mu", "K", "N0", "beta"]),
         "mech_baranyi": (mech_baranyi_model, ["mu", "K", "N0", "h0"]),
         # Phenomenological models (ln-space)
-        "phenom_logistic": (phenom_logistic_model, ["A", "mu_max", "lam", "N0"]),
-        "phenom_gompertz": (phenom_gompertz_model, ["A", "mu_max", "lam", "N0"]),
+        "phenom_logistic": (phenom_logistic_model_ln, ["A", "mu_max", "lam"]),
+        "phenom_gompertz": (phenom_gompertz_model_ln, ["A", "mu_max", "lam"]),
         "phenom_gompertz_modified": (
-            phenom_gompertz_modified_model,
-            ["A", "mu_max", "lam", "alpha", "t_shift", "N0"],
+            phenom_gompertz_modified_model_ln,
+            ["A", "mu_max", "lam", "alpha", "t_shift"],
         ),
-        "phenom_richards": (phenom_richards_model, ["A", "mu_max", "lam", "nu", "N0"]),
+        "phenom_richards": (phenom_richards_model_ln, ["A", "mu_max", "lam", "nu"]),
     }
 
     if model_type not in PARAMETRIC_MODEL_FUNCTIONS:
