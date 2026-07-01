@@ -18,6 +18,15 @@ tutorial/plotting
 
 ```{toctree}
 :maxdepth: 2
+:caption: "Examples"
+:hidden: true
+
+examples/README
+examples/logistic_model
+```
+
+```{toctree}
+:maxdepth: 2
 :caption: "Reference"
 :hidden: true
 

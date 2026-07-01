@@ -331,9 +331,10 @@ def fit_phenom_logistic(t, N):
     p0 = [A_init, mu_max_init, lam_init]
     bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
 
-    # Fit the model
+    # Fit the model in log space
+    N_ln = np.log(N / N0)
     params, _ = curve_fit(
-        phenom_logistic_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln, t, N_ln, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
