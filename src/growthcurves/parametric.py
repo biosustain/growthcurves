@@ -7,8 +7,12 @@ This module provides functions to fit parametric growth models:
 - Phenomenological models (ln-space): phenom_logistic, phenom_gompertz,
   phenom_gompertz_modified, phenom_richards
 
-All models operate in linear OD space (not log-transformed).
+Mechanistic Models operate in linear OD space while Phenomenological Models
+operate in the log space.
 
+Abbreviations:
+- OD: Optical Density
+- ODE: Ordinary Differential Equation
 """
 
 import numpy as np
@@ -28,7 +32,7 @@ from .models import (
 )
 
 # -----------------------------------------------------------------------------
-# Helper Functions
+# Helper Functions for mechanistic model fitting
 # -----------------------------------------------------------------------------
 
 
@@ -49,24 +53,6 @@ def _estimate_initial_params(t, N):
     K_init = np.max(N)
     dN = np.gradient(N, t)
     return K_init, dN
-
-
-def _estimate_lag_time(t, dN, threshold_frac=0.1):
-    """
-    Estimate lag t from growth rate threshold.
-
-    Parameters:
-        t: Time array
-        dy: First derivative of OD
-        threshold_frac: Fraction of max derivative to use as threshold
-
-    Returns:
-        Estimated lag t (t when growth rate exceeds threshold)
-
-    """
-    threshold = threshold_frac * np.max(dN)
-    lag_idx = np.where(dN > threshold)[0]
-    return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
 def _fit_model_generic(
@@ -129,10 +115,10 @@ def _fit_model_generic(
 
 def fit_mech_logistic(t, N):
     """
-    Fit mechanistic logistic model (ODE) to growth N.
+    Fit mechanistic logistic model (ODE) to growth N(t). N(t) could be Optical
+    Density (OD) or any other measurement depending on variable t (which is time).
 
     ODE: dN/dt = μ * (1 - N/K) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -144,6 +130,7 @@ def fit_mech_logistic(t, N):
         Dict with 'params' and 'model_type', or None if fitting fails.
 
     """
+
     return _fit_model_generic(
         t,
         N,
@@ -161,10 +148,10 @@ def fit_mech_logistic(t, N):
 
 def fit_mech_gompertz(t, N):
     """
-    Fit mechanistic Gompertz model (ODE) to growth data.
+    Fit mechanistic Gompertz model (ODE) to growth data N(t). N(t) could be Optical
+    Density (OD) or any other measurement depending on variable t (which is time).
 
     ODE: dN/dt = μ * log(K/N) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -200,10 +187,10 @@ def fit_mech_gompertz(t, N):
 
 def fit_mech_richards(t, N):
     """
-    Fit mechanistic Richards model (ODE) to growth N.
+    Fit mechanistic Richards model (ODE) to growth N(t). N(t) could be Optical Density
+    (OD) or any other measurement depending on variable t (which is time).
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
-    OD(t) = N(t)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -247,11 +234,13 @@ def fit_mech_richards(t, N):
 
 def fit_mech_baranyi(t, N):
     """
-    Fit mechanistic Baranyi-Roberts model (ODE) to growth N.
+    Fit mechanistic Baranyi-Roberts model (ODE) to growth N(t). N(t) could be Optical
+    Density (OD) or any other measurement depending on variable t (which is time).
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
+
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
-    OD(t) = N(t)
+
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -288,13 +277,36 @@ def fit_mech_baranyi(t, N):
 
 
 # -----------------------------------------------------------------------------
+# Helper Functions for phenomenological model fitting
+# -----------------------------------------------------------------------------
+
+
+def _estimate_lag_time(t, dN, threshold_frac=0.1):
+    """
+    Estimate lag t from growth rate threshold.
+
+    Parameters:
+        t: Time array
+        dN: First derivative of OD
+        threshold_frac: Fraction of max derivative to use as threshold
+
+    Returns:
+        Estimated lag t (t when growth rate exceeds threshold)
+
+    """
+    threshold = threshold_frac * np.max(dN)
+    lag_idx = np.where(dN > threshold)[0]
+    return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
+
+
+# -----------------------------------------------------------------------------
 # Phenomenological Model Fitting Functions (ln-space)
 # -----------------------------------------------------------------------------
 
 
 def fit_phenom_logistic(t, N):
     """
-    Fit phenomenological logistic model to ln(OD/OD0) data.
+    Fit non-standard phenomenological logistic model to ln(OD/OD0) data.
 
     ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
 
@@ -319,9 +331,10 @@ def fit_phenom_logistic(t, N):
     p0 = [A_init, mu_max_init, lam_init]
     bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
 
-    # Fit the model
+    # Fit the model in log space
+    N_ln = np.log(N / N0)
     params, _ = curve_fit(
-        phenom_logistic_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln, t, N_ln, p0=p0, bounds=bounds, maxfev=20000
     )
 
     return {
@@ -453,6 +466,17 @@ def fit_phenom_richards(t, N):
 # Main Fitting Dispatcher
 # -----------------------------------------------------------------------------
 
+FITTING_FUNCTIONS = {
+    "mech_logistic": fit_mech_logistic,
+    "mech_gompertz": fit_mech_gompertz,
+    "mech_richards": fit_mech_richards,
+    "mech_baranyi": fit_mech_baranyi,
+    "phenom_logistic": fit_phenom_logistic,
+    "phenom_gompertz": fit_phenom_gompertz,
+    "phenom_gompertz_modified": fit_phenom_gompertz_modified,
+    "phenom_richards": fit_phenom_richards,
+}
+
 
 def fit_parametric(t, N, method="mech_logistic", **kwargs):
     """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
@@ -463,7 +487,7 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
     t : Iterable[float]
         Time array (hours)
     N : Iterable[float]
-        OD values
+        OD values (in linear space)
     method : str, optional
         Model type string. Options:
 
@@ -485,7 +509,7 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
         Unknown method string.
     """
 
-    fit_func = globals().get(f"fit_{method}")
+    fit_func = FITTING_FUNCTIONS.get(method)
 
     if fit_func is None:
         raise ValueError(
@@ -494,6 +518,8 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
 
     result = fit_func(t, N)
     if result is not None:
+        # ? validate_data is called in fitting functions. recomputation could be
+        # ? avoided by returning time_valid from validate_data in fitting functions.
         time_valid, _ = validate_data(t, N)
         if time_valid is None:
             return None

@@ -8,7 +8,12 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 import growthcurves as gc
-from growthcurves.models import MODEL_REGISTRY, evaluate_parametric_model
+from growthcurves.models import (
+    MODEL_REGISTRY,
+    evaluate_parametric_model,
+    log_to_linear,
+    spline_from_params,
+)
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -796,14 +801,16 @@ def _extract_stats_phenom_logistic(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = np.nan  # undefined in log ratio space (ln(N/N0))
+    N0 = min(N)  # undefined in log ratio space (ln(N/N0))
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), 0.1
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
