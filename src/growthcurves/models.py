@@ -321,7 +321,7 @@ def mech_baranyi_model(t, mu, K, N0, h0):
 # =============================================================================
 
 
-def phenom_logistic_model_ln(t, A, mu_max, lam):
+def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N0=0.0):
     """
     Phenomenological logistic model in ln-space.
 
@@ -332,13 +332,15 @@ def phenom_logistic_model_ln(t, A, mu_max, lam):
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag time (hours)
+        ln_N0: Optional ln(baseline OD) offset as ln(Nt/N0) is non-zero
+               at t=0. Default is 0.0 (no offset).
 
     Returns:
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp((4 * mu_max / A * (lam - t)) + 2))
-    return ln_ratio
+    return ln_ratio + ln_N0
 
 
 def phenom_gompertz_model_ln(t, A, mu_max, lam):

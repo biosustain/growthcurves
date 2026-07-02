@@ -306,39 +306,50 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
 
 def fit_phenom_logistic(t, N):
     """
-    Fit non-standard phenomenological logistic model to ln(OD/OD0) data.
+    Fit non-standard phenomenological logistic model to OD data
+    N(t) = N0 * exp(ln_ratio(t)).
 
-    ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
+    ln_ratio(t) = ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
+
+    N0 is fit jointly with A, mu_max, lam rather than estimated as min(N):
+    the ln-ratio term is not zero at t=0 (it equals A/(1+exp(4*mu_max*lam/A+2))
+    for the smallest sampled time), so using min(N) systematically overestimates the
+    true baseline, biasing the other fitted parameters.
 
     Parameters:
         t: Time array (hours)
         N: OD values
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
+        Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
+        fitting fails.
     """
+
     t, N = validate_data(t, N)
     if t is None:
         return None
 
     # Estimate initial parameters
-    N0 = float(np.min(N))
+    N0_init = float(np.min(N))
     N_max = float(np.max(N))
-    A_init = np.log(N_max / N0)
-    mu_max_init = 0.5
+    A_init = np.log((N_max - N0_init) / N0_init)
+    mu_max_init = 0.5  # ?  np.max(dN)
+    # estimates lag time initialization using the gradient of N with respect to t
     lam_init = _estimate_lag_time(t, np.gradient(N, t))
 
-    p0 = [A_init, mu_max_init, lam_init]
-    bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
+    # Initial parameter guess and bounds
+    p0 = [A_init, mu_max_init, lam_init, np.log(N0_init)]
+    # ! hard-coded bounds  for A, mu_max, lam. Could be improved.
+    bounds = ([0.01, 0.0001, 0, -np.inf], [20, 10, t.max(), np.inf])
 
-    # Fit the model in log space
-    N_ln = np.log(N / N0)
+    # Fit the model directly on ln(N), with ln_N0 as a free parameter
     params, _ = curve_fit(
-        phenom_logistic_model_ln, t, N_ln, p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln, t, np.log(N), p0=p0, bounds=bounds, maxfev=20000
     )
+    A, mu_max, lam, ln_N0 = (float(p) for p in params)
 
     return {
-        "params": dict(zip(["A", "mu_max", "lam"], params)),
+        "params": {"A": A, "mu_max": mu_max, "lam": lam, "N0": float(np.exp(ln_N0))},
         "model_type": "phenom_logistic",
     }
 

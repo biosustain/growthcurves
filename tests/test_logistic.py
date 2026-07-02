@@ -1,7 +1,11 @@
 import numpy as np
 
 import growthcurves as gc
-from growthcurves.models import mech_logistic_model, phenom_logistic_model_ln
+from growthcurves.models import (
+    log_to_linear,
+    mech_logistic_model,
+    phenom_logistic_model_ln,
+)
 
 
 def test_fit_parametric():
@@ -27,12 +31,12 @@ def test_fit_parametric():
 
     # test phenomenological logistic model fitting
 
-    A = 2.5
+    A = 3.0
     mu_max = 0.3
     lam = 5.0
-    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam}
+    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam, "N0": N0}
 
-    N = phenom_logistic_model_ln(t, A=A, mu_max=mu_max, lam=lam)
+    N = log_to_linear(phenom_logistic_model_ln(t, A=A, mu_max=mu_max, lam=lam), N0=N0)
     actual = gc.parametric.fit_parametric(t, N, method="phenom_logistic")
     actual = actual["params"]
     for k, v in expected_phenom.items():
