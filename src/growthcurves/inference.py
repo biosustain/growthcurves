@@ -8,7 +8,12 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 import growthcurves as gc
-from growthcurves.models import MODEL_REGISTRY, evaluate_parametric_model
+from growthcurves.models import (
+    MODEL_REGISTRY,
+    evaluate_parametric_model,
+    log_to_linear,
+    spline_from_params,
+)
 
 # -----------------------------------------------------------------------------
 # Constants
