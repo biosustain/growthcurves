@@ -507,8 +507,6 @@ def _extract_stats_mech_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -601,8 +599,6 @@ def _extract_stats_mech_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -696,8 +692,6 @@ def _extract_stats_mech_baranyi(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -793,8 +787,6 @@ def _extract_stats_phenom_logistic(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -897,8 +889,6 @@ def _extract_stats_phenom_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -998,8 +988,6 @@ def _extract_stats_phenom_gompertz_modified(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1103,8 +1091,6 @@ def _extract_stats_phenom_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1390,8 +1376,6 @@ def _extract_stats_spline(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import spline_from_params
-
     params = fit_result.get("params", {})
 
     # Use stored mu_max and time_at_umax from the original fit
