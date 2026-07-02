@@ -197,10 +197,11 @@ def mech_logistic_model(t, mu, K, N0):
     if np.isscalar(t):
         t = np.array([t])
 
-    # Solve ODE
+    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
+    # integration span must start at 0 even if the query times don't.
     sol = solve_ivp(
         lambda time_val, N: mech_logistic_ode(time_val, N[0], mu, K),
-        [t.min(), t.max()],
+        [min(0.0, t.min()), t.max()],
         [N0],
         t_eval=t,
         method="RK45",
@@ -231,10 +232,11 @@ def mech_gompertz_model(t, mu, K, N0):
     if np.isscalar(t):
         t = np.array([t])
 
-    # Solve ODE
+    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
+    # integration span must start at 0 even if the query times don't.
     sol = solve_ivp(
         lambda time_val, N: mech_gompertz_ode(time_val, N[0], mu, K),
-        [t.min(), t.max()],
+        [min(0.0, t.min()), t.max()],
         [N0],
         t_eval=t,
         method="RK45",
@@ -266,10 +268,11 @@ def mech_richards_model(t, mu, K, N0, beta):
     if np.isscalar(t):
         t = np.array([t])
 
-    # Solve ODE
+    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
+    # integration span must start at 0 even if the query times don't.
     sol = solve_ivp(
         lambda time_val, N: mech_richards_ode(time_val, N[0], mu, K, beta),
-        [t.min(), t.max()],
+        [min(0.0, t.min()), t.max()],
         [N0],
         t_eval=t,
         method="RK45",
@@ -304,10 +307,11 @@ def mech_baranyi_model(t, mu, K, N0, h0):
     if np.isscalar(t):
         t = np.array([t])
 
-    # Solve ODE
+    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
+    # integration span must start at 0 even if the query times don't.
     sol = solve_ivp(
         lambda time_val, N: mech_baranyi_ode(time_val, N[0], mu, K, h0),
-        [t.min(), t.max()],
+        [min(0.0, t.min()), t.max()],
         [N0],
         t_eval=t,
         method="RK45",
