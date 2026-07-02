@@ -36,6 +36,7 @@ def logistic_growth(t, N0, K, mu, lag):
         N[t < lag] = N0
     return N
 
+
 # %% [markdown]
 # # 1. Set your simulation parameters
 
@@ -62,14 +63,14 @@ ground_truth_params = {
 }
 
 # %% [markdown]
-# ## 2. Create the time grid where you want data points
+# # 2. Create the time grid where you want data points
 
 # %%
 t_eval = np.linspace(t_start, t_end, num_points)
 
 
 # %% [markdown]
-# ## 3. Solve the ODE
+# # 3. Solve the ODE
 # args passes extra constants (like k) to the model function
 # ```python
 # ln_ratio = solve_ivp(
@@ -94,7 +95,7 @@ if lag > 0:
     N = np.concatenate((np.full(idx_lag, N0), N[:-idx_lag]))
 
 # %% [markdown]
-# ## 4. Structure the generated data into a clean DataFrame
+# # 4. Structure the generated data into a clean DataFrame
 # And plot.
 
 # %%
@@ -110,7 +111,7 @@ ax.vlines(x=lag, ymin=N0, ymax=K, color="red", linestyle="--", label="Lag time")
 
 
 # %% [markdown]
-# ## 5. Generate the phenomenological model for comparison
+# # 5. Generate the phenomenological model for comparison
 #
 # As in review paper we have a slightly modified logistical model:
 #
@@ -137,7 +138,7 @@ data["OD_phenom_paper"] = log_to_linear(data["OD_phenom_paper_ln"], N0)
 data
 
 # %% [markdown]
-# ## 6. Generate the classic phenomenological model for comparison
+# # 6. Generate the classic phenomenological model for comparison
 #
 # ```
 # N(t) = K / (1 + ((K - N0)/N0) * exp(-μ * (t - lag)))
@@ -232,10 +233,11 @@ _ = ax2.legend(title="ln(OD) curves")
 
 
 # %% [markdown]
-# ## 8. Fit the mechanistic model to the synthetic data
+# # 7. Fit the mechanistic model to the synthetic data
 
 # %% [markdown]
-# ### 8.1 Helper function to fit the model and extract statistics
+# ## 7.1 Helper function to fit the model and extract statistics
+
 
 # %% tags=["hide-input"]
 def fit_model_and_extract_stats(time_in_hours, observations, model):
@@ -277,7 +279,7 @@ fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model
 
 
 # %% [markdown]
-# ## 7. Fit the mechanistic model to the synthetic data
+# ## 7.2 Fit the mechanistic model to the synthetic data
 # - fit data from the classic logistic model using the methods implemented in
 #   growthcurves (based on the review paper)
 
@@ -290,7 +292,7 @@ t = data["Time"]
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
 
 # %% [markdown]
-# ## 9. Compare differences between models
+# # 8. Compare differences between models
 #
 # Compare regions where models differ:
 # - changes maximum capacity K for phenomenological model according to review
