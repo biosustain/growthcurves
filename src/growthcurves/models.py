@@ -337,10 +337,11 @@ def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N0=0.0):
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag time (hours)
         ln_N0: Optional ln(baseline OD) offset as ln(Nt/N0) is non-zero
-               at t=0. Default is 0.0 (no offset).
+               at t=0. Default is 0.0 (no offset) for this formulation 
+               of logistic growth.
 
     Returns:
-        OD values at each time point
+        ln(Nt/N0) values at each time point with optional offset
     """
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp((4 * mu_max / A * (lam - t)) + 2))
@@ -360,7 +361,7 @@ def phenom_gompertz_model_ln(t, A, mu_max, lam):
         lam: Lag t (hours)
 
     Returns:
-        OD values at each t point
+        ln(Nt/N0) values at each t point
     """
     t = np.asarray(t, dtype=float)
     e = np.e
