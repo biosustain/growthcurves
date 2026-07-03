@@ -337,7 +337,7 @@ def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N0=0.0):
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag time (hours)
         ln_N0: Optional ln(baseline OD) offset as ln(Nt/N0) is non-zero
-               at t=0. Default is 0.0 (no offset) for this formulation 
+               at t=0. Default is 0.0 (no offset) for this formulation
                of logistic growth.
 
     Returns:
