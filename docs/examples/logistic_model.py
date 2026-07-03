@@ -132,8 +132,24 @@ data = pd.DataFrame(
         "ln_OD_mech": np.log(N / N0),
     }
 )
-ax = data.plot.scatter(x="Time", y="OD_mech", s=1)
-ax.vlines(x=lag, ymin=N0, ymax=K, color="red", linestyle="--", label="Lag time")
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_mech",
+    s=1,
+    color="C0",
+    title="Mechanistic Logistic Growth Simulation",
+    xlabel="Time (hours)",
+    ylabel="OD",
+)
+ax.vlines(
+    x=lag,
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="--",
+    label="Lag time ends",
+)
+_ = ax.legend()
 
 
 # %% [markdown]
@@ -155,13 +171,38 @@ ax.vlines(x=lag, ymin=N0, ymax=K, color="red", linestyle="--", label="Lag time")
 # %%
 A = np.log((K - N0) / N0)
 data["OD_phenom_paper_ln"] = phenom_logistic_model_ln(
-    t=data["Time"],
-    mu_max=mu_max,
-    A=A,
-    lam=lag,
+    t=data["Time"], mu_max=mu_max, A=A, lam=lag, ln_N0=np.log(N0)
 )
-data["OD_phenom_paper"] = log_to_linear(data["OD_phenom_paper_ln"], N0)
+data["OD_phenom_paper"] = np.exp(data["OD_phenom_paper_ln"])
 data
+
+# %% tags = ["hide-input"]
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_mech",
+    s=1,
+    color="C0",
+    title="Mechanistic Logistic Growth Simulation",
+    xlabel="Time (hours)",
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_paper",
+    s=1,
+    color="C1",
+    ax=ax,
+    label="Phenomenological Logistic Growth",
+)
+ax.vlines(
+    x=lag,
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="--",
+    label="Lag time ends",
+)
+_ = ax.legend()
 
 # %% [markdown]
 # # 6. Generate the classic phenomenological model for comparison
@@ -202,6 +243,39 @@ data.set_index("Time").filter(like="OD_phenom_classic").plot(
     subplots=True, layout=(3, 2), figsize=(7, 6), sharex=True
 )
 
+# %%
+
+# %%
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_mech",
+    s=1,
+    color="C0",
+    label="Mechanistic Logistic Growth Simulation (ODE)",
+    xlabel="Time (hours)",
+    alpha=0.5,
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic",
+    s=1,
+    color="C1",
+    ax=ax,
+    alpha=0.5,
+    label="Classic Logistic Growth (phenomenological)",
+)
+_ = ax.vlines(
+    x=lag,
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="--",
+    label="Lag time ends",
+    alpha=0.5
+)
+_ = ax.legend()
+
 # %% tags=["hide-input"]
 ax = pd.Series(N, index=data["Time"]).plot(
     title="Synthetic Growth Curve", xlabel="Time (hours)", ylabel="OD"
@@ -216,7 +290,7 @@ _ = ax.hlines(
     # ((K-N0) / 2) + N0,
     xmin=1.0,
     xmax=t_end,
-    alpha=0.5,
+    alpha=0.2,
     color="grey",
     linestyle="--",
     label="Inflection Point",
