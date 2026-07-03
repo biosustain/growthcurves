@@ -8,6 +8,43 @@
 #
 # The ODE given in the review and the phenomological model are not equivalent, but
 # closely related.
+#
+# $$
+# N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
+# \qquad
+# \mathrm{factor} = \frac{K - N_0}{N_0}.
+# $$
+#
+# It matches the "classic" logistic shape from Wikipedia, but writes the usual
+# integration constant in a biologically meaningful way through `K` and `N0`.
+# > Note: `N0` is not `N(t=0)`unless `lag=0`. The shifted form is used to model the
+# > lag phase.
+#
+# ## What the parameters do
+#
+# - `K` sets the upper plateau (carrying capacity).
+# - `mu` sets how quickly the transition happens.
+# - `lag` shifts the whole S-curve left or right.
+# - `factor = (K - N0) / N0` is not an extra free parameter once `K` and `N0`
+#   are chosen. It measures how much capacity is still empty compared with what is
+#   already present at `t = lag`.
+#
+# ## What the factor changes
+#
+# The factor is marked directly on the plot through two special points:
+#
+# - At `t = lag`, the curve passes through `N(lag) = N0 = K / (1 + factor)`.
+# - The inflection point is at
+#   `t* = lag + ln(factor) / mu`, where `factor * exp(-mu * (t - lag)) = 1`.
+#   There the curve reaches `K / 2` and the growth rate is maximal.
+#
+# For fixed `K` and `mu`, a larger factor means a smaller `N0 / K`, so the curve
+# starts lower and the inflection happens later. The maximum slope itself stays
+# the same (`mu * K / 4`); the factor mainly changes *where* the midpoint happens.
+#
+# One subtle point is worth watching in the app: with this shifted form, `N0` is
+# the value at `t = lag`, not necessarily the value at `t = 0`. The app marks both.
+
 
 # %% tags=["hide-input"]
 from pprint import pprint
@@ -15,6 +52,8 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.subplots
 import sympy as sp
 from IPython.display import display
 
@@ -29,11 +68,11 @@ from growthcurves.models import (  # mech_logistic_ode,;
 
 
 # from scipy.integrate import solve_ivp
-def logistic_growth(t, N0, K, mu, lag):
+def logistic_growth(t, N_lag, K, mu, lag):
     """Logistic growth model with smooth transition through lag phase"""
     # Standard logistic formula centered at lag time
     # This creates a smooth S-curve with inflection point at t = lag + (K - N0) / N0
-    factor = (K - N0) / N0
+    factor = (K - N_lag) / N_lag
     N = K / (1 + factor * np.exp(-mu * (t - lag)))
     # if lag > 0:
     # For t < lag, set N to N0 to model the lag phase
@@ -51,6 +90,11 @@ def get_acceleration(t, K, N0, mu, lag):
     return accel
 
 
+def logistic_derivative(t, K, N_lag, mu, lag):
+    N = logistic_growth(t, N_lag, K, mu, lag)
+    return mu * N * (1 - N / K)
+
+
 def get_doubling_time(t, K, N0, mu, lag):
     """
     Returns the instantaneous doubling time at time t.
@@ -60,6 +104,195 @@ def get_doubling_time(t, K, N0, mu, lag):
         doubling_time = np.log(2) / (mu * (1 - (N / K)))
     doubling_time[t < lag] = np.nan  # Undefined during lag phase
     return doubling_time
+
+
+def format_summary(K, N_lag, mu, lag, factor, N_at_zero, t_inflect):
+    max_slope = mu * K / 4
+    inflection_note = (
+        "The inflection lies before `t = 0`, so the observed window already starts "
+        "after the midpoint."
+        if t_inflect < 0
+        else "The inflection lies inside the plotted time window."
+    )
+    return f"""
+### Read the curve
+
+- `factor = (K - N_lag) / N_lag = {factor:.3f}`
+- `lag = {lag:.3f}`
+- `N(lag) = N_lag = {N_lag:.3f} ('N0')`
+- `N(0) = {N_at_zero:.3f} (not 'N0'!)`
+- `t_inflect = lag + ln(factor) / mu = {t_inflect:.3f}`
+- `max dN/dt = mu * K / 4 = {max_slope:.3f}`
+
+`factor` controls how far the midpoint sits from `lag`.
+A larger factor pushes the inflection to the right and lowers the starting part of
+the curve relative to `K`.
+
+{inflection_note}
+"""
+
+
+def make_figure(K, N_lag, mu, lag):
+    N0 = N_lag  # N0 is where t = lag
+    factor = (K - N0) / N0
+    t_inflect = lag + np.log(factor) / mu
+    N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
+
+    t_start = min(0.0, t_inflect - 2.0 / mu)
+    t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
+    t = np.linspace(t_start, t_end, 500)
+    N = logistic_growth(t, N0, K, mu, lag)
+    dNdt = logistic_derivative(t, K, N0, mu, lag)
+
+    fig = plotly.subplots.make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        row_heights=[0.72, 0.28],
+        subplot_titles=("Population size N(t)", "Growth rate dN/dt"),
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=t,
+            y=N,
+            mode="lines",
+            line={"color": "#1565c0", "width": 3},
+            name="N(t)",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=t,
+            y=dNdt,
+            mode="lines",
+            line={"color": "#c62828", "width": 3},
+            name="dN/dt",
+        ),
+        row=2,
+        col=1,
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[0.0, lag, t_inflect],
+            y=[N_at_zero, N0, K / 2],
+            mode="markers+text",
+            text=["N(0)", "N(lag)=N0=N_lag", "Inflection"],
+            textposition="top center",
+            marker={"size": 10, "color": ["#455a64", "#2e7d32", "#ef6c00"]},
+            name="Key points",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[t_inflect],
+            y=[mu * K / 4],
+            mode="markers+text",
+            text=["Peak slope"],
+            textposition="top center",
+            marker={"size": 10, "color": "#ef6c00"},
+            name="Peak slope",
+        ),
+        row=2,
+        col=1,
+    )
+
+    for row in (1, 2):
+        fig.add_vline(
+            x=lag,
+            line_dash="dash",
+            line_color="#2e7d32",
+            annotation_text="lag",
+            annotation_position="top left",
+            row=row,
+            col=1,
+        )
+        fig.add_vline(
+            x=t_inflect,
+            line_dash="dot",
+            line_color="#ef6c00",
+            annotation_text="t_inflect",
+            annotation_position="top right",
+            row=row,
+            col=1,
+        )
+
+    fig.add_hline(
+        y=K,
+        line_dash="dash",
+        line_color="#1565c0",
+        annotation_text="K",
+        annotation_position="top left",
+        row=1,
+        col=1,
+    )
+    fig.add_hline(
+        y=N0,
+        line_dash="dot",
+        line_color="#2e7d32",
+        annotation_text="N0",
+        annotation_position="bottom left",
+        row=1,
+        col=1,
+    )
+    fig.add_hline(
+        y=K / 2,
+        line_dash="dot",
+        line_color="#ef6c00",
+        annotation_text="K/2",
+        annotation_position="bottom left",
+        row=1,
+        col=1,
+    )
+
+    fig.add_annotation(
+        x=lag,
+        y=N0,
+        xref="x",
+        yref="y",
+        text=(f"factor = {factor:.2f}<br>N0 = K / (1 + factor)"),
+        showarrow=True,
+        arrowhead=2,
+        ax=120,
+        ay=-70,
+        bgcolor="rgba(255,255,255,0.9)",
+        bordercolor="#2e7d32",
+    )
+    fig.add_annotation(
+        x=t_inflect,
+        y=K / 2,
+        xref="x",
+        yref="y",
+        text=("factor * exp(-mu * (t - lag)) = 1<br><=> t = lag + ln(factor) / mu"),
+        showarrow=True,
+        arrowhead=2,
+        ax=130,
+        ay=20,
+        bgcolor="rgba(255,255,255,0.9)",
+        bordercolor="#ef6c00",
+    )
+
+    fig.update_xaxes(title_text="Time", row=2, col=1)
+    fig.update_yaxes(title_text="N(t)", row=1, col=1)
+    fig.update_yaxes(title_text="dN/dt", row=2, col=1)
+    fig.update_layout(
+        height=720,
+        template="plotly_white",
+        showlegend=False,
+        title=(
+            "Shifted logistic curve with explicit factor "
+            f"(N0/K = {N0/K:.3f}, factor = {factor:.3f})"
+        ),
+        margin={"l": 60, "r": 30, "t": 90, "b": 60},
+    )
+
+    return fig, format_summary(K, N0, mu, lag, factor, N_at_zero, t_inflect)
 
 
 # %% [markdown]
@@ -86,6 +319,10 @@ ground_truth_params = {
     "A": A,
     "lag": lag,
 }
+
+fig, summary = make_figure(K, N0, mu, lag)
+print(summary)
+fig
 
 # %% [markdown]
 # # 2. Create the time grid where you want data points
@@ -176,7 +413,7 @@ data["OD_phenom_paper_ln"] = phenom_logistic_model_ln(
 data["OD_phenom_paper"] = np.exp(data["OD_phenom_paper_ln"])
 data
 
-# %% tags = ["hide-input"]
+# %% tags=["hide-input"]
 ax = data.plot.scatter(
     x="Time",
     y="OD_mech",
@@ -224,13 +461,13 @@ _ = ax.legend()
 # %%
 data["OD_phenom_classic"] = logistic_growth(
     t=data["Time"],
-    N0=N0,
+    N_lag=N0,
     K=K,
     mu=mu,  # the ODE rate constant, not mu_max — see 1. Set your simulation parameters
     lag=lag,
 )
-data["OD_phenom_classic_1der"] = logistic_growth(
-    t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
+data["OD_phenom_classic_1der"] = logistic_derivative(
+    t=data["Time"], K=K, N_lag=N0, mu=mu, lag=lag
 )
 data["OD_phenom_classic_2der"] = get_acceleration(
     t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
@@ -272,7 +509,7 @@ _ = ax.vlines(
     color="red",
     linestyle="--",
     label="Lag time ends",
-    alpha=0.5
+    alpha=0.5,
 )
 _ = ax.legend()
 
