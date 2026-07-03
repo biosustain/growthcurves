@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.napoleon",  # Support for Google and NumPy style docstrings
     "sphinx.ext.intersphinx",  # allows linking to other projects' documentation in API
     "sphinx_new_tab_link",  # each link opens in a new tab
+    "sphinx.ext.mathjax", # see if this renders math in the notebooks
     "myst_nb",  # Markdown and Jupyter Notebook support
     "sphinx_copybutton",  # add copy button to code blocks
 ]
