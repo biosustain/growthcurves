@@ -10,10 +10,16 @@
 # closely related.
 #
 # $$
+#   N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
+#   \qquad
+#   \mathrm{factor} = \frac{K - N_0}{N_0}.
+# $$
+#
+# \begin{gather*}
 # N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
 # \qquad
 # \mathrm{factor} = \frac{K - N_0}{N_0}.
-# $$
+# \end{gather*}
 #
 # It matches the "classic" logistic shape from Wikipedia, but writes the usual
 # integration constant in a biologically meaningful way through `K` and `N0`.
