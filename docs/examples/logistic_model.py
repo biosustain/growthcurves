@@ -9,9 +9,19 @@
 # The ODE given in the review and the phenomological model are not equivalent, but
 # closely related.
 #
+# math role:
+# ```{math}
+# (a + b)^2 = a^2 + 2ab + b^2
 #
-# $$ N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))}, \qquad \mathrm{factor} = \frac{K - N_0}{N_0}. $$
+# (a + b)^2  &=  (a + b)(a + b) \\
+#            &=  a^2 + 2ab + b^2
+# ```
 #
+# dot: $a=\frac{1}{2}$.
+#
+# $ N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))}, \qquad \mathrm{factor} = \frac{K - N_0}{N_0}. $
+#
+# direct latex:
 #
 # \begin{gather*}
 # N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
