@@ -9,11 +9,9 @@
 # The ODE given in the review and the phenomological model are not equivalent, but
 # closely related.
 #
-# $$
-#   N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
-#   \qquad
-#   \mathrm{factor} = \frac{K - N_0}{N_0}.
-# $$
+#
+# $$ N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))}, \qquad \mathrm{factor} = \frac{K - N_0}{N_0}. $$
+#
 #
 # \begin{gather*}
 # N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
