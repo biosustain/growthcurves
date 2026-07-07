@@ -86,7 +86,7 @@ def get_acceleration(t, K, N0, mu, lag):
     """
     N = logistic_growth(t, K, N0, mu, lag)
     accel = mu**2 * N * (1 - (N / K)) * (1 - (2 * N / K))
-    accel[t < lag] = 0
+    # accel[t < lag] = 0
     return accel
 
 
@@ -102,7 +102,7 @@ def get_doubling_time(t, K, N0, mu, lag):
     N = logistic_growth(t, K, N0, mu, lag)
     with np.errstate(divide="ignore"):
         doubling_time = np.log(2) / (mu * (1 - (N / K)))
-    doubling_time[t < lag] = np.nan  # Undefined during lag phase
+    # doubling_time[t < lag] = np.nan  # Undefined during lag phase
     return doubling_time
 
 
@@ -301,7 +301,7 @@ def make_figure(K, N_lag, mu, lag):
 # %% tags=["parameters"]
 mu_max = 0.3  # Growth rate constant
 K = 5  # Carrying capacity for logistic growth
-N0 = 0.3  # Initial condition (must be a list/array)
+N0 = 0.3  # condition at lag
 A = float(np.log((K - N0) / N0))
 t_start = 0.0  # Start time
 t_end = 60.0  # End time
@@ -315,7 +315,7 @@ ground_truth_params = {
     "mu_max": mu_max,
     "mu": mu,
     "K": K,
-    "N0": N0,
+    "N0": N0, # N_lag
     "A": A,
     "lag": lag,
 }
@@ -347,15 +347,23 @@ t_eval = np.linspace(t_start, t_end, num_points)
 # and use the analytical solution for comparison
 #
 # To model the lag phase, we will shift the solution to the right by the lag time,
-# filling in the initial values with N0.
+# filling in the initial values with N0. N0 is the value at t = lag, which can be
+# remodeled using the classic logistic growth formula. The lag phase is not explicitly
+# modeled in the ODE.
 
 # %%
 # Shift the solution to the right by the lag time (in continuous time, not by a
 # fixed number of grid points, so it lines up exactly with the closed-form
 # comparison below regardless of the time grid spacing).
+#
+
 post_lag = t_eval >= lag
-N = np.full_like(t_eval, N0)
-N[post_lag] = mech_logistic_model(t_eval[post_lag] - lag, mu, K, N0)
+idx_post_lag = np.where(post_lag)[0][0]
+# N = np.full_like(t_eval, N0)
+N = mech_logistic_model(t_eval , mu, K, N0)
+N[idx_post_lag:] = N[: -idx_post_lag]  # Shift the solution to the right by lag time
+N[:idx_post_lag] = N0  # Fill in the initial values with N0
+plt.plot(t_eval, N, label="Mechanistic Logistic Growth Simulation (ODE)")
 
 # %% [markdown]
 # # 4. Structure the generated data into a clean DataFrame
@@ -390,7 +398,102 @@ _ = ax.legend()
 
 
 # %% [markdown]
-# # 5. Generate the phenomenological model for comparison
+# # 5. Generate the classic phenomenological model (wikipedia version)
+#
+# ```
+# N(t) = K / (1 + ((K - N0)/N0) * exp(-μ * (t - lag)))
+# ```
+#
+# One subtle but important point:
+# If you use
+# factor = (K - N0)/N0
+# N(t) = K / (1 + factor * exp(-μ * (t - lag)))
+# then N0 is N(lag). This is not equal to N(0) unless lag = 0. This way our curve will
+# overlap to the mechanistic model from after the lag phase.
+#
+# N(0)=N0 and no extra lag shift, or
+# a shifted curve parameterization where the shift replaces the initial-condition
+# constant.
+# - use only time shift and let A be fitted?
+
+# %% tags=["hide-input"]
+data["OD_phenom_classic"] = logistic_growth(
+    t=data["Time"],
+    N_lag=N0,
+    K=K,
+    mu=mu,  # the ODE rate constant, not mu_max — see 1. Set your simulation parameters
+    lag=lag,
+)
+data["OD_phenom_classic_1der"] = logistic_derivative(
+    t=data["Time"], K=K, N_lag=N0, mu=mu, lag=lag
+)
+data["OD_phenom_classic_2der"] = get_acceleration(
+    t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
+)
+data["OD_phenom_classic_doubling_time"] = get_doubling_time(
+    t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
+)
+# N(0) is the initial condition at t=0
+data["OD_phenom_classic_ln"] = np.log(
+    data["OD_phenom_classic"] / data["OD_phenom_classic"].min()
+)
+
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_mech",
+    s=1,
+    color="C0",
+    label="Mechanistic Logistic Growth Simulation (ODE)",
+    xlabel="Time (hours)",
+    alpha=0.5,
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic",
+    s=1,
+    color="C1",
+    ax=ax,
+    alpha=0.5,
+    label="Classic Logistic Growth (phenomenological)",
+)
+_ = ax.vlines(
+    x=lag,
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="--",
+    label="Lag time ends",
+    alpha=0.5,
+)
+_ = ax.legend()
+
+# %% [markdown]
+# If we check the derived quantities, we see that the maximum observed growth rate will
+# be by construction at t=lag
+
+# %% tags=["hide-input"]
+_ = data.set_index("Time").filter(like="OD_phenom_classic").plot(
+    subplots=True, layout=(3, 2), figsize=(7, 6), sharex=True, style='.', markersize=1,
+    ylim=(-5, 8)
+)
+pd.concat(
+    [
+        data.set_index("Time").filter(like="OD_phenom_classic").idxmax(),
+        data.set_index("Time").filter(like="OD_phenom_classic").max(),
+    ],
+    axis=1,
+    keys=["Time", "maximum"],
+)
+
+# %%
+pd.concat(
+    [data.set_index("Time").filter(like="OD_phenom_classic").idxmin(),
+    data.set_index("Time").filter(like="OD_phenom_classic").min()],
+axis=1, keys=["Time", "minimum"])
+
+# %% [markdown]
+# # 6. Generate the phenomenological model for comparison (paper version)
 #
 # As in review paper we have a slightly modified logistical model:
 #
@@ -441,77 +544,6 @@ ax.vlines(
 )
 _ = ax.legend()
 
-# %% [markdown]
-# # 6. Generate the classic phenomenological model for comparison
-#
-# ```
-# N(t) = K / (1 + ((K - N0)/N0) * exp(-μ * (t - lag)))
-# ```
-#
-# One subtle but important point:
-# If you use
-# factor = (K - N0)/N0
-# N(t) = K / (1 + factor * exp(-μ * (t - lag)))
-# then N0 is not equal to N(0) unless lag = 0. So you usually choose either:
-# N(0)=N0 and no extra lag shift, or
-# a shifted curve parameterization where the shift replaces the initial-condition
-# constant.
-# - use only time shift and let A be fitted?
-
-# %%
-data["OD_phenom_classic"] = logistic_growth(
-    t=data["Time"],
-    N_lag=N0,
-    K=K,
-    mu=mu,  # the ODE rate constant, not mu_max — see 1. Set your simulation parameters
-    lag=lag,
-)
-data["OD_phenom_classic_1der"] = logistic_derivative(
-    t=data["Time"], K=K, N_lag=N0, mu=mu, lag=lag
-)
-data["OD_phenom_classic_2der"] = get_acceleration(
-    t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
-)
-data["OD_phenom_classic_doubling_time"] = get_doubling_time(
-    t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
-)
-data["OD_phenom_classic_ln"] = np.log(data["OD_phenom_classic"] / N0)
-data.set_index("Time").filter(like="OD_phenom_classic").plot(
-    subplots=True, layout=(3, 2), figsize=(7, 6), sharex=True
-)
-
-# %%
-
-# %%
-ax = data.plot.scatter(
-    x="Time",
-    y="OD_mech",
-    s=1,
-    color="C0",
-    label="Mechanistic Logistic Growth Simulation (ODE)",
-    xlabel="Time (hours)",
-    alpha=0.5,
-    ylabel="OD",
-)
-_ = data.plot.scatter(
-    x="Time",
-    y="OD_phenom_classic",
-    s=1,
-    color="C1",
-    ax=ax,
-    alpha=0.5,
-    label="Classic Logistic Growth (phenomenological)",
-)
-_ = ax.vlines(
-    x=lag,
-    ymin=N0,
-    ymax=K,
-    color="red",
-    linestyle="--",
-    label="Lag time ends",
-    alpha=0.5,
-)
-_ = ax.legend()
 
 # %% tags=["hide-input"]
 ax = pd.Series(N, index=data["Time"]).plot(
