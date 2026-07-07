@@ -59,7 +59,7 @@ from IPython.display import display
 
 import growthcurves as gc
 from growthcurves.models import (  # mech_logistic_ode,;
-    log_to_linear,
+    # log_to_linear,
     mech_logistic_model,
     phenom_logistic_model_ln,
 )
@@ -104,6 +104,23 @@ def get_doubling_time(t, K, N0, mu, lag):
         doubling_time = np.log(2) / (mu * (1 - (N / K)))
     # doubling_time[t < lag] = np.nan  # Undefined during lag phase
     return doubling_time
+
+
+def fit_model_and_extract_stats(time_in_hours, observations, model):
+    fit_mech_logistic = gc.parametric.fit_parametric(
+        time_in_hours, observations, method=model
+    )
+    stats_mech_logistic = gc.inference.extract_stats(
+        fit_mech_logistic, time_in_hours, observations
+    )
+    stats_mech_logistic = {
+        k: float(v)
+        for k, v in stats_mech_logistic.items()
+        if isinstance(v, (int, float, np.number))
+    }
+    fit_mech_logistic["params"]["model_type"] = fit_mech_logistic["model_type"]
+    fit_mech_logistic = fit_mech_logistic["params"]
+    return fit_mech_logistic, stats_mech_logistic
 
 
 def format_summary(K, N_lag, mu, lag, factor, N_at_zero, t_inflect):
@@ -315,7 +332,7 @@ ground_truth_params = {
     "mu_max": mu_max,
     "mu": mu,
     "K": K,
-    "N0": N0, # N_lag
+    "N0": N0,  # N_lag
     "A": A,
     "lag": lag,
 }
@@ -332,7 +349,7 @@ t_eval = np.linspace(t_start, t_end, num_points)
 
 
 # %% [markdown]
-# # 3. Solve the ODE
+# # 3. Solve the ODE for classic logistic growth
 # args passes extra constants (like k) to the model function
 # ```python
 # ln_ratio = solve_ivp(
@@ -350,26 +367,23 @@ t_eval = np.linspace(t_start, t_end, num_points)
 # filling in the initial values with N0. N0 is the value at t = lag, which can be
 # remodeled using the classic logistic growth formula. The lag phase is not explicitly
 # modeled in the ODE.
-
-# %%
-# Shift the solution to the right by the lag time (in continuous time, not by a
-# fixed number of grid points, so it lines up exactly with the closed-form
-# comparison below regardless of the time grid spacing).
+#
+# > Shift the solution to the right by the lag time (in continuous time, not by a
+# > fixed number of grid points, so it lines up exactly with the closed-form
+# > comparison below regardless of the time grid spacing).
 #
 
+# %%
 post_lag = t_eval >= lag
 idx_post_lag = np.where(post_lag)[0][0]
 # N = np.full_like(t_eval, N0)
-N = mech_logistic_model(t_eval , mu, K, N0)
-N[idx_post_lag:] = N[: -idx_post_lag]  # Shift the solution to the right by lag time
+N = mech_logistic_model(t_eval, mu, K, N0)
+N[idx_post_lag:] = N[:-idx_post_lag]  # Shift the solution to the right by lag time
 N[:idx_post_lag] = N0  # Fill in the initial values with N0
-plt.plot(t_eval, N, label="Mechanistic Logistic Growth Simulation (ODE)")
+_ = plt.plot(t_eval, N)
+_ = plt.title("Mechanistic Logistic Growth Simulation (ODE)")
 
-# %% [markdown]
-# # 4. Structure the generated data into a clean DataFrame
-# And plot.
-
-# %%
+# %% tags=["hide-input"]
 data = pd.DataFrame(
     {
         "Time": t_eval,
@@ -398,7 +412,7 @@ _ = ax.legend()
 
 
 # %% [markdown]
-# # 5. Generate the classic phenomenological model (wikipedia version)
+# # 4. Generate the classic phenomenological model (closed form)
 #
 # ```
 # N(t) = K / (1 + ((K - N0)/N0) * exp(-μ * (t - lag)))
@@ -411,10 +425,7 @@ _ = ax.legend()
 # then N0 is N(lag). This is not equal to N(0) unless lag = 0. This way our curve will
 # overlap to the mechanistic model from after the lag phase.
 #
-# N(0)=N0 and no extra lag shift, or
-# a shifted curve parameterization where the shift replaces the initial-condition
-# constant.
-# - use only time shift and let A be fitted?
+# > N(0) is here not N0!
 
 # %% tags=["hide-input"]
 data["OD_phenom_classic"] = logistic_growth(
@@ -473,9 +484,18 @@ _ = ax.legend()
 # be by construction at t=lag
 
 # %% tags=["hide-input"]
-_ = data.set_index("Time").filter(like="OD_phenom_classic").plot(
-    subplots=True, layout=(3, 2), figsize=(7, 6), sharex=True, style='.', markersize=1,
-    ylim=(-5, 8)
+_ = (
+    data.set_index("Time")
+    .filter(like="OD_phenom_classic")
+    .plot(
+        subplots=True,
+        layout=(3, 2),
+        figsize=(7, 6),
+        sharex=True,
+        style=".",
+        markersize=1,
+        ylim=(-5, 8),
+    )
 )
 pd.concat(
     [
@@ -488,9 +508,62 @@ pd.concat(
 
 # %%
 pd.concat(
-    [data.set_index("Time").filter(like="OD_phenom_classic").idxmin(),
-    data.set_index("Time").filter(like="OD_phenom_classic").min()],
-axis=1, keys=["Time", "minimum"])
+    [
+        data.set_index("Time").filter(like="OD_phenom_classic").idxmin(),
+        data.set_index("Time").filter(like="OD_phenom_classic").min(),
+    ],
+    axis=1,
+    keys=["Time", "minimum"],
+)
+
+# %% [markdown]
+# # Recover parameters using mechanistic logistic model
+# - mechanistic model do not fit a lag phase, so we need to start fitting after the lag
+#   phase where N(t=0) will now indeed be N(t_lag) = N(0) = N0. The mechanistic model
+#  will then be able to recover the growth rate and carrying capacity K.
+
+
+# %%
+model = "mech_logistic"
+# mask_timepoints_after_lag = data["Time"] > lag
+data_mech = data.query(f"Time >= {lag - 0.0001}")
+
+data_mech["Time"] = data_mech["Time"] - lag  # Shift time to start at lag
+data_mech[["Time", "OD_mech", "OD_phenom_classic"]]
+
+
+# %% [markdown]
+# Fit to `OD_mech`
+
+# %% tags=["hide-input"]
+fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
+    data_mech["Time"], data_mech["OD_mech"], model
+)
+# Combine fits into a  DataFrame for display
+pd.concat(
+    [
+        pd.Series(ground_truth_params),
+        pd.Series(fit_mech_logistic),
+        pd.Series(stats_mech_logistic),
+    ],
+    axis=1,
+    keys=["Ground Truth", "Fit", "Stats"],
+)
+
+# %%
+fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
+    data_mech["Time"], data_mech["OD_phenom_classic"], model
+)
+# Combine fits into a  DataFrame for display
+pd.concat(
+    [
+        pd.Series(ground_truth_params),
+        pd.Series(fit_mech_logistic),
+        pd.Series(stats_mech_logistic),
+    ],
+    axis=1,
+    keys=["Ground Truth", "Fit", "Stats"],
+)
 
 # %% [markdown]
 # # 6. Generate the phenomenological model for comparison (paper version)
@@ -676,38 +749,6 @@ _ = ax2.legend(title="ln(OD) curves")
 
 # %% [markdown]
 # # 7. Fit the mechanistic model to the synthetic data
-
-# %% [markdown]
-# ## 7.1 Helper function to fit the model and extract statistics
-
-
-# %% tags=["hide-input"]
-def fit_model_and_extract_stats(time_in_hours, observations, model):
-    fit_mech_logistic = gc.parametric.fit_parametric(
-        time_in_hours, observations, method=model
-    )
-    stats_mech_logistic = gc.inference.extract_stats(
-        fit_mech_logistic, time_in_hours, observations
-    )
-    stats_mech_logistic = {
-        k: float(v)
-        for k, v in stats_mech_logistic.items()
-        if isinstance(v, (int, float, np.number))
-    }
-    fit_mech_logistic["params"]["model_type"] = fit_mech_logistic["model_type"]
-    fit_mech_logistic = fit_mech_logistic["params"]
-    # Combine fits into a dictionary
-    # Display example fit result
-    print("=== Ground Truth Parameters ===")
-    pprint(ground_truth_params)
-    print(f"=== Fit Result for {model} ===")
-    pprint(fit_mech_logistic, indent=2)
-    pprint(f"=== Fit Stats for {model} ===")
-    pprint(stats_mech_logistic, indent=2)
-    return fit_mech_logistic, stats_mech_logistic
-
-
-# %% [markdown]
 # - fit data from the classic logistic model using the methods implemented in
 #   growthcurves (based on the review paper)
 
