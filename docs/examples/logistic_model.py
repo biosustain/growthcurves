@@ -59,7 +59,7 @@ from IPython.display import display
 
 import growthcurves as gc
 from growthcurves.models import (  # mech_logistic_ode,;
-    # log_to_linear,
+    log_to_linear,
     mech_logistic_model,
     phenom_logistic_model_ln,
 )
@@ -571,7 +571,7 @@ pd.concat(
 # As in review paper we have a slightly modified logistical model:
 #
 # ```
-# A = (K - N0) / N0
+# A = K / N0 # Carrying capacity in log-space
 # ln(Nt/N0) =          A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
 # Nt        = N0 * exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
 # ```
@@ -580,22 +580,26 @@ pd.concat(
 # > had to be manually added using the mechanistic model upon data generation.
 # > Buy contrast N0 is not modeled using the phenomological model(s) operating in log
 # > space, so the initial condition has to be inferred from the data.
+#
+# We see that the models are not the same. Both are S-curve shaped.
 
-# %%
-A = np.log((K - N0) / N0)
-data["OD_phenom_paper_ln"] = phenom_logistic_model_ln(
-    t=data["Time"], mu_max=mu_max, A=A, lam=lag, ln_N0=np.log(N0)
-)
-data["OD_phenom_paper"] = np.exp(data["OD_phenom_paper_ln"])
-data
 
 # %% tags=["hide-input"]
+N_0 = 0.06 # one decimal of from classic logistic model
+A = np.log(K / N_0)
+
+data["OD_phenom_paper_ln"] = phenom_logistic_model_ln(
+    t=data["Time"], mu_max=mu_max, A=A, lam=lag-5, #ln_N0=N_0
+)
+# data["OD_phenom_paper"] = np.exp(data["OD_phenom_paper_ln"]) * N_0
+data["OD_phenom_paper"] = log_to_linear(data["OD_phenom_paper_ln"], N_0)
 ax = data.plot.scatter(
     x="Time",
-    y="OD_mech",
+    y="OD_phenom_classic",
     s=1,
     color="C0",
-    title="Mechanistic Logistic Growth Simulation",
+    title="Logistic Growth Simulation (classic vs paper version)",
+    label="Classic Logistic Growth",
     xlabel="Time (hours)",
     ylabel="OD",
 )
@@ -617,6 +621,16 @@ ax.vlines(
 )
 _ = ax.legend()
 
+# %%
+print(f"N of first timepoint after lag: {data.loc[148, 'OD_phenom_paper']:.5f}")
+data["OD_phenom_paper"].describe()
+
+# %% [markdown]
+# Fit synthetic data from classic logistic regression model with the phenomenological
+# model (paper version). The assumption is here that the initial condition is observed
+# at t=0. this is different from N0 = N(lag) in the classic logistic model formulation.
+# - find a good fit for the phenomenological model
+# - compare the parameters
 
 # %% tags=["hide-input"]
 ax = pd.Series(N, index=data["Time"]).plot(
