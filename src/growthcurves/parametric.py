@@ -109,7 +109,7 @@ def _fit_model_generic(
 
 
 # -----------------------------------------------------------------------------
-# Mechanistic Model Fitting Functions (ODE-based)
+# region :Mechanistic Model Fitting Functions (ODE-based)
 # -----------------------------------------------------------------------------
 
 
@@ -275,7 +275,7 @@ def fit_mech_baranyi(t, N):
         log_space=True,
     )
 
-
+# endregion
 # -----------------------------------------------------------------------------
 # Helper Functions for phenomenological model fitting
 # -----------------------------------------------------------------------------
@@ -333,18 +333,21 @@ def fit_phenom_logistic(t, N):
     N0_init = float(np.min(N))
     N_max = float(np.max(N))
     A_init = np.log((N_max - N0_init) / N0_init)
-    mu_max_init = 0.5  # ?  np.max(dN)
+    # ! not devided by N0_init, because N0 is fitted as a free parameter
+    ln_N = np.log(N)
+    gradient_ln_N = np.gradient(ln_N, t)
+    mu_max_init = np.max(gradient_ln_N)
     # estimates lag time initialization using the gradient of N with respect to t
-    lam_init = _estimate_lag_time(t, np.gradient(N, t))
+    lam_init = _estimate_lag_time(t, gradient_ln_N)
 
     # Initial parameter guess and bounds
     p0 = [A_init, mu_max_init, lam_init, np.log(N0_init)]
     # ! hard-coded bounds  for A, mu_max, lam. Could be improved.
-    bounds = ([0.01, 0.0001, 0, -np.inf], [20, 10, t.max(), np.inf])
+    bounds = ([0.001, 0.0001, -np.inf, -np.inf], [A_init + 100, 20, np.inf, np.inf])
 
     # Fit the model directly on ln(N), with ln_N0 as a free parameter
     params, _ = curve_fit(
-        phenom_logistic_model_ln, t, np.log(N), p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln, t, ln_N, p0=p0, bounds=bounds, maxfev=20000
     )
     A, mu_max, lam, ln_N0 = (float(p) for p in params)
 
