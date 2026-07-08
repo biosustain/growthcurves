@@ -47,8 +47,6 @@
 
 
 # %% tags=["hide-input"]
-from pprint import pprint
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -446,7 +444,7 @@ data["OD_phenom_classic_doubling_time"] = get_doubling_time(
 )
 # N(0) is the initial condition at t=0
 data["OD_phenom_classic_ln"] = np.log(
-    data["OD_phenom_classic"] / data["OD_phenom_classic"].min()
+    data["OD_phenom_classic"] / N0  #  data["OD_phenom_classic"].min()
 )
 
 ax = data.plot.scatter(
@@ -585,11 +583,20 @@ pd.concat(
 
 
 # %% tags=["hide-input"]
-N_0 = 0.06 # one decimal of from classic logistic model
+N_0 = 0.06  # one decimal of from classic logistic model
 A = np.log(K / N_0)
 
+ground_truth_params_phenom_paper = {
+    "mu_max": mu_max,
+    "A": A,
+    "lam": lag - 5,
+    "N0": N_0,
+}
 data["OD_phenom_paper_ln"] = phenom_logistic_model_ln(
-    t=data["Time"], mu_max=mu_max, A=A, lam=lag-5, #ln_N0=N_0
+    t=data["Time"],
+    mu_max=ground_truth_params_phenom_paper["mu_max"],
+    A=A,
+    lam=ground_truth_params_phenom_paper["lam"],
 )
 # data["OD_phenom_paper"] = np.exp(data["OD_phenom_paper_ln"]) * N_0
 data["OD_phenom_paper"] = log_to_linear(data["OD_phenom_paper_ln"], N_0)
@@ -597,6 +604,7 @@ ax = data.plot.scatter(
     x="Time",
     y="OD_phenom_classic",
     s=1,
+    alpha=0.5,
     color="C0",
     title="Logistic Growth Simulation (classic vs paper version)",
     label="Classic Logistic Growth",
@@ -607,6 +615,7 @@ _ = data.plot.scatter(
     x="Time",
     y="OD_phenom_paper",
     s=1,
+    alpha=0.5,
     color="C1",
     ax=ax,
     label="Phenomenological Logistic Growth",
@@ -622,15 +631,175 @@ ax.vlines(
 _ = ax.legend()
 
 # %%
-print(f"N of first timepoint after lag: {data.loc[148, 'OD_phenom_paper']:.5f}")
-data["OD_phenom_paper"].describe()
+# print(f"N of first timepoint after lag: {data.loc[148, 'OD_phenom_paper']:.5f}")
+# data["OD_phenom_paper"].describe()
 
 # %% [markdown]
-# Fit synthetic data from classic logistic regression model with the phenomenological
+# We see that the model with different lag-time and similar N0 look similar in linear
+# space. Let's compare these in log-space:
+
+# %%
+data["OD_phenom_classic_ln"] = np.log(
+    data["OD_phenom_classic"] / N_0  # data["OD_phenom_classic"].min()
+)
+
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic_ln",
+    s=1,
+    color="C0",
+    title="Logistic Growth in log-space (classic vs paper version)",
+    label="Classic Logistic Growth",
+    xlabel="Time (hours)",
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_paper_ln",
+    s=1,
+    color="C1",
+    ax=ax,
+    label="Phenomenological Logistic Growth",
+)
+
+# %% [markdown]
+# Fit synthetic data from classic logistic regression model (`OD_phenom_classic`)
+# with the phenomenological
 # model (paper version). The assumption is here that the initial condition is observed
 # at t=0. this is different from N0 = N(lag) in the classic logistic model formulation.
 # - find a good fit for the phenomenological model
 # - compare the parameters
+# - plot the fit
+
+# %% tags=["hide-input"]
+model = "phenom_logistic"
+col = "OD_phenom_classic"
+fit_, stats_ = fit_model_and_extract_stats(data["Time"], data[col], model)
+pd.concat(
+    [
+        pd.Series(ground_truth_params),
+        pd.Series(ground_truth_params_phenom_paper),
+        pd.Series(fit_),
+        pd.Series(stats_),
+    ],
+    axis=1,
+    keys=["Ground Truth (Classic)", "Ground Truth (Phenom Paper)", "Fit", "Stats"],
+)
+
+
+# %% [markdown]
+# We see that the phenomenological logistic model and the classic logistic model
+# are similar in shape after fitting, but disagree in the `lag` phase parameter
+# estimated.
+
+# %% tags=["hide-input"]
+data["OD_phenom_classic_fit"] = log_to_linear(
+    phenom_logistic_model_ln(
+        t=data["Time"],
+        mu_max=fit_["mu_max"],
+        A=fit_["A"],
+        lam=fit_["lam"],
+    ),
+    fit_["N0"],
+)
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic",
+    s=1,
+    color="C0",
+    alpha=0.5,
+    title="Logistic Growth Simulation (classic vs paper version)",
+    label="Classic Logistic Growth",
+    xlabel="Time (hours)",
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_paper",
+    s=1,
+    alpha=0.5,
+    color="C1",
+    ax=ax,
+    label="Phenomenological Logistic Growth",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic_fit",
+    s=1,
+    alpha=0.5,
+    color="C2",
+    ax=ax,
+    label="Phenomenological Logistic Growth (Fit)",
+)
+ax.vlines(
+    x=lag,
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="--",
+    label="Lag time ends (phenom classic)",
+)
+ax.vlines(
+    x=fit_["lam"],
+    ymin=N0,
+    ymax=K,
+    color="red",
+    linestyle="-.",
+    label="Lag time ends (phenom fit)",
+)
+_ = ax.legend()
+
+# %% [markdown]
+# If we use instead the phenomological model to generate synthetic data on the linear
+# scale with N(t=0) = 0.06 (without lag phase) we can get back the exact parameters.
+#
+# - not that N0 is added to the equation using the log_to_linear function as the
+#   `phenom_logistic_model_ln` function returns the log of the ratio of N(t)/N0 with an
+# .  estimated offset as the log of the ratio N(t)/N0 itself never zero.
+#
+# > The fit masks the original data (as expected)
+
+# %%
+model = "phenom_logistic"
+col = "OD_phenom_paper"
+
+fit_, stats_ = fit_model_and_extract_stats(data["Time"], data["OD_phenom_paper"], model)
+display(pd.concat(
+    [
+        pd.Series(ground_truth_params_phenom_paper),
+        pd.Series(fit_),
+        pd.Series(stats_),
+    ],
+    axis=1,
+    keys=["Ground Truth", "Fit", "Stats"],
+))
+
+data["OD_phenom_paper_fit"] = log_to_linear(
+    phenom_logistic_model_ln(
+        t=data["Time"],
+        mu_max=fit_["mu_max"],
+        A=fit_["A"],
+        lam=fit_["lam"],
+    ),
+    fit_["N0"],
+)
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_paper_fit",
+    s=1,
+    alpha=0.8,
+    color="C1",
+    label="Phenomenological Logistic Growth (Original)",
+)
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_paper",
+    s=1,
+    alpha=0.8,
+    color="C2",
+    label="Phenomenological Logistic Growth (Fit)",
+    ax=ax
+)
 
 # %% tags=["hide-input"]
 ax = pd.Series(N, index=data["Time"]).plot(
