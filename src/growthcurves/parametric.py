@@ -302,6 +302,46 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
 # -----------------------------------------------------------------------------
 # Phenomenological Model Fitting Functions (ln-space)
 # -----------------------------------------------------------------------------
+def fit_fct(t, N, fct):
+    """
+    Fit any phenomenological logistic model to OD data N(t).
+
+    N0 is fit jointly with A, mu_max, lam rather than estimated as min(N):
+    the ln-ratio term is not zero at t=0 (it equals A/(1+exp(4*mu_max*lam/A+2))
+    for the smallest sampled time), so using min(N) systematically overestimates the
+    true baseline, biasing the other fitted parameters.
+
+    Parameters:
+        t: Time array (hours)
+        N: OD values
+
+    Returns:
+        Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
+        fitting fails.
+    """
+
+    t, N = validate_data(t, N)
+    if t is None:
+        return None
+
+    # Fit the model directly on ln(N), with ln_N0 as a free parameter
+    params, _ = curve_fit(fct, t,N)
+
+    # skip the first parameter (t) to get the fitted parameter names in order
+    param_names = list(inspect.signature(fct).parameters)[1:]
+    fitted_params = dict(zip(param_names, (float(p) for p in params)))
+    if "ln_N0" in fitted_params:
+        fitted_params["N0"] = float(np.exp(fitted_params.pop("ln_N0")))
+
+    fct_name = getattr(fct, "__name__", None)
+    model_type = (
+        f"fit:{fct_name}" if fct_name else "phenom_unnamed"
+    )
+
+    return {
+        "params": fitted_params,
+        "model_type": model_type,
+    }
 
 
 def fit_phenom_logistic(t, N):

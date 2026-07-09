@@ -61,6 +61,7 @@ from growthcurves.models import (  # mech_logistic_ode,;
     mech_logistic_model,
     phenom_logistic_model_ln,
 )
+from growthcurves.parametric import fit_fct
 
 # classic model
 
@@ -678,7 +679,7 @@ fit_, stats_ = fit_model_and_extract_stats(data["Time"], data[col], model)
 pd.concat(
     [
         pd.Series(ground_truth_params),
-        pd.Series(ground_truth_params_phenom_paper),
+        # pd.Series(ground_truth_params_phenom_paper),
         pd.Series(fit_),
         pd.Series(stats_),
     ],
@@ -764,15 +765,17 @@ model = "phenom_logistic"
 col = "OD_phenom_paper"
 
 fit_, stats_ = fit_model_and_extract_stats(data["Time"], data["OD_phenom_paper"], model)
-display(pd.concat(
-    [
-        pd.Series(ground_truth_params_phenom_paper),
-        pd.Series(fit_),
-        pd.Series(stats_),
-    ],
-    axis=1,
-    keys=["Ground Truth", "Fit", "Stats"],
-))
+display(
+    pd.concat(
+        [
+            pd.Series(ground_truth_params_phenom_paper),
+            pd.Series(fit_),
+            pd.Series(stats_),
+        ],
+        axis=1,
+        keys=["Ground Truth", "Fit", "Stats"],
+    )
+)
 
 data["OD_phenom_paper_fit"] = log_to_linear(
     phenom_logistic_model_ln(
@@ -798,7 +801,7 @@ ax = data.plot.scatter(
     alpha=0.8,
     color="C2",
     label="Phenomenological Logistic Growth (Fit)",
-    ax=ax
+    ax=ax,
 )
 
 # %% tags=["hide-input"]
@@ -863,6 +866,11 @@ doubling_time_at_inflection = np.log(2) / (mu * (1 - p_inflec / K))
 print(f"Time of mu_max: {lag + np.log((K - N0) / N0) / mu}")
 data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
 
+# %% [markdown]
+# compare the curves in linear and log space.
+# > The phenomenological model for logistic growth in the paper looks similar, but has
+# > different parameters for the lag phase and initial condition!
+
 # %% tags=["hide-input"]
 fig, axes = plt.subplots(2, 1, figsize=(7, 6), sharex=True)
 ax = data.plot(
@@ -880,7 +888,7 @@ ax = data.plot(
     x="Time",
     ax=ax,
     y="OD_phenom_paper",
-    label="OD (phenomenological)",
+    label="OD (phenomenological paper)",
     color="C1",
     alpha=0.7,
 )
@@ -910,7 +918,7 @@ data.plot(
     y="OD_phenom_paper_ln",
     xlabel="Time",
     ylabel="ln(OD)",
-    label="ln OD Curve (phenomenological)",
+    label="ln(OD) (phenomenological paper)",
     ax=ax2,
     color="C3",
     alpha=0.7,
@@ -942,6 +950,10 @@ N = data[col]
 t = data["Time"]
 
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
+from pprint import pprint
+
+pprint("Fit parameters for mechanistic logistic model to OD_mech:")
+pprint(fit_mech_logistic)
 
 
 # %% [markdown]
@@ -956,6 +968,58 @@ N = data[col]
 t = data["Time"]
 
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
+pprint("Fit parameters for phenomenological logistic model to OD_phenom_paper:")
+pprint(fit_mech_logistic)
+
+# %% [markdown]
+# ## 7.3 Fit the classic phenomenological model to the synthetic data (linear space)
+# - use linear space to fit the data
+
+# %%
+model_fct = logistic_growth
+col = "OD_phenom_classic"
+N = data[col]
+t = data["Time"]
+
+fit_mech_logistic = fit_fct(t, N, model_fct)
+
+pd.concat(
+    [
+        pd.Series(ground_truth_params, name="Ground truth parameters"),
+        pd.Series(fit_mech_logistic["params"], name="Fit parameters"),
+    ],
+    axis=1,
+)
+
+# %%
+# data["OD_phenom_classic_fit"] = fit_mech_logistic["params"]["N0"] * np.exp(fit_mech_logistic["params"]["mu_max"] * (fit_mech_logistic["params"]["lam"] - data["Time"]))
+
+data[f"{col}_fit"] = logistic_growth(
+    t=data["Time"],
+    N_lag=fit_mech_logistic["params"]["N_lag"],
+    K=fit_mech_logistic["params"]["K"],
+    mu=fit_mech_logistic["params"]["mu"],
+    lag=fit_mech_logistic["params"]["lag"],
+)
+ax = data[f"{col}_fit"].plot(
+    title="Classic logistic model",
+    xlabel="Time",
+    ylabel="OD ",
+)
+data[col].plot(
+    title="Classic logistic model",
+    xlabel="Time",
+    ylabel="OD ",
+    ax=ax,
+)
+
+# %% [markdown]
+# We see that the factor and the lag are not unique and many possible solution exist.
+# So finding the initally desired lag using a closed-form solution seems infeasible.
+# However, recovering $mu$ and $K$ was possible.
+
+# %%
+data[[f"{col}_fit", col]].iloc[idx_post_lag : idx_post_lag + 10]
 
 # %% [markdown]
 # # 8. Compare differences between models
