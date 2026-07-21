@@ -15,6 +15,8 @@ Abbreviations:
 - ODE: Ordinary Differential Equation
 """
 
+import inspect
+
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -275,6 +277,7 @@ def fit_mech_baranyi(t, N):
         log_space=True,
     )
 
+
 # endregion
 # -----------------------------------------------------------------------------
 # Helper Functions for phenomenological model fitting
@@ -325,7 +328,7 @@ def fit_fct(t, N, fct):
         return None
 
     # Fit the model directly on ln(N), with ln_N0 as a free parameter
-    params, _ = curve_fit(fct, t,N)
+    params, _ = curve_fit(fct, t, N)
 
     # skip the first parameter (t) to get the fitted parameter names in order
     param_names = list(inspect.signature(fct).parameters)[1:]
@@ -334,9 +337,7 @@ def fit_fct(t, N, fct):
         fitted_params["N0"] = float(np.exp(fitted_params.pop("ln_N0")))
 
     fct_name = getattr(fct, "__name__", None)
-    model_type = (
-        f"fit:{fct_name}" if fct_name else "phenom_unnamed"
-    )
+    model_type = f"fit:{fct_name}" if fct_name else "phenom_unnamed"
 
     return {
         "params": fitted_params,
@@ -383,11 +384,14 @@ def fit_phenom_logistic(t, N):
     # Initial parameter guess and bounds
     p0 = [A_init, mu_max_init, lam_init, np.log(N0_init)]
     # ! hard-coded bounds  for A, mu_max, lam. Could be improved.
-    bounds = ([0.001, 0.0001, -np.inf, -np.inf], [A_init + 100, 20, np.inf, np.inf])
+    # bounds = ([-np.inf, 0.0001, -np.inf, -np.inf], [np.inf, np.inf, np.inf, np.inf])
 
     # Fit the model directly on ln(N), with ln_N0 as a free parameter
     params, _ = curve_fit(
-        phenom_logistic_model_ln, t, ln_N, p0=p0, bounds=bounds, maxfev=20000
+        phenom_logistic_model_ln,
+        t,
+        ln_N,
+        p0=p0,
     )
     A, mu_max, lam, ln_N0 = (float(p) for p in params)
 
