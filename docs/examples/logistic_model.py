@@ -122,6 +122,22 @@ def fit_model_and_extract_stats(time_in_hours, observations, model):
     return fit_mech_logistic, stats_mech_logistic
 
 
+def fit_non_parametric_and_extract_stats(time_in_hours, observations, method):
+    """Fit with a non-parametric method ('sliding_window'/'spline'), extract stats."""
+    fit = gc.non_parametric.fit_non_parametric(
+        time_in_hours, observations, method=method
+    )
+    if fit is None:
+        return None, None
+    stats = gc.inference.extract_stats(fit, time_in_hours, observations)
+    stats = {
+        k: float(v) for k, v in stats.items() if isinstance(v, (int, float, np.number))
+    }
+    fit["params"]["model_type"] = fit["model_type"]
+    fit = fit["params"]
+    return fit, stats
+
+
 def format_summary(K, N_lag, mu, lag, factor, N_at_zero, t_inflect):
     max_slope = mu * K / 4
     inflection_note = (
@@ -955,6 +971,30 @@ from pprint import pprint
 pprint("Fit parameters for mechanistic logistic model to OD_mech:")
 pprint(fit_mech_logistic)
 
+# %% [markdown]
+# ## 7.1 Non-parametric estimate of Umax for OD_mech (spline & sliding_window)
+# - compare against the parametric fit above and the ground truth `mu_max`
+
+# %%
+fits_np, stats_np = {}, {}
+for method in ("sliding_window", "spline"):
+    fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
+        t, N, method
+    )
+
+pd.concat(
+    [
+        pd.Series({"mu_max": mu_max, "lag": lag}, name="Ground Truth"),
+        pd.Series(
+            {"mu_max": stats_mech_logistic["mu_max"]},
+            name="Parametric (phenom_logistic)",
+        ),
+        pd.Series(stats_np["sliding_window"], name="sliding_window"),
+        pd.Series(stats_np["spline"], name="spline"),
+    ],
+    axis=1,
+)
+
 
 # %% [markdown]
 # ## 7.2 Fit the mechanistic model to the synthetic data
@@ -972,6 +1012,33 @@ pprint("Fit parameters for phenomenological logistic model to OD_phenom_paper:")
 pprint(fit_mech_logistic)
 
 # %% [markdown]
+# ### 7.2.1 Non-parametric estimate of Umax for OD_phenom_paper (spline & sliding_win.)
+# - compare against the parametric fit above and the ground truth `mu_max`
+# - note `time_at_umax` is expected near `lam + A / (2 * mu_max)`, not at `lam` itself,
+#   since that is where this model's specific growth rate (not the absolute rate) peaks
+
+# %%
+fits_np, stats_np = {}, {}
+for method in ("sliding_window", "spline"):
+    fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
+        t, N, method
+    )
+
+pd.concat(
+    [
+        pd.Series(ground_truth_params_phenom_paper, name="Ground Truth"),
+        pd.Series(
+            {"mu_max": stats_mech_logistic["mu_max"]},
+            name="Parametric (phenom_logistic)",
+        ),
+        pd.Series(stats_np["sliding_window"], name="sliding_window"),
+        pd.Series(stats_np["spline"], name="spline"),
+    ],
+    axis=1,
+)
+
+
+# %% [markdown]
 # ## 7.3 Fit the classic phenomenological model to the synthetic data (linear space)
 # - use linear space to fit the data
 
@@ -987,6 +1054,30 @@ pd.concat(
     [
         pd.Series(ground_truth_params, name="Ground truth parameters"),
         pd.Series(fit_mech_logistic["params"], name="Fit parameters"),
+    ],
+    axis=1,
+)
+
+# %% [markdown]
+# ### 7.3.1 Non-parametric estimate of Umax for OD_phenom_classic (spline & sliding_w.)
+# - unlike `OD_mech` and `OD_phenom_paper`, this curve has no true flat lag phase: it is
+#   a continuous sigmoid that is already rising in log-space before `t = lag`
+# - so both non-parametric methods are expected to overestimate `mu_max` and place
+#   `time_at_umax` near the start of the recorded window (t≈0) rather than at `lag`,
+#   since that is genuinely where the specific growth rate peaks within this data window
+
+# %%
+fits_np, stats_np = {}, {}
+for method in ("sliding_window", "spline"):
+    fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
+        t, N, method
+    )
+
+pd.concat(
+    [
+        pd.Series({"mu_max": mu_max, "lag": lag}, name="Ground Truth"),
+        pd.Series(stats_np["sliding_window"], name="sliding_window"),
+        pd.Series(stats_np["spline"], name="spline"),
     ],
     axis=1,
 )
