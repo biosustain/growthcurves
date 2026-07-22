@@ -695,7 +695,7 @@ fit_, stats_ = fit_model_and_extract_stats(data["Time"], data[col], model)
 pd.concat(
     [
         pd.Series(ground_truth_params),
-        # pd.Series(ground_truth_params_phenom_paper),
+        pd.Series(ground_truth_params_phenom_paper),
         pd.Series(fit_),
         pd.Series(stats_),
     ],
