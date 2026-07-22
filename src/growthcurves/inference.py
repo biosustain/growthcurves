@@ -1836,7 +1836,7 @@ def compute_sliding_window_growth_rate(t, N, window_points=15):
                 slope, _ = np.polyfit(t_win_valid, y_log_win_valid, 1)
                 if np.isfinite(slope):
                     mu[i] = slope
-        except np.linalg.LinAlgError, ValueError:
+        except (np.linalg.LinAlgError, ValueError):
             continue
 
     return t, mu
