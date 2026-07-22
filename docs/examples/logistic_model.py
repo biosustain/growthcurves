@@ -47,6 +47,8 @@
 
 
 # %% tags=["hide-input"]
+from pprint import pprint
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -536,6 +538,8 @@ pd.concat(
 # - mechanistic model do not fit a lag phase, so we need to start fitting after the lag
 #   phase where N(t=0) will now indeed be N(t_lag) = N(0) = N0. The mechanistic model
 #  will then be able to recover the growth rate and carrying capacity K.
+#
+# - the classic logistic model does not really have a lag phase.
 
 
 # %%
@@ -548,7 +552,7 @@ data_mech[["Time", "OD_mech", "OD_phenom_classic"]]
 
 
 # %% [markdown]
-# Fit to `OD_mech`
+# Fit `phenom_logistic` to `OD_mech`
 
 # %% tags=["hide-input"]
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
@@ -596,7 +600,8 @@ pd.concat(
 # > Buy contrast N0 is not modeled using the phenomological model(s) operating in log
 # > space, so the initial condition has to be inferred from the data.
 #
-# We see that the models are not the same. Both are S-curve shaped.
+# We see that the models are not the same. Both are S-curve shaped and quite close
+# confirmation can be found.
 
 
 # %% tags=["hide-input"]
@@ -654,6 +659,8 @@ _ = ax.legend()
 # %% [markdown]
 # We see that the model with different lag-time and similar N0 look similar in linear
 # space. Let's compare these in log-space:
+#
+# - not the near linear growth for the classic logistic growth formulation.
 
 # %%
 data["OD_phenom_classic_ln"] = np.log(
@@ -680,10 +687,9 @@ _ = data.plot.scatter(
 )
 
 # %% [markdown]
-# Fit synthetic data from classic logistic regression model (`OD_phenom_classic`)
-# with the phenomenological
-# model (paper version). The assumption is here that the initial condition is observed
-# at t=0. this is different from N0 = N(lag) in the classic logistic model formulation.
+# ## Fit synthetic data from classic logistic regression model (`OD_phenom_classic`) using `phenom_logistic`
+# The assumption is here that the initial condition is observed at t=0. this is different
+# from N0 = N(lag) in the classic logistic model formulation.
 # - find a good fit for the phenomenological model
 # - compare the parameters
 # - plot the fit
@@ -746,7 +752,7 @@ _ = data.plot.scatter(
     alpha=0.5,
     color="C2",
     ax=ax,
-    label="Phenomenological Logistic Growth (Fit)",
+    label="Fit to classic Logistic Growth (phenom model)",
 )
 ax.vlines(
     x=lag,
@@ -767,6 +773,7 @@ ax.vlines(
 _ = ax.legend()
 
 # %% [markdown]
+# # Fit `phenom_logistic` to synthetic data created of model
 # If we use instead the phenomological model to generate synthetic data on the linear
 # scale with N(t=0) = 0.06 (without lag phase) we can get back the exact parameters.
 #
@@ -878,12 +885,11 @@ _ = ax.annotate(
 doubling_time_at_inflection = np.log(2) / (mu * (1 - p_inflec / K))
 
 # %%
-# %%
 print(f"Time of mu_max: {lag + np.log((K - N0) / N0) / mu}")
 data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
 
 # %% [markdown]
-# compare the curves in linear and log space.
+# ## Compare the curves in linear and log space.
 # > The phenomenological model for logistic growth in the paper looks similar, but has
 # > different parameters for the lag phase and initial condition!
 
@@ -955,7 +961,10 @@ _ = ax2.legend(title="ln(OD) curves")
 
 
 # %% [markdown]
-# # 7. Fit the mechanistic model to the synthetic data
+# # 7.0 Fit the phenomenological model to different synthetic data
+
+# %% [markdown]
+# ## 7.0 Fit the phenomenological model to the synthetic data created using the mechanistic logistic model
 # - fit data from the classic logistic model using the methods implemented in
 #   growthcurves (based on the review paper)
 
@@ -966,10 +975,11 @@ N = data[col]
 t = data["Time"]
 
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
-from pprint import pprint
 
 pprint("Fit parameters for mechanistic logistic model to OD_mech:")
 pprint(fit_mech_logistic)
+pprint("Stats based on fit to the phenomenological logistic model:")
+pprint(stats_mech_logistic)
 
 # %% [markdown]
 # ## 7.1 Non-parametric estimate of Umax for OD_mech (spline & sliding_window)
@@ -997,7 +1007,7 @@ pd.concat(
 
 
 # %% [markdown]
-# ## 7.2 Fit the mechanistic model to the synthetic data
+# ## 7.2 Fit the paper logistic phenomenological model to synthetic data created from it
 # - fit data from the classic logistic model using the methods implemented in
 #   growthcurves (based on the review paper)
 
@@ -1010,6 +1020,8 @@ t = data["Time"]
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
 pprint("Fit parameters for phenomenological logistic model to OD_phenom_paper:")
 pprint(fit_mech_logistic)
+pprint("Stats based on fit to the phenomenological logistic model:")
+pprint(stats_mech_logistic)
 
 # %% [markdown]
 # ### 7.2.1 Non-parametric estimate of Umax for OD_phenom_paper (spline & sliding_win.)
@@ -1039,7 +1051,7 @@ pd.concat(
 
 
 # %% [markdown]
-# ## 7.3 Fit the classic phenomenological model to the synthetic data (linear space)
+# ## 7.3 Fit the classic phenomenological model to synthetic data generated from it (linear space)
 # - use linear space to fit the data
 
 # %%
