@@ -17,33 +17,36 @@
 #
 # It matches the "classic" logistic shape from Wikipedia, but writes the usual
 # integration constant in a biologically meaningful way through `K` and `N0`.
-# > Note: `N0` is not `N(t=0)`unless `lag=0`. The shifted form is used to model the
-# > lag phase.
+# > Note: `N0` is not `N(t=0)`unless `lag=0`. The ODE can be used to model the
+# > the logistic growth after the lag phase.
 #
-# ## What the parameters do
-#
+# ## Classic logistic parameters
 # - `K` sets the upper plateau (carrying capacity).
 # - `mu` sets how quickly the transition happens.
-# - `lag` shifts the whole S-curve left or right.
 # - `factor = (K - N0) / N0` is not an extra free parameter once `K` and `N0`
 #   are chosen. It measures how much capacity is still empty compared with what is
 #   already present at `t = lag`.
+# - `lag` shifts the whole S-curve left or right.
 #
-# ## What the factor changes
+# ## Effect of factor changes
 #
 # The factor is marked directly on the plot through two special points:
 #
-# - At `t = lag`, the curve passes through `N(lag) = N0 = K / (1 + factor)`.
+# - At `t = lag`, the curve passes through `N(lag) = N0 = K / (1 + factor)`, which is
+#   the timepoint with the maximum specific growth rate (the slope of the
+#   log-transformed curve).
 # - The inflection point is at
 #   `t* = lag + ln(factor) / mu`, where `factor * exp(-mu * (t - lag)) = 1`.
-#   There the curve reaches `K / 2` and the growth rate is maximal.
+#   There the curve reaches `K / 2` and the absolute growth in biomass is maximal
+#   (which is not the same as the maximum specific growth rate, which is
+#    at `t = lag`).
 #
 # For fixed `K` and `mu`, a larger factor means a smaller `N0 / K`, so the curve
 # starts lower and the inflection happens later. The maximum slope itself stays
 # the same (`mu * K / 4`); the factor mainly changes *where* the midpoint happens.
 #
-# One subtle point is worth watching in the app: with this shifted form, `N0` is
-# the value at `t = lag`, not necessarily the value at `t = 0`. The app marks both.
+# Again, one point worth noting: with this shifted form, `N0` is
+# the value at `t = lag`, not the value at `t = 0`.
 
 
 # %% tags=["hide-input"]
@@ -332,7 +335,7 @@ def make_figure(K, N_lag, mu, lag):
 # %% [markdown]
 # # 1. Set your simulation parameters
 
-# %% tags=["parameters"]
+# %% tags=["parameters", "hide-input"]
 mu_max = 0.3  # Growth rate constant
 K = 5  # Carrying capacity for logistic growth
 N0 = 0.3  # condition at lag
@@ -366,7 +369,7 @@ t_eval = np.linspace(t_start, t_end, num_points)
 
 
 # %% [markdown]
-# # 3. Solve the ODE for classic logistic growth
+# # 3. Simulate data based on solving the ODE for classic logistic growth
 # args passes extra constants (like k) to the model function
 # ```python
 # ln_ratio = solve_ivp(
@@ -381,7 +384,7 @@ t_eval = np.linspace(t_start, t_end, num_points)
 # and use the analytical solution for comparison
 #
 # To model the lag phase, we will shift the solution to the right by the lag time,
-# filling in the initial values with N0. N0 is the value at t = lag, which can be
+# filling in the initial values with `N0`. `N0` is the value at `t = lag`, which can be
 # remodeled using the classic logistic growth formula. The lag phase is not explicitly
 # modeled in the ODE.
 #
@@ -397,8 +400,6 @@ idx_post_lag = np.where(post_lag)[0][0]
 N = mech_logistic_model(t_eval, mu, K, N0)
 N[idx_post_lag:] = N[:-idx_post_lag]  # Shift the solution to the right by lag time
 N[:idx_post_lag] = N0  # Fill in the initial values with N0
-_ = plt.plot(t_eval, N)
-_ = plt.title("Mechanistic Logistic Growth Simulation (ODE)")
 
 # %% tags=["hide-input"]
 data = pd.DataFrame(
@@ -429,18 +430,17 @@ _ = ax.legend()
 
 
 # %% [markdown]
-# # 4. Generate the classic phenomenological model (closed form)
+# # 4. Simulate data bassed on the classic logistic growth phenomenological model (closed form)
 #
 # ```
 # N(t) = K / (1 + ((K - N0)/N0) * exp(-μ * (t - lag)))
 # ```
 #
-# One subtle but important point:
 # If you use
-# factor = (K - N0)/N0
-# N(t) = K / (1 + factor * exp(-μ * (t - lag)))
+# `factor = (K - N0)/N0` in
+# `N(t) = K / (1 + factor * exp(-μ * (t - lag)))`
 # then N0 is N(lag). This is not equal to N(0) unless lag = 0. This way our curve will
-# overlap to the mechanistic model from after the lag phase.
+# only overlap to the mechanistic model after the lag phase.
 #
 # > N(0) is here not N0!
 
@@ -514,6 +514,7 @@ _ = (
         ylim=(-5, 8),
     )
 )
+# %% tags=["hide-input"]
 pd.concat(
     [
         data.set_index("Time").filter(like="OD_phenom_classic").idxmax(),
@@ -523,7 +524,7 @@ pd.concat(
     keys=["Time", "maximum"],
 )
 
-# %%
+# %% tags=["hide-input"]
 pd.concat(
     [
         data.set_index("Time").filter(like="OD_phenom_classic").idxmin(),
@@ -534,15 +535,18 @@ pd.concat(
 )
 
 # %% [markdown]
-# # Recover parameters using mechanistic logistic model
+# # 5. Recover parameters using mechanistic logistic model (ODE)
 # - mechanistic model do not fit a lag phase, so we need to start fitting after the lag
-#   phase where N(t=0) will now indeed be N(t_lag) = N(0) = N0. The mechanistic model
-#  will then be able to recover the growth rate and carrying capacity K.
+#   phase where N(t=0) will now indeed be N(t_lag) = N(0) = N0. The mechanistic model will
+#   then be able to recover the growth rate and carrying capacity K.
 #
-# - the classic logistic model does not really have a lag phase.
+# - the classic logistic model does not really have a lag phase, as it is a smooth
+#   S-curve. In the log-space if forms a straight line with slope mu_max before the
+#   inflection point.
+#
+# We query the data to only include timepoints after the lag phase
 
-
-# %%
+# %% tags=["hide-input"]
 model = "mech_logistic"
 # mask_timepoints_after_lag = data["Time"] > lag
 data_mech = data.query(f"Time >= {lag - 0.0001}")
@@ -552,11 +556,35 @@ data_mech[["Time", "OD_mech", "OD_phenom_classic"]]
 
 
 # %% [markdown]
-# Fit `phenom_logistic` to `OD_mech`
+# Fit `OD_mech` using `mech_logistic`. Here we expect to recover the original parameters
+# used to generate the data.
 
 # %% tags=["hide-input"]
+model = "mech_logistic"
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
-    data_mech["Time"], data_mech["OD_mech"], model
+    data_mech["Time"], data_mech["OD_mech"], model=model
+)
+# Combine fits into a  DataFrame for display
+pd.concat(
+    [
+        pd.Series(ground_truth_params),
+        pd.Series(fit_mech_logistic),
+        pd.Series(stats_mech_logistic),
+    ],
+    axis=1,
+    keys=["Ground Truth", "Fit", "Stats"],
+)
+
+
+# %% [markdown]
+# Fit `OD_phenom_classic` using `mech_logistic`. Remember that we shifted the data to
+# get rid of the lag phase (which we could do as we generated the data). Whichout
+# lag-phase the mechanistic model can be used to fit the data.
+
+# %%
+model = "mech_logistic"
+fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
+    data_mech["Time"], data_mech["OD_phenom_classic"], model=model
 )
 # Combine fits into a  DataFrame for display
 pd.concat(
@@ -570,8 +598,14 @@ pd.concat(
 )
 
 # %%
+# With a lag phase, it will be off. We use the non-shifted data to fit
+# `OD_phenom_classic`  using `mech_logistic`.
+
+
+# %%
+model = "mech_logistic"
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
-    data_mech["Time"], data_mech["OD_phenom_classic"], model
+    data["Time"], data["OD_phenom_classic"], model=model
 )
 # Combine fits into a  DataFrame for display
 pd.concat(
@@ -587,7 +621,9 @@ pd.concat(
 # %% [markdown]
 # # 6. Generate the phenomenological model for comparison (paper version)
 #
-# As in review paper we have a slightly modified logistical model:
+# In the review paper we have a slightly modified logistical model for the
+# closed-form solution or phenomenological model. The model is defined in log-space
+# and has a log-phase as it is S-shaped in log-space.
 #
 # ```
 # A = K / N0 # Carrying capacity in log-space
@@ -628,7 +664,7 @@ ax = data.plot.scatter(
     s=1,
     alpha=0.5,
     color="C0",
-    title="Logistic Growth Simulation (classic vs paper version)",
+    title="Logistic Growth in linear space (classic vs paper version)",
     label="Classic Logistic Growth",
     xlabel="Time (hours)",
     ylabel="OD",
@@ -652,17 +688,13 @@ ax.vlines(
 )
 _ = ax.legend()
 
-# %%
-# print(f"N of first timepoint after lag: {data.loc[148, 'OD_phenom_paper']:.5f}")
-# data["OD_phenom_paper"].describe()
-
 # %% [markdown]
 # We see that the model with different lag-time and similar N0 look similar in linear
 # space. Let's compare these in log-space:
 #
-# - not the near linear growth for the classic logistic growth formulation.
+# >  Note the near linear growth for the classic logistic growth formulation.
 
-# %%
+# %% tags=["hide-input"]
 data["OD_phenom_classic_ln"] = np.log(
     data["OD_phenom_classic"] / N_0  # data["OD_phenom_classic"].min()
 )
@@ -701,12 +733,11 @@ fit_, stats_ = fit_model_and_extract_stats(data["Time"], data[col], model)
 pd.concat(
     [
         pd.Series(ground_truth_params),
-        pd.Series(ground_truth_params_phenom_paper),
         pd.Series(fit_),
         pd.Series(stats_),
     ],
     axis=1,
-    keys=["Ground Truth (Classic)", "Ground Truth (Phenom Paper)", "Fit", "Stats"],
+    keys=["Ground Truth (Classic)", "Fit", "Stats"],
 )
 
 
@@ -738,15 +769,6 @@ ax = data.plot.scatter(
 )
 _ = data.plot.scatter(
     x="Time",
-    y="OD_phenom_paper",
-    s=1,
-    alpha=0.5,
-    color="C1",
-    ax=ax,
-    label="Phenomenological Logistic Growth",
-)
-_ = data.plot.scatter(
-    x="Time",
     y="OD_phenom_classic_fit",
     s=1,
     alpha=0.5,
@@ -771,6 +793,39 @@ ax.vlines(
     label="Lag time ends (phenom fit)",
 )
 _ = ax.legend()
+
+# %% [markdown]
+# Let's compare the models in log-space.
+# - ToDo: To resolve
+
+# %% tags=["hide-input"]
+data["OD_phenom_classic_fit_ln"] = phenom_logistic_model_ln(
+    t=data["Time"],
+    mu_max=fit_["mu_max"],
+    A=fit_["A"],
+    lam=fit_["lam"],
+)
+# OD_phenom_classic_ln
+ax = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic_ln",
+    s=1,
+    color="C0",
+    alpha=0.5,
+    title="Logistic Growth Simulation (classic vs paper version)",
+    label="Classic Logistic Growth",
+    xlabel="Time (hours)",
+    ylabel="OD",
+)
+_ = data.plot.scatter(
+    x="Time",
+    y="OD_phenom_classic_fit_ln",
+    s=1,
+    alpha=0.5,
+    color="C2",
+    ax=ax,
+    label="Fit to classic Logistic Growth (phenom model)",
+)
 
 # %% [markdown]
 # # Fit `phenom_logistic` to synthetic data created of model
@@ -884,6 +939,9 @@ _ = ax.annotate(
 )
 doubling_time_at_inflection = np.log(2) / (mu * (1 - p_inflec / K))
 
+# %% [markdown]
+# Time point of maximum of each column in `data`:
+
 # %%
 print(f"Time of mu_max: {lag + np.log((K - N0) / N0) / mu}")
 data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
@@ -983,9 +1041,10 @@ pprint(stats_mech_logistic)
 
 # %% [markdown]
 # ## 7.1 Non-parametric estimate of Umax for OD_mech (spline & sliding_window)
-# - compare against the parametric fit above and the ground truth `mu_max`
+# - with the same setup, compare against the parametric fit above and the ground truth
+#   `mu_max`
 
-# %%
+# %% tags=["hide-input"]
 fits_np, stats_np = {}, {}
 for method in ("sliding_window", "spline"):
     fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
@@ -1003,7 +1062,7 @@ pd.concat(
         pd.Series(stats_np["spline"], name="spline"),
     ],
     axis=1,
-)
+).convert_dtypes() # ? why is float displayed so differently for spline without encoding?
 
 
 # %% [markdown]
@@ -1040,7 +1099,7 @@ pd.concat(
     [
         pd.Series(ground_truth_params_phenom_paper, name="Ground Truth"),
         pd.Series(
-            {"mu_max": stats_mech_logistic["mu_max"]},
+            stats_mech_logistic,
             name="Parametric (phenom_logistic)",
         ),
         pd.Series(stats_np["sliding_window"], name="sliding_window"),
