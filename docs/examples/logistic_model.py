@@ -1453,7 +1453,7 @@ print(
 
 # %% tags=["hide-input"]
 s_mu_max, s_A, s_lam = sp.symbols("mu_max A lam", positive=True)
-N_pheno = s_N0 * sp.exp(s_A) / (1 + sp.exp((4 * s_mu_max / s_A * (s_lam - t)) + 2))
+N_pheno = s_N0 * sp.exp(s_A / 1 + sp.exp((4 * s_mu_max / s_A * (s_lam - t)) + 2))
 dN = sp.diff(N_pheno, t)
 print("First derivative of N(t):")
 display(dN)
