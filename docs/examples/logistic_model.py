@@ -169,6 +169,7 @@ the curve relative to `K`.
 """
 
 
+# ! ToDo: only used once, to be removed
 def make_figure(K, N_lag, mu, lag):
     N0 = N_lag  # N0 is where t = lag
     factor = (K - N0) / N0
@@ -942,7 +943,7 @@ doubling_time_at_inflection = np.log(2) / (mu * (1 - p_inflec / K))
 # %% [markdown]
 # Time point of maximum of each column in `data`:
 
-# %%
+# %% tags=["hide-input"]
 print(f"Time of mu_max: {lag + np.log((K - N0) / N0) / mu}")
 data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
 
@@ -989,7 +990,7 @@ ax2 = data.plot(
     xlabel="Time",
     ylabel="ln(OD)",
     label="ln(OD) (mechanistic)",
-    color="C4",
+    color="C0",
     alpha=0.7,
     ax=ax2,
 )
@@ -1000,7 +1001,7 @@ data.plot(
     ylabel="ln(OD)",
     label="ln(OD) (phenomenological paper)",
     ax=ax2,
-    color="C3",
+    color="C1",
     alpha=0.7,
 )
 
@@ -1011,7 +1012,7 @@ data.plot(
     ylabel="ln(OD)",
     label="ln(OD) (classic phenomenological)",
     ax=ax2,
-    color="C5",
+    color="C2",
     alpha=0.3,
 )
 ax2.set_ylabel("ln(OD)")
@@ -1019,7 +1020,7 @@ _ = ax2.legend(title="ln(OD) curves")
 
 
 # %% [markdown]
-# # 7.0 Fit the phenomenological model to different synthetic data
+# # 7 Fit the phenomenological model to different synthetic data
 
 # %% [markdown]
 # ## 7.0 Fit the phenomenological model to the synthetic data created using the mechanistic logistic model
@@ -1034,18 +1035,24 @@ t = data["Time"]
 
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
 
-pprint("Fit parameters for mechanistic logistic model to OD_mech:")
+print("Fit parameters for mechanistic logistic model to OD_mech:")
 pprint(fit_mech_logistic)
-pprint("Stats based on fit to the phenomenological logistic model:")
+print("Stats based on fit to the phenomenological logistic model:")
 pprint(stats_mech_logistic)
 
 # %% [markdown]
-# ## 7.1 Non-parametric estimate of Umax for OD_mech (spline & sliding_window)
+# ## 7.1 Parametric and Non-parametric estimate of Umax for OD_mech (spline & sliding_window)
 # - with the same setup, compare against the parametric fit above and the ground truth
 #   `mu_max`
+# - remember that the assumptions is that the growth is constant until the end of the
+#   lag phase.
+#
+# we see that the lag-phase is estimated best by the `spline` method, whereas
+# the `sliding_window` method fits `mu_max` best.
 
 # %% tags=["hide-input"]
 fits_np, stats_np = {}, {}
+fits_np[model], stats_np[model] = fit_model_and_extract_stats(t, N, model)
 for method in ("sliding_window", "spline"):
     fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
         t, N, method
@@ -1053,20 +1060,18 @@ for method in ("sliding_window", "spline"):
 
 pd.concat(
     [
-        pd.Series({"mu_max": mu_max, "lag": lag}, name="Ground Truth"),
-        pd.Series(
-            {"mu_max": stats_mech_logistic["mu_max"]},
-            name="Parametric (phenom_logistic)",
-        ),
+        pd.Series({"mu_max": mu_max, "exp_phase_start": lag}, name="Ground Truth"),
+        pd.Series(stats_mech_logistic, name="phenom_logistic"),
         pd.Series(stats_np["sliding_window"], name="sliding_window"),
         pd.Series(stats_np["spline"], name="spline"),
     ],
     axis=1,
-).convert_dtypes() # ? why is float displayed so differently for spline without encoding?
+).convert_dtypes()  # ? why is float displayed so differently for spline without encoding?
 
 
 # %% [markdown]
 # ## 7.2 Fit the paper logistic phenomenological model to synthetic data created from it
+#
 # - fit data from the classic logistic model using the methods implemented in
 #   growthcurves (based on the review paper)
 
@@ -1077,16 +1082,19 @@ N = data[col]
 t = data["Time"]
 
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(t, N, model)
-pprint("Fit parameters for phenomenological logistic model to OD_phenom_paper:")
+print("Fit parameters for phenomenological logistic model to OD_phenom_paper:")
 pprint(fit_mech_logistic)
-pprint("Stats based on fit to the phenomenological logistic model:")
+print("Stats based on fit to the phenomenological logistic model:")
 pprint(stats_mech_logistic)
 
 # %% [markdown]
 # ### 7.2.1 Non-parametric estimate of Umax for OD_phenom_paper (spline & sliding_win.)
+#
 # - compare against the parametric fit above and the ground truth `mu_max`
 # - note `time_at_umax` is expected near `lam + A / (2 * mu_max)`, not at `lam` itself,
 #   since that is where this model's specific growth rate (not the absolute rate) peaks
+#
+# > ToDo: `Exp_phase_start` does not work well here for the non-parametric methods.
 
 # %%
 fits_np, stats_np = {}, {}
@@ -1097,7 +1105,13 @@ for method in ("sliding_window", "spline"):
 
 pd.concat(
     [
-        pd.Series(ground_truth_params_phenom_paper, name="Ground Truth"),
+        pd.Series(
+            {
+                "mu_max": ground_truth_params_phenom_paper["mu_max"],
+                "exp_phase_start": ground_truth_params_phenom_paper["lam"],
+            },
+            name="Ground Truth",
+        ),
         pd.Series(
             stats_mech_logistic,
             name="Parametric (phenom_logistic)",
@@ -1111,11 +1125,15 @@ pd.concat(
 
 # %% [markdown]
 # ## 7.3 Fit the classic phenomenological model to synthetic data generated from it (linear space)
-# - use linear space to fit the data
+#
+# - use linear space to fit the data (this means no mu_max is estimated,
+#   but mu is estimated directly)
+# - the lag phase is not the same, but the fits match exactly. `N_lag` is probably the
+#   culprit here.
 
 # %%
 model_fct = logistic_growth
-col = "OD_phenom_classic"
+col = "OD_phenom_classic" # N0 is the value at lag, not at t=0
 N = data[col]
 t = data["Time"]
 
@@ -1123,10 +1141,32 @@ fit_mech_logistic = fit_fct(t, N, model_fct)
 
 pd.concat(
     [
-        pd.Series(ground_truth_params, name="Ground truth parameters"),
+        pd.Series(
+            {
+                "mu": ground_truth_params["mu"],
+                "K": ground_truth_params["K"],
+                "N_lag": ground_truth_params["N0"],
+                "lag": ground_truth_params["lag"],
+            },
+            name="Ground truth parameters",
+        ),
+        # pd.Series({"mu_max": mu_max, "exp_phase_start": lag}, name="Ground Truth"),
         pd.Series(fit_mech_logistic["params"], name="Fit parameters"),
     ],
     axis=1,
+)
+
+# %% [markdown]
+# Again: The lag is different, but the fits matches exactly:
+
+
+# %% tags=["hide-input"]
+pd.DataFrame(
+    {"t": t, "N": N, "N_fit": model_fct(t=t, **fit_mech_logistic["params"])}
+).set_index("t").plot(
+    title="Fit of classic phenomenological logistic model to synthetic data",
+    xlabel="Time",
+    ylabel="OD (linear)",
 )
 
 # %% [markdown]
@@ -1151,11 +1191,9 @@ pd.concat(
         pd.Series(stats_np["spline"], name="spline"),
     ],
     axis=1,
-)
+).convert_dtypes()
 
 # %%
-# data["OD_phenom_classic_fit"] = fit_mech_logistic["params"]["N0"] * np.exp(fit_mech_logistic["params"]["mu_max"] * (fit_mech_logistic["params"]["lam"] - data["Time"]))
-
 data[f"{col}_fit"] = logistic_growth(
     t=data["Time"],
     N_lag=fit_mech_logistic["params"]["N_lag"],
@@ -1186,16 +1224,26 @@ data[[f"{col}_fit", col]].iloc[idx_post_lag : idx_post_lag + 10]
 # %% [markdown]
 # # 8. Compare differences between models
 #
-# Compare regions where models differ:
-# - changes maximum capacity K for phenomenological model according to review
-# - OD phenomenological and OD mechanistic should match
+# Comparsion of differences between the mechanistic logistic model, the classic
+# phenomenological logistic model and the phenomenological logistic model from the review
+# paper.
+# - Both phenomenological models model the lag-phase.
+# - the classic phenomenological and the (classic) mechanistic model are besides the
+#   lag-phase identical.
+# - the phenomenological model form the review paper has a slightly different shape just
+#   after the lag pahse and towards the carring capacity (so the s-shape differs slightly).
 
 # %% tags=["hide-input"]
-fig, axes = plt.subplots(1, 2, figsize=(7, 3), sharex=True)
+fig, axes = plt.subplots(1, 3, figsize=(10, 3), sharex=True)
 ax = data.plot.scatter(x="OD_mech", y="OD_phenom_paper", s=1, color="C1", ax=axes[0])
 _ = ax.plot([0, K], [0, K], color="black", linestyle="--", label="y=x", alpha=0.5)
 ax = data.plot.scatter(x="OD_mech", y="OD_phenom_classic", s=1, color="C1", ax=axes[1])
 _ = ax.plot([0, K], [0, K], color="black", linestyle="--", label="y=x", alpha=0.5)
+ax = data.plot.scatter(
+    x="OD_phenom_paper", y="OD_phenom_classic", s=1, color="C1", ax=axes[2]
+)
+_ = ax.plot([0, K], [0, K], color="black", linestyle="--", label="y=x", alpha=0.5)
+
 
 # %% [markdown]
 # # 9. Symbolic derivatives of the models
