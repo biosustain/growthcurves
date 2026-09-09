@@ -44,7 +44,7 @@ extensions = [
 nb_execution_mode = "auto"
 
 myst_enable_extensions = [
-    # "dollarmath",
+    "dollarmath",
     "amsmath",
 ]
 
