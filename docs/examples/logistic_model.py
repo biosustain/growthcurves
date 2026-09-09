@@ -88,7 +88,7 @@ def get_acceleration(t, K, N0, mu, lag):
     """
     Returns the acceleration (second derivative) at t t.
     """
-    N = logistic_growth(t, K, N0, mu, lag)
+    N = logistic_growth(t, N_lag=N0, K=K, mu=mu, lag=lag)
     accel = mu**2 * N * (1 - (N / K)) * (1 - (2 * N / K))
     # accel[t < lag] = 0
     return accel
@@ -103,7 +103,7 @@ def get_doubling_time(t, K, N0, mu, lag):
     """
     Returns the instantaneous doubling time at time t.
     """
-    N = logistic_growth(t, K, N0, mu, lag)
+    N = logistic_growth(t, N_lag=N0, K=K, mu=mu, lag=lag)
     with np.errstate(divide="ignore"):
         doubling_time = np.log(2) / (mu * (1 - (N / K)))
     # doubling_time[t < lag] = np.nan  # Undefined during lag phase
