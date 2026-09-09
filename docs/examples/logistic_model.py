@@ -336,9 +336,9 @@ def make_figure(K, N_lag, mu, lag):
 
 
 # %% [markdown]
-# # 1. Set your simulation parameters
+# # 1. Choosen simulation parameters
 
-# %% tags=["parameters", "hide-input"]
+# %% tags=["parameters"]
 mu_max = 0.3  # Growth rate constant
 K = 5  # Carrying capacity for logistic growth
 N0 = 0.3  # condition at lag
@@ -348,6 +348,10 @@ t_end = 60.0  # End time
 lag = 12.3  # Lag time
 num_points = int(t_end * 12)  # Number of data points to generate
 
+# %% [markdown]
+# Inspect the simulation
+
+# %% tags=["hide-input"]
 mu = mu_max / (1 - N0 / K)
 print(f"mu_max: {mu_max}, mu: {mu}, K: {K}, N0: {N0}")
 
@@ -360,7 +364,167 @@ ground_truth_params = {
     "lag": lag,
 }
 
-fig, summary = make_figure(K, N0, mu, lag)
+
+factor = (K - N0) / N0  # N0 is where t = lag
+t_inflect = lag + np.log(factor) / mu
+N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
+
+t_start = min(0.0, t_inflect - 2.0 / mu)
+t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
+t = np.linspace(t_start, t_end, 500)
+N = logistic_growth(t, N0, K, mu, lag)
+dNdt = logistic_derivative(t, K, N0, mu, lag)
+
+fig = plotly.subplots.make_subplots(
+    rows=2,
+    cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.08,
+    row_heights=[0.72, 0.28],
+    subplot_titles=("Population size N(t)", "Growth rate dN/dt"),
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=t,
+        y=N,
+        mode="lines",
+        line={"color": "#1565c0", "width": 3},
+        name="N(t)",
+    ),
+    row=1,
+    col=1,
+)
+fig.add_trace(
+    go.Scatter(
+        x=t,
+        y=dNdt,
+        mode="lines",
+        line={"color": "#c62828", "width": 3},
+        name="dN/dt",
+    ),
+    row=2,
+    col=1,
+)
+
+fig.add_trace(
+    go.Scatter(
+        x=[0.0, lag, t_inflect],
+        y=[N_at_zero, N0, K / 2],
+        mode="markers+text",
+        text=["N(0)", "N(lag)=N0=N_lag", "Inflection"],
+        textposition="top center",
+        marker={"size": 10, "color": ["#455a64", "#2e7d32", "#ef6c00"]},
+        name="Key points",
+    ),
+    row=1,
+    col=1,
+)
+fig.add_trace(
+    go.Scatter(
+        x=[t_inflect],
+        y=[mu * K / 4],
+        mode="markers+text",
+        text=["Peak slope"],
+        textposition="top center",
+        marker={"size": 10, "color": "#ef6c00"},
+        name="Peak slope",
+    ),
+    row=2,
+    col=1,
+)
+
+for row in (1, 2):
+    fig.add_vline(
+        x=lag,
+        line_dash="dash",
+        line_color="#2e7d32",
+        annotation_text="lag",
+        annotation_position="top left",
+        row=row,
+        col=1,
+    )
+    fig.add_vline(
+        x=t_inflect,
+        line_dash="dot",
+        line_color="#ef6c00",
+        annotation_text="t_inflect",
+        annotation_position="top right",
+        row=row,
+        col=1,
+    )
+
+fig.add_hline(
+    y=K,
+    line_dash="dash",
+    line_color="#1565c0",
+    annotation_text="K",
+    annotation_position="top left",
+    row=1,
+    col=1,
+)
+fig.add_hline(
+    y=N0,
+    line_dash="dot",
+    line_color="#2e7d32",
+    annotation_text="N0",
+    annotation_position="bottom left",
+    row=1,
+    col=1,
+)
+fig.add_hline(
+    y=K / 2,
+    line_dash="dot",
+    line_color="#ef6c00",
+    annotation_text="K/2",
+    annotation_position="bottom left",
+    row=1,
+    col=1,
+)
+
+fig.add_annotation(
+    x=lag,
+    y=N0,
+    xref="x",
+    yref="y",
+    text=(f"factor = {factor:.2f}<br>N0 = K / (1 + factor)"),
+    showarrow=True,
+    arrowhead=2,
+    ax=120,
+    ay=-70,
+    bgcolor="rgba(255,255,255,0.9)",
+    bordercolor="#2e7d32",
+)
+fig.add_annotation(
+    x=t_inflect,
+    y=K / 2,
+    xref="x",
+    yref="y",
+    text=("factor * exp(-mu * (t - lag)) = 1<br><=> t = lag + ln(factor) / mu"),
+    showarrow=True,
+    arrowhead=2,
+    ax=130,
+    ay=20,
+    bgcolor="rgba(255,255,255,0.9)",
+    bordercolor="#ef6c00",
+)
+
+fig.update_xaxes(title_text="Time", row=2, col=1)
+fig.update_yaxes(title_text="N(t)", row=1, col=1)
+fig.update_yaxes(title_text="dN/dt", row=2, col=1)
+fig.update_layout(
+    height=720,
+    template="plotly_white",
+    showlegend=False,
+    title=(
+        "Shifted logistic curve with explicit factor "
+        f"(N0/K = {N0/K:.3f}, factor = {factor:.3f})"
+    ),
+    margin={"l": 60, "r": 30, "t": 90, "b": 60},
+)
+
+summary = format_summary(K, N0, mu, lag, factor, N_at_zero, t_inflect)
+
 print(summary)
 fig
 
