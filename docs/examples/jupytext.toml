@@ -2,5 +2,5 @@
 # (jupytext is a dev dependency)
 # jupytext --sync *.ipynb
 # or from root directory
-# jupytext --sync docs/api_examples/*.ipynb
+# jupytext --sync docs/examples/*.ipynb
 formats = "ipynb,py:percent"
