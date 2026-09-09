@@ -170,6 +170,8 @@ the curve relative to `K`.
 
 
 # ! ToDo: only used once, to be removed
+
+
 def make_figure(K, N_lag, mu, lag):
     N0 = N_lag  # N0 is where t = lag
     factor = (K - N0) / N0
@@ -1133,7 +1135,7 @@ pd.concat(
 
 # %%
 model_fct = logistic_growth
-col = "OD_phenom_classic" # N0 is the value at lag, not at t=0
+col = "OD_phenom_classic"  # N0 is the value at lag, not at t=0
 N = data[col]
 t = data["Time"]
 
