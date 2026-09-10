@@ -1,8 +1,8 @@
 # %% [markdown]
 # # Logistic Growth Model Simulation and Fitting
-# - N0 should be close to zero (as recommended in the review paper)
+# - N(0) should be close to zero (as recommended in the review paper)
 # - K is the carrying capacity (maximum OD) in linear space
-# - A is the log ratio of K to N0, used in the phenomenological model
+# - A is the log ratio of K to N(0), used in the phenomenological model
 # - mu_max and mu are the growth rate constants for log-scale and linear-scale models,
 #   respectively. mu is only defined for mechanistic models.
 #
@@ -33,13 +33,14 @@
 # The factor is marked directly on the plot through two special points:
 #
 # - At `t = lag`, the curve passes through `N(lag) = N0 = K / (1 + factor)`, which is
-#   the timepoint with the maximum specific growth rate (the slope of the
-#   log-transformed curve).
+#   the timepoint with is marking the end of the lag-phase. The maximum specific growth
+#   is at the start of the lag phase, wher as `mu_max=mu * (1 - N(0) / K)` has its
+#   maximum specific growth rate at `t = 0`, which is the initial population.
 # - The inflection point is at
-#   `t* = lag + ln(factor) / mu`, where `factor * exp(-mu * (t - lag)) = 1`.
+#   `t_inflec = lag + ln(factor) / mu`, where `factor * exp(-mu * (t - lag)) = 1`.
 #   There the curve reaches `K / 2` and the absolute growth in biomass is maximal
 #   (which is not the same as the maximum specific growth rate, which is
-#    at `t = lag`).
+#    at the start of the lag-phase).
 #
 # For fixed `K` and `mu`, a larger factor means a smaller `N0 / K`, so the curve
 # starts lower and the inflection happens later. The maximum slope itself stays
@@ -77,9 +78,6 @@ def logistic_growth(t, N_lag, K, mu, lag):
     # This creates a smooth S-curve with inflection point at t = lag + (K - N0) / N0
     factor = (K - N_lag) / N_lag
     N = K / (1 + factor * np.exp(-mu * (t - lag)))
-    # if lag > 0:
-    # For t < lag, set N to N0 to model the lag phase
-    # N[t < lag] = N0
     return N
 
 
@@ -89,7 +87,6 @@ def get_acceleration(t, K, N0, mu, lag):
     """
     N = logistic_growth(t, N_lag=N0, K=K, mu=mu, lag=lag)
     accel = mu**2 * N * (1 - (N / K)) * (1 - (2 * N / K))
-    # accel[t < lag] = 0
     return accel
 
 
@@ -105,7 +102,6 @@ def get_doubling_time(t, K, N0, mu, lag):
     N = logistic_growth(t, N_lag=N0, K=K, mu=mu, lag=lag)
     with np.errstate(divide="ignore"):
         doubling_time = np.log(2) / (mu * (1 - (N / K)))
-    # doubling_time[t < lag] = np.nan  # Undefined during lag phase
     return doubling_time
 
 
@@ -625,15 +621,16 @@ pd.concat(
 # and has a log-phase as it is S-shaped in log-space.
 #
 # ```
-# A = ln(K / N0) = ln(K) - ln(N0)   # Carrying capacity in log-space
-# ln(Nt/N0) =          A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
-# Nt        = N0 * exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
+# A = ln(K / N(0)) = ln(K) - ln(N(0))   # Carrying capacity in log-space
+# note: N(0) is not modeled in log-space:
+# ln(Nt/N(0)) =          A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
+# N(t)        = N(0)* exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
 # ```
 #
-# > Note that you can model the lag phase with a time shift in this formulation, which
-# > had to be manually added using the mechanistic model upon data generation.
-# > Buy contrast N0 is not modeled using the phenomological model(s) operating in log
-# > space, so the initial condition has to be inferred from the data.
+# > Note that you can model the lag phase with a time shift in this formulation, which had
+# > to be manually added using the mechanistic model upon data generation. Buy contrast
+# > N(0) - the inoculum size, is not modeled using the phenomological model(s) operating
+# > in log space, so the initial condition has to be inferred from the data.
 #
 # We see that the models are not the same. Both are S-curve shaped and quite close
 # confirmation can be found, but
@@ -834,7 +831,7 @@ _ = data.plot.scatter(
 )
 
 # %% [markdown]
-# # Fit `phenom_logistic` to synthetic data created of model
+# ## Fit `phenom_logistic` to synthetic data created of model
 # If we use instead the phenomological model to generate synthetic data on the linear
 # scale with N(t=0) = 0.06 (without lag phase) we can get back the exact parameters.
 #
@@ -949,7 +946,7 @@ doubling_time_at_inflection = np.log(2) / (mu * (1 - p_inflec / K))
 # Time point of maximum of each column in `data`:
 
 # %% tags=["hide-input"]
-print(f"Time of mu_max: {lag + np.log((K - N0) / N0) / mu}")
+print(f"Time of maximum growth (dN/dt): {lag + np.log((K - N0) / N0) / mu}")
 data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
 
 # %% [markdown]
@@ -1177,29 +1174,6 @@ pd.DataFrame(
     ylabel="OD (linear)",
 )
 
-# %% [markdown]
-# ### 7.3.1 Non-parametric estimate of Umax for OD_phenom_classic (spline & sliding_w.)
-# - unlike `OD_mech` and `OD_phenom_paper`, this curve has no true flat lag phase: it is
-#   a continuous sigmoid that is already rising in log-space before `t = lag`
-# - so both non-parametric methods are expected to overestimate `mu_max` and place
-#   `time_at_umax` near the start of the recorded window (t≈0) rather than at `lag`,
-#   since that is genuinely where the specific growth rate peaks within this data window
-
-# %%
-fits_np, stats_np = {}, {}
-for method in ("sliding_window", "spline"):
-    fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
-        t, N, method
-    )
-
-pd.concat(
-    [
-        pd.Series({"mu_max": mu_max, "lag": lag}, name="Ground Truth"),
-        pd.Series(stats_np["sliding_window"], name="sliding_window"),
-        pd.Series(stats_np["spline"], name="spline"),
-    ],
-    axis=1,
-).convert_dtypes()
 
 # %%
 data[f"{col}_fit"] = logistic_growth(
@@ -1228,6 +1202,75 @@ data[col].plot(
 
 # %%
 data[[f"{col}_fit", col]].iloc[idx_post_lag : idx_post_lag + 10]
+
+
+# %% [markdown]
+# ### 7.3.1 Non-parametric estimate of Umax for OD_phenom_classic (spline & sliding_w.)
+# - unlike `OD_mech` and `OD_phenom_paper`, this curve has no true flat lag phase: it is
+#   a continuous sigmoid that is already rising in log-space before `t = lag`
+# - so both non-parametric methods are expected to overestimate `mu_max` and place
+#   `time_at_umax` near the start of the recorded window (t≈0) rather than at `lag`,
+#   since that is genuinely where the specific growth rate peaks within this data window
+
+# %%
+fits_np, stats_np = {}, {}
+for method in ("sliding_window", "spline"):
+    fits_np[method], stats_np[method] = fit_non_parametric_and_extract_stats(
+        t, N, method
+    )
+
+pd.concat(
+    [
+        pd.Series({"mu_max": mu_max, "lag": lag}, name="Ground Truth"),
+        pd.Series(stats_np["sliding_window"], name="sliding_window"),
+        pd.Series(stats_np["spline"], name="spline"),
+    ],
+    axis=1,
+).convert_dtypes()
+
+# %% [markdown]
+# the plot highlights that the
+
+
+# %%
+def build_phase_plot(
+    t,
+    N,
+    label,
+    fit,
+    stats,
+    scale="log",
+):
+    fig = gc.plot.create_base_plot(t, N, scale=scale)
+    # All annotations shown by default, including tangent line
+    fig = gc.plot.annotate_plot(
+        fig,
+        fit_result=fit,
+        stats=stats,
+        scale=scale,
+    )
+    fig.update_layout(title=label, height=500, width=800, template="plotly_white")
+    return fig
+
+
+fig_threshold_high = build_phase_plot(
+    t,
+    N,
+    "Log: Spline fit + tangent phase boundaries",
+    fit=fits_np["spline"],
+    stats=stats_np["spline"],
+)
+fig_threshold_high.show()
+
+fig_threshold_high = build_phase_plot(
+    t,
+    N,
+    "Linear: Spline fit + tangent phase boundaries",
+    fit=fits_np["spline"],
+    stats=stats_np["spline"],
+    scale="linear",
+)
+fig_threshold_high.show()
 
 # %% [markdown]
 # # 8. Compare differences between models
@@ -1299,7 +1342,7 @@ print(
 
 # %% tags=["hide-input"]
 s_mu_max, s_A, s_lam = sp.symbols("mu_max A lam", positive=True)
-N_pheno = s_N0 * sp.exp(s_A / 1 + sp.exp((4 * s_mu_max / s_A * (s_lam - t)) + 2))
+N_pheno = s_N0 * sp.exp(s_A / 1 + sp.exp(((4 * s_mu_max * (s_lam - t)) / s_A) + 2))
 dN = sp.diff(N_pheno, t)
 print("First derivative of N(t):")
 display(dN)
