@@ -68,9 +68,8 @@ from growthcurves.models import (  # mech_logistic_ode,;
 )
 from growthcurves.parametric import fit_fct
 
-# classic model
 
-
+# the classic model as it can be found in wikipedia for logistic growth
 # from scipy.integrate import solve_ivp
 def logistic_growth(t, N_lag, K, mu, lag):
     """Logistic growth model with smooth transition through lag phase"""
@@ -169,174 +168,8 @@ the curve relative to `K`.
 """
 
 
-# ! ToDo: only used once, to be removed
-
-
-def make_figure(K, N_lag, mu, lag):
-    N0 = N_lag  # N0 is where t = lag
-    factor = (K - N0) / N0
-    t_inflect = lag + np.log(factor) / mu
-    N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
-
-    t_start = min(0.0, t_inflect - 2.0 / mu)
-    t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
-    t = np.linspace(t_start, t_end, 500)
-    N = logistic_growth(t, N0, K, mu, lag)
-    dNdt = logistic_derivative(t, K, N0, mu, lag)
-
-    fig = plotly.subplots.make_subplots(
-        rows=2,
-        cols=1,
-        shared_xaxes=True,
-        vertical_spacing=0.08,
-        row_heights=[0.72, 0.28],
-        subplot_titles=("Population size N(t)", "Growth rate dN/dt"),
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=t,
-            y=N,
-            mode="lines",
-            line={"color": "#1565c0", "width": 3},
-            name="N(t)",
-        ),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=t,
-            y=dNdt,
-            mode="lines",
-            line={"color": "#c62828", "width": 3},
-            name="dN/dt",
-        ),
-        row=2,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=[0.0, lag, t_inflect],
-            y=[N_at_zero, N0, K / 2],
-            mode="markers+text",
-            text=["N(0)", "N(lag)=N0=N_lag", "Inflection"],
-            textposition="top center",
-            marker={"size": 10, "color": ["#455a64", "#2e7d32", "#ef6c00"]},
-            name="Key points",
-        ),
-        row=1,
-        col=1,
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=[t_inflect],
-            y=[mu * K / 4],
-            mode="markers+text",
-            text=["Peak slope"],
-            textposition="top center",
-            marker={"size": 10, "color": "#ef6c00"},
-            name="Peak slope",
-        ),
-        row=2,
-        col=1,
-    )
-
-    for row in (1, 2):
-        fig.add_vline(
-            x=lag,
-            line_dash="dash",
-            line_color="#2e7d32",
-            annotation_text="lag",
-            annotation_position="top left",
-            row=row,
-            col=1,
-        )
-        fig.add_vline(
-            x=t_inflect,
-            line_dash="dot",
-            line_color="#ef6c00",
-            annotation_text="t_inflect",
-            annotation_position="top right",
-            row=row,
-            col=1,
-        )
-
-    fig.add_hline(
-        y=K,
-        line_dash="dash",
-        line_color="#1565c0",
-        annotation_text="K",
-        annotation_position="top left",
-        row=1,
-        col=1,
-    )
-    fig.add_hline(
-        y=N0,
-        line_dash="dot",
-        line_color="#2e7d32",
-        annotation_text="N0",
-        annotation_position="bottom left",
-        row=1,
-        col=1,
-    )
-    fig.add_hline(
-        y=K / 2,
-        line_dash="dot",
-        line_color="#ef6c00",
-        annotation_text="K/2",
-        annotation_position="bottom left",
-        row=1,
-        col=1,
-    )
-
-    fig.add_annotation(
-        x=lag,
-        y=N0,
-        xref="x",
-        yref="y",
-        text=(f"factor = {factor:.2f}<br>N0 = K / (1 + factor)"),
-        showarrow=True,
-        arrowhead=2,
-        ax=120,
-        ay=-70,
-        bgcolor="rgba(255,255,255,0.9)",
-        bordercolor="#2e7d32",
-    )
-    fig.add_annotation(
-        x=t_inflect,
-        y=K / 2,
-        xref="x",
-        yref="y",
-        text=("factor * exp(-mu * (t - lag)) = 1<br><=> t = lag + ln(factor) / mu"),
-        showarrow=True,
-        arrowhead=2,
-        ax=130,
-        ay=20,
-        bgcolor="rgba(255,255,255,0.9)",
-        bordercolor="#ef6c00",
-    )
-
-    fig.update_xaxes(title_text="Time", row=2, col=1)
-    fig.update_yaxes(title_text="N(t)", row=1, col=1)
-    fig.update_yaxes(title_text="dN/dt", row=2, col=1)
-    fig.update_layout(
-        height=720,
-        template="plotly_white",
-        showlegend=False,
-        title=(
-            "Shifted logistic curve with explicit factor "
-            f"(N0/K = {N0/K:.3f}, factor = {factor:.3f})"
-        ),
-        margin={"l": 60, "r": 30, "t": 90, "b": 60},
-    )
-
-    return fig, format_summary(K, N0, mu, lag, factor, N_at_zero, t_inflect)
-
-
 # %% [markdown]
-# # 1. Choosen simulation parameters
+# # 1. Chosen simulation parameters
 
 # %% tags=["parameters"]
 mu_max = 0.3  # Growth rate constant
@@ -562,11 +395,10 @@ t_eval = np.linspace(t_start, t_end, num_points)
 
 # %%
 post_lag = t_eval >= lag
+# idx_post_lag is reused below to inspect rows near the lag transition
 idx_post_lag = np.where(post_lag)[0][0]
-# N = np.full_like(t_eval, N0)
-N = mech_logistic_model(t_eval, mu, K, N0)
-N[idx_post_lag:] = N[:-idx_post_lag]  # Shift the solution to the right by lag time
-N[:idx_post_lag] = N0  # Fill in the initial values with N0
+N = np.full_like(t_eval, N0)
+N[post_lag] = mech_logistic_model(t_eval[post_lag] - lag, mu, K, N0)
 
 # %% tags=["hide-input"]
 data = pd.DataFrame(
@@ -764,7 +596,7 @@ pd.concat(
     keys=["Ground Truth", "Fit", "Stats"],
 )
 
-# %%
+# %% [markdown]
 # With a lag phase, it will be off. We use the non-shifted data to fit
 # `OD_phenom_classic`  using `mech_logistic`.
 
@@ -793,7 +625,7 @@ pd.concat(
 # and has a log-phase as it is S-shaped in log-space.
 #
 # ```
-# A = K / N0 # Carrying capacity in log-space
+# A = ln(K / N0) = ln(K) - ln(N0)   # Carrying capacity in log-space
 # ln(Nt/N0) =          A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
 # Nt        = N0 * exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
 # ```
@@ -804,8 +636,13 @@ pd.concat(
 # > space, so the initial condition has to be inferred from the data.
 #
 # We see that the models are not the same. Both are S-curve shaped and quite close
-# confirmation can be found.
-
+# confirmation can be found, but
+# 1. the lag phase (`lam`) parameter had to be adapted for the S-curve to
+#    fit the classic logistic model
+# 2. the initial condition at N(0) (again not N0) had to be manually set to closely
+#    match the classic logistic model.
+#
+#
 
 # %% tags=["hide-input"]
 N_0 = 0.06  # one decimal of from classic logistic model
@@ -859,7 +696,9 @@ _ = ax.legend()
 # We see that the model with different lag-time and similar N0 look similar in linear
 # space. Let's compare these in log-space:
 #
-# >  Note the near linear growth for the classic logistic growth formulation.
+# >  Note the near linear growth for the classic logistic growth formulation in log
+#    space. This is probably a challenge for find the maximum growth point in log-space
+#    as it is indeed an interval.
 
 # %% tags=["hide-input"]
 data["OD_phenom_classic_ln"] = np.log(
@@ -1117,6 +956,9 @@ data.set_index("Time").filter(like="OD_phenom_classic").idxmax()
 # ## Compare the curves in linear and log space.
 # > The phenomenological model for logistic growth in the paper looks similar, but has
 # > different parameters for the lag phase and initial condition!
+#
+# We see that the fits of the models are near identical after the lag-phase, but
+# only the phenomological model defined in the review has a s-shape in log-space.
 
 # %% tags=["hide-input"]
 fig, axes = plt.subplots(2, 1, figsize=(7, 6), sharex=True)
@@ -1186,7 +1028,7 @@ _ = ax2.legend(title="ln(OD) curves")
 
 
 # %% [markdown]
-# # 7 Fit the phenomenological model to different synthetic data
+# # 7. Fit the phenomenological model to different synthetic data
 
 # %% [markdown]
 # ## 7.0 Fit the phenomenological model to the synthetic data created using the mechanistic logistic model
@@ -1413,7 +1255,11 @@ _ = ax.plot([0, K], [0, K], color="black", linestyle="--", label="y=x", alpha=0.
 
 # %% [markdown]
 # # 9. Symbolic derivatives of the models
-
+#
+# Check how the classic vs the review paper model derivatives which are used in growthcurves
+# (phenomenological logistic model) look like in linear space (opposed to how they are
+# formulated in log-space in the review paper).
+#
 
 # %% tags=["hide-input"]
 t, s_K, s_N0, s_mu, s_lag = sp.symbols("t K N0 mu lag", positive=True)
