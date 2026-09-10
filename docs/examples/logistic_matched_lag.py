@@ -32,9 +32,10 @@
 #
 # Integrating the ODE from `t = 0` with `N0_eff` then yields exactly the classic
 # curve above (up to ODE solver tolerance).
+#
+# > This example is not identical to the logistic phenomenological model from the review.
 
 # %% tags=["hide-input"]
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -80,7 +81,7 @@ OD_phenom_classic = K / (1 + factor * np.exp(-mu * (t - lag)))
 
 # %%
 N0_eff = K / (1 + factor * np.exp(mu * lag))
-print(f"Back-extrapolated initial OD at t=0: N0_eff = {N0_eff:.6g}")
+print(f"Back-extrapolated initial OD at t=0: N0_eff = {N0_eff:.6f}")
 
 OD_mech = mech_logistic_model(t, mu=mu, K=K, N0=N0_eff)
 
@@ -101,8 +102,8 @@ data = pd.DataFrame(
 
 max_abs_diff = np.max(np.abs(data["OD_mech"] - data["OD_phenom_classic"]))
 od_at_lag = np.interp(lag, t, OD_phenom_classic)
-print(f"max |OD_mech - OD_phenom_classic| = {max_abs_diff:.2e}")
-print(f"OD at t=lag = {od_at_lag:.6g} (should equal N0 = {N0})")
+print(f"max |OD_mech - OD_phenom_classic| = {max_abs_diff:.5f}")
+print(f"OD at t=lag = {od_at_lag:.6f} (should equal N0 = {N0})")
 
 # %% tags=["hide-input"]
 ax = data.plot(
