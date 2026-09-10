@@ -23,6 +23,7 @@ tutorial/plotting
 
 examples/README
 examples/logistic_model
+examples/logistic_matched_lag
 ```
 
 ```{toctree}
