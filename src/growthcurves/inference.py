@@ -795,13 +795,15 @@ def _extract_stats_phenom_logistic(
     lam = float(params["lam"])  # Lag t
     N0 = min(N)  # undefined in log ratio space (ln(N/N0))
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
+    # Evaluate model: model is defiend for log(N/N0), so convert to linear space for OD
+    N_fit = log_to_linear(
+        evaluate_parametric_model(t, "phenom_logistic", params), params["N0"]
+    )
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
     N_dense = log_to_linear(
-        evaluate_parametric_model(t_dense, "phenom_logistic", params), 0.1
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N0"]
     )
 
     # Calculate specific growth rate curve
@@ -847,7 +849,7 @@ def _extract_stats_phenom_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N, N_fit)
 
     return {
         "max_od": max_od,
