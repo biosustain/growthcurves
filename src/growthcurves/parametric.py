@@ -371,9 +371,13 @@ def fit_phenom_logistic(t, N):
         return None
 
     # Estimate initial parameters
-    N0_init = float(np.min(N))
-    N_max = float(np.max(N))
-    A_init = np.log((N_max - N0_init) / N0_init)
+    N0_init = max(float(np.min(N)), 0.01)  # ensure that N0 is positive
+    N_max = max(
+        float(np.max(N)), N0_init + 0.02
+    )  # ensure that N_max is greater than N0
+    A_init = max(
+        np.log((N_max / N0_init)), 0.01
+    )  # ensure that the log-ratio is positive
     # ! not devided by N0_init, because N0 is fitted as a free parameter
     ln_N = np.log(N)
     gradient_ln_N = np.gradient(ln_N, t)
@@ -530,9 +534,10 @@ FITTING_FUNCTIONS = {
     "mech_richards": fit_mech_richards,
     "mech_baranyi": fit_mech_baranyi,
     "phenom_logistic": fit_phenom_logistic,
-    "phenom_gompertz": fit_phenom_gompertz,
+    "phenom_gompertz": fit_phenom_gompertz,  # Todo: still operates on linear space
+    # Todo: still operates on linear space:
     "phenom_gompertz_modified": fit_phenom_gompertz_modified,
-    "phenom_richards": fit_phenom_richards,
+    "phenom_richards": fit_phenom_richards,  # Todo: still operates on linear space
 }
 
 
