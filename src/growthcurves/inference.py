@@ -8,7 +8,12 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 import growthcurves as gc
-from growthcurves.models import MODEL_REGISTRY, evaluate_parametric_model
+from growthcurves.models import (
+    MODEL_REGISTRY,
+    evaluate_parametric_model,
+    log_to_linear,
+    spline_from_params,
+)
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -502,8 +507,6 @@ def _extract_stats_mech_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -596,8 +599,6 @@ def _extract_stats_mech_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -691,8 +692,6 @@ def _extract_stats_mech_baranyi(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -788,22 +787,24 @@ def _extract_stats_phenom_logistic(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = np.nan  # undefined in log ratio space (ln(N/N0))
+    N0 = min(N)  # undefined in log ratio space (ln(N/N0))
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
+    # Evaluate model: model is defiend for log(N/N0), so convert to linear space for OD
+    N_fit = log_to_linear(
+        evaluate_parametric_model(t, "phenom_logistic", params), params["N0"]
+    )
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N0"]
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
@@ -848,7 +849,7 @@ def _extract_stats_phenom_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N, N_fit)
 
     return {
         "max_od": max_od,
@@ -890,8 +891,6 @@ def _extract_stats_phenom_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -991,8 +990,6 @@ def _extract_stats_phenom_gompertz_modified(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1096,8 +1093,6 @@ def _extract_stats_phenom_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1383,8 +1378,6 @@ def _extract_stats_spline(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import spline_from_params
-
     params = fit_result.get("params", {})
 
     # Use stored mu_max and time_at_umax from the original fit

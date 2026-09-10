@@ -35,6 +35,7 @@ extensions = [
     "sphinx.ext.napoleon",  # Support for Google and NumPy style docstrings
     "sphinx.ext.intersphinx",  # allows linking to other projects' documentation in API
     "sphinx_new_tab_link",  # each link opens in a new tab
+    # "sphinx.ext.mathjax", # see if this renders math in the notebooks
     "myst_nb",  # Markdown and Jupyter Notebook support
     "sphinx_copybutton",  # add copy button to code blocks
 ]
@@ -42,13 +43,16 @@ extensions = [
 #  https://myst-nb.readthedocs.io/en/latest/computation/execute.html
 nb_execution_mode = "auto"
 
-myst_enable_extensions = ["dollarmath", "amsmath"]
+myst_enable_extensions = [
+    "dollarmath",
+    "amsmath",
+]
 
 # Plotly support through require javascript library
 # https://myst-nb.readthedocs.io/en/latest/render/interactive.html#plotly
-html_js_files = [
-    "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
-]
+# html_js_files = [
+#     "https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"
+# ]
 os.environ["PLOTLY_RENDERER"] = "notebook"  # compatibility with plotly6
 
 # https://myst-nb.readthedocs.io/en/latest/configuration.html
