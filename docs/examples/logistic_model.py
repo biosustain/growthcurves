@@ -2,17 +2,17 @@
 # # Logistic Growth Model Simulation and Fitting
 # - N(0) should be close to zero (as recommended in the review paper)
 # - K is the carrying capacity (maximum OD) in linear space
-# - A is the log ratio of K to N(0), used in the phenomenological model
+# - A is the log ratio of K, used in the phenomenological model in the review paper
 # - mu_max and mu are the growth rate constants for log-scale and linear-scale models,
 #   respectively. mu is only defined for mechanistic models.
 #
 # The ODE given in the review and the phenomological model are not equivalent, but
-# closely related.
+# closely related. The closed wikipedia form of the logistic growth model is given by
 #
 # \begin{gather*}
 # N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
 # \qquad
-# \mathrm{factor} = \frac{K - N_0}{N_0}.
+# \mathrm{factor} = \frac{K - N0}{N0}.
 # \end{gather*}
 #
 # It matches the "classic" logistic shape from Wikipedia, but writes the usual
@@ -20,7 +20,7 @@
 # > Note: `N0` is not `N(t=0)`unless `lag=0`. The ODE can be used to model the
 # > the logistic growth after the lag phase.
 #
-# ## Classic logistic parameters
+# ## Classic logistic parameters (wikipedia version)
 # - `K` sets the upper plateau (carrying capacity).
 # - `mu` sets how quickly the transition happens.
 # - `factor = (K - N0) / N0` is not an extra free parameter once `K` and `N0`
@@ -171,7 +171,6 @@ the curve relative to `K`.
 mu_max = 0.3  # Growth rate constant
 K = 5  # Carrying capacity for logistic growth
 N0 = 0.3  # condition at lag
-A = float(np.log((K - N0) / N0))
 t_start = 0.0  # Start time
 t_end = 60.0  # End time
 lag = 12.3  # Lag time
@@ -182,6 +181,7 @@ num_points = int(t_end * 12)  # Number of data points to generate
 
 # %% tags=["hide-input"]
 mu = mu_max / (1 - N0 / K)
+A = np.log(K)
 print(f"mu_max: {mu_max}, mu: {mu}, K: {K}, N0: {N0}")
 
 ground_truth_params = {
@@ -194,7 +194,7 @@ ground_truth_params = {
 }
 
 
-factor = (K - N0) / N0  # N0 is where t = lag
+factor = (K - N0) / N0  # N0 is where t = lag for the classic logistic model, not N(0)
 t_inflect = lag + np.log(factor) / mu
 N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
 
@@ -380,26 +380,19 @@ t_eval = np.linspace(t_start, t_end, num_points)
 # and use the analytical solution for comparison
 #
 # To model the lag phase, we will shift the solution to the right by the lag time,
-# filling in the initial values with `N0`. `N0` is the value at `t = lag`, which can be
-# remodeled using the classic logistic growth formula. The lag phase is not explicitly
+# filling in the initial values with `N(0)`. `N0` is the value at `t = lag`, which can
+# be used to calculate the initial value at `t = 0` as the lag phase is not explicitly
 # modeled in the ODE.
-#
-# > Shift the solution to the right by the lag time (in continuous time, not by a
-# > fixed number of grid points, so it lines up exactly with the closed-form
-# > comparison below regardless of the time grid spacing).
 #
 
 # %%
-post_lag = t_eval >= lag
-# idx_post_lag is reused below to inspect rows near the lag transition
-idx_post_lag = np.where(post_lag)[0][0]
-N = np.full_like(t_eval, N0)
-N[post_lag] = mech_logistic_model(t_eval[post_lag] - lag, mu, K, N0)
+N_start = K / (1 + factor * np.exp(mu * lag))
+N = mech_logistic_model(t, mu=mu, K=K, N0=N_start)
 
 # %% tags=["hide-input"]
 data = pd.DataFrame(
     {
-        "Time": t_eval,
+        "Time": t,
         "OD_mech": N,
         "ln_OD_mech": np.log(N / N0),
     }
@@ -1201,7 +1194,7 @@ data[col].plot(
 # However, recovering $mu$ and $K$ was possible.
 
 # %%
-data[[f"{col}_fit", col]].iloc[idx_post_lag : idx_post_lag + 10]
+data.query("Time > @lag").head(10)
 
 
 # %% [markdown]
