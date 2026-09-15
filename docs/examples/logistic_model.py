@@ -81,6 +81,13 @@ def logistic_growth(t, N_lag, K, mu, lag):
     return N
 
 
+# first derivative of the logistic growth function
+def logistic_derivative(t, K, N_lag, mu, lag):
+    N = logistic_growth(t, N_lag, K, mu, lag)
+    return mu * N * (1 - N / K)
+
+
+# second derivative of the logistic growth function
 def get_acceleration(t, K, N0, mu, lag):
     """
     Returns the acceleration (second derivative) at t t.
@@ -88,11 +95,6 @@ def get_acceleration(t, K, N0, mu, lag):
     N = logistic_growth(t, N_lag=N0, K=K, mu=mu, lag=lag)
     accel = mu**2 * N * (1 - (N / K)) * (1 - (2 * N / K))
     return accel
-
-
-def logistic_derivative(t, K, N_lag, mu, lag):
-    N = logistic_growth(t, N_lag, K, mu, lag)
-    return mu * N * (1 - N / K)
 
 
 def get_doubling_time(t, K, N0, mu, lag):
@@ -203,14 +205,19 @@ t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
 t = np.linspace(t_start, t_end, 500)
 N = logistic_growth(t, N0, K, mu, lag)
 dNdt = logistic_derivative(t, K, N0, mu, lag)
+dNdtdt = get_acceleration(t, K, N0, mu, lag)
 
 fig = plotly.subplots.make_subplots(
-    rows=2,
+    rows=3,
     cols=1,
     shared_xaxes=True,
-    vertical_spacing=0.08,
-    row_heights=[0.72, 0.28],
-    subplot_titles=("Population size N(t)", "Growth rate dN/dt"),
+    vertical_spacing=0.06,
+    row_heights=[0.5, 0.25, 0.25],
+    subplot_titles=(
+        "Population size N(t)",
+        "Growth rate dN/dt",
+        "Acceleration d²N/dt²",
+    ),
 )
 
 fig.add_trace(
@@ -235,6 +242,17 @@ fig.add_trace(
     row=2,
     col=1,
 )
+fig.add_trace(
+    go.Scatter(
+        x=t,
+        y=dNdtdt,
+        mode="lines",
+        line={"color": "#6a1b9a", "width": 3},
+        name="d²N/dt²",
+    ),
+    row=3,
+    col=1,
+)
 
 fig.add_trace(
     go.Scatter(
@@ -255,7 +273,7 @@ fig.add_trace(
         y=[mu * K / 4],
         mode="markers+text",
         text=["Peak slope"],
-        textposition="top center",
+        textposition="bottom center",
         marker={"size": 10, "color": "#ef6c00"},
         name="Peak slope",
     ),
@@ -263,7 +281,7 @@ fig.add_trace(
     col=1,
 )
 
-for row in (1, 2):
+for row in (1, 2, 3):
     fig.add_vline(
         x=lag,
         line_dash="dash",
@@ -338,11 +356,12 @@ fig.add_annotation(
     bordercolor="#ef6c00",
 )
 
-fig.update_xaxes(title_text="Time", row=2, col=1)
+fig.update_xaxes(title_text="Time", row=3, col=1)
 fig.update_yaxes(title_text="N(t)", row=1, col=1)
 fig.update_yaxes(title_text="dN/dt", row=2, col=1)
+fig.update_yaxes(title_text="d²N/dt²", row=3, col=1)
 fig.update_layout(
-    height=720,
+    height=880,
     template="plotly_white",
     showlegend=False,
     title=(
