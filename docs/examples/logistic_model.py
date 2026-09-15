@@ -9,11 +9,11 @@
 # The ODE given in the review and the phenomological model are not equivalent, but
 # closely related. The closed wikipedia form of the logistic growth model is given by
 #
-# \begin{gather*}
+# $$
 # N(t) = \frac{K}{1 + \mathrm{factor}\,\exp(-\mu (t - \mathrm{lag}))},
 # \qquad
 # \mathrm{factor} = \frac{K - N0}{N0}.
-# \end{gather*}
+# $$
 #
 # It matches the "classic" logistic shape from Wikipedia, but writes the usual
 # integration constant in a biologically meaningful way through `K` and `N0`.
