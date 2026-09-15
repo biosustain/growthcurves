@@ -49,6 +49,7 @@ docs = [
   "pandas",
   "numpy",
   "matplotlib",
+  "sympy",
 ]
 # local development options
 dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]

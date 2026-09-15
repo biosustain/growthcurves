@@ -4,11 +4,15 @@ import warnings
 
 import numpy as np
 
-from . import inference, models, non_parametric, parametric
-from .models import get_all_models
+from growthcurves import inference, models
+from growthcurves.models import get_all_models
+from growthcurves.non_parametric import fit_non_parametric
+from growthcurves.parametric import fit_parametric
 
 __all__ = [
     "fit_model",
+    "fit_non_parametric",
+    "fit_parametric",
 ]
 
 
@@ -22,9 +26,9 @@ def fit_model(
     **kwargs,
 ) -> tuple[dict, dict]:
     if model_name in models.MODEL_REGISTRY["non_parametric"]:
-        fit_res = non_parametric.fit_non_parametric(t, N, method=model_name, **kwargs)
+        fit_res = fit_non_parametric(t, N, method=model_name, **kwargs)
     else:
-        fit_res = parametric.fit_parametric(t, N, method=model_name, **kwargs)
+        fit_res = fit_parametric(t, N, method=model_name, **kwargs)
     # return None if fit fails, along with bad fit stats
     if fit_res is None:
         warnings.warn(
