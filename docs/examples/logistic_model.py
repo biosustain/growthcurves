@@ -450,6 +450,9 @@ _ = ax.legend()
 # only overlap to the mechanistic model after the lag phase.
 #
 # > N(0) is here not N0!
+#
+# We see that mu_max is maximumal at the start of the time period for the classic
+# logistic growth model.
 
 # %% tags=["hide-input"]
 data["OD_phenom_classic"] = logistic_growth(
@@ -468,10 +471,19 @@ data["OD_phenom_classic_2der"] = get_acceleration(
 data["OD_phenom_classic_doubling_time"] = get_doubling_time(
     t=data["Time"], K=K, N0=N0, mu=mu, lag=lag
 )
-# N(0) is the initial condition at t=0
+# N(0) is the initial condition at t=0, N0 is the N(lag)
 data["OD_phenom_classic_ln"] = np.log(
-    data["OD_phenom_classic"] / N0  #  data["OD_phenom_classic"].min()
+    data["OD_phenom_classic"] / data["OD_phenom_classic"].min()
 )
+# using chain rule: d(ln N)/dt = (dN/dt) / N, the specific growth rate
+data["OD_phenom_classic_ln_1der"] = (
+    data["OD_phenom_classic_1der"] / data["OD_phenom_classic"]
+)
+# numerically differentiated for comparison, using the analytical formula above
+data["OD_phenom_classic_ln_1der_numeric"] = np.gradient(
+    data["OD_phenom_classic_ln"], data["Time"]
+)
+
 
 ax = data.plot.scatter(
     x="Time",
@@ -506,19 +518,18 @@ _ = ax.legend()
 # %% [markdown]
 # If we check the derived quantities, we see that the maximum observed growth rate will
 # be by construction at t=lag
-
 # %% tags=["hide-input"]
 _ = (
     data.set_index("Time")
     .filter(like="OD_phenom_classic")
     .plot(
         subplots=True,
-        layout=(3, 2),
-        figsize=(7, 6),
+        layout=(4, 2),
+        figsize=(7, 8),
         sharex=True,
         style=".",
         markersize=1,
-        ylim=(-5, 8),
+        # ylim=(-5, 8),
     )
 )
 # %% tags=["hide-input"]
