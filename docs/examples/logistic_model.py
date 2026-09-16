@@ -650,23 +650,28 @@ pd.concat(
 # ```
 # A = ln(K / N(0)) = ln(K) - ln(N(0))   # Carrying capacity in log-space
 # note: N(0) is not modeled in log-space:
-# ln(Nt/N(0)) =          A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
-# N(t)        = N(0)* exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
+# ln(Nt/N(0)) =            A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
+# ln(Nt)      = ln(N(0)) + A / (1 + exp((4 * μ_max / A) * (λ - t) + 2))
+# N(t)        = N(0) * exp(A / (1 + exp((4 * μ_max / A) * (λ - t) + 2)))
 # ```
 #
-# > Note that you can model the lag phase with a time shift in this formulation, which had
-# > to be manually added using the mechanistic model upon data generation. Buy contrast
-# > N(0) - the inoculum size, is not modeled using the phenomological model(s) operating
-# > in log space, so the initial condition has to be inferred from the data.
+# > Note that you can model the lag phase with a time shift in this formulation. By
+# > contrast, N(0) - the inoculum size, is not modeled using the phenomological model(s)
+# > operating in log space, so the initial condition has to be inferred from the data.
+# > If we use ln(N(t)) we can model the off-set in log-space.
 #
 # We see that the models are not the same. Both are S-curve shaped and quite close
 # confirmation can be found, but
-# 1. the lag phase (`lam`) parameter had to be adapted for the S-curve to
+# 1. the lag phase (`lam`) parameter had to be adapted  manually for the S-curve to
 #    fit the classic logistic model
 # 2. the initial condition at N(0) (again not N0) had to be manually set to closely
 #    match the classic logistic model.
 #
-#
+# You can manipulate `N_0` (`N_init`) and `lam` to get a better fit to the classic
+# logistic model. With negative `lam` the curve is shifted. Note that `N_0` is one
+# order larger here with `0.06` than the equivalent value in the classic logistic model
+# highlighting that it is still an important parameter.
+
 
 # %% tags=["hide-input"]
 N_0 = 0.06  # one decimal of from classic logistic model
@@ -726,7 +731,8 @@ _ = ax.legend()
 
 # %% tags=["hide-input"]
 data["OD_phenom_classic_ln"] = np.log(
-    data["OD_phenom_classic"] / N_0  # data["OD_phenom_classic"].min()
+    data["OD_phenom_classic"]
+    / N_0  # using the data it would be data["OD_phenom_classic"].min()
 )
 
 ax = data.plot.scatter(
@@ -737,7 +743,6 @@ ax = data.plot.scatter(
     title="Logistic Growth in log-space (classic vs paper version)",
     label="Classic Logistic Growth",
     xlabel="Time (hours)",
-    ylabel="OD",
 )
 _ = data.plot.scatter(
     x="Time",
@@ -746,15 +751,19 @@ _ = data.plot.scatter(
     color="C1",
     ax=ax,
     label="Phenomenological Logistic Growth",
+    ylabel="ln(OD / N0)",
 )
 
 # %% [markdown]
 # ## Fit synthetic data from classic logistic regression model (`OD_phenom_classic`) using `phenom_logistic`
+#
 # The assumption is here that the initial condition is observed at t=0. this is different
 # from N0 = N(lag) in the classic logistic model formulation.
-# - find a good fit for the phenomenological model
-# - compare the parameters
-# - plot the fit
+# - manually found  a good fit for the review phenomenological logistic model in linear
+#   space to the classsic logistic model.
+#
+# However, in log-space the models do not necessarily match.
+
 
 # %% tags=["hide-input"]
 model = "phenom_logistic"
