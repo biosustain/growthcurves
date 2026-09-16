@@ -83,7 +83,7 @@ OD_phenom_classic = K / (1 + factor * np.exp(-mu * (t - lag)))
 N0_eff = K / (1 + factor * np.exp(mu * lag))
 print(f"Back-extrapolated initial OD at t=0: N0_eff = {N0_eff:.6f}")
 
-OD_mech = mech_logistic_model(t, mu=mu, K=K, N0=N0_eff)
+OD_mech = mech_logistic_model(t, mu=mu, K=K, N_init=N0_eff)
 
 # %% [markdown]
 # ## 5. They match exactly
