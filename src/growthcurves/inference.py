@@ -8,7 +8,12 @@ import numpy as np
 from scipy.signal import savgol_filter
 
 import growthcurves as gc
-from growthcurves.models import MODEL_REGISTRY, evaluate_parametric_model
+from growthcurves.models import (
+    MODEL_REGISTRY,
+    evaluate_parametric_model,
+    log_to_linear,
+    spline_from_params,
+)
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -401,7 +406,7 @@ def _extract_stats_mech_logistic(
     ODE: dN/dt = μ * (1 - N/K) * N
 
     Parameters:
-        fit_result: Dict containing 'params' with mu, K, N0
+        fit_result: Dict containing 'params' with mu, K, N_init
         t: Time array
         N: OD values
         lag_threshold, exp_threshold: Phase detection thresholds
@@ -414,7 +419,7 @@ def _extract_stats_mech_logistic(
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
-    N0 = float(params["N0"])  # Initial population
+    N_init = float(params["N_init"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -437,7 +442,7 @@ def _extract_stats_mech_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = K
-        stats["N0"] = N0
+        stats["N_init"] = N_init
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_logistic"
         return stats
@@ -464,7 +469,7 @@ def _extract_stats_mech_logistic(
 
     return {
         "max_od": K,
-        "N0": N0,
+        "N_init": N_init,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -502,8 +507,6 @@ def _extract_stats_mech_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -596,8 +599,6 @@ def _extract_stats_mech_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -691,8 +692,6 @@ def _extract_stats_mech_baranyi(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -788,22 +787,25 @@ def _extract_stats_phenom_logistic(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = np.nan  # undefined in log ratio space (ln(N/N0))
+    # ? Should be the fitted one ?
+    N_init = min(N)  # undefined in log ratio space (ln(N/N0))
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_logistic", params)
+    # Evaluate model: model is defiend for log(N/N0), so convert to linear space for OD
+    N_fit = log_to_linear(
+        evaluate_parametric_model(t, "phenom_logistic", params), params["N_init"]
+    )
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_logistic", params)
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N_init"]
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
@@ -820,7 +822,7 @@ def _extract_stats_phenom_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
-        stats["N0"] = N0
+        stats["N_init"] = N_init
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -848,11 +850,11 @@ def _extract_stats_phenom_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N, N_fit)
 
     return {
         "max_od": max_od,
-        "N0": N0,
+        "N_init": N_init,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -890,8 +892,6 @@ def _extract_stats_phenom_gompertz(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -991,8 +991,6 @@ def _extract_stats_phenom_gompertz_modified(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1096,8 +1094,6 @@ def _extract_stats_phenom_richards(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import evaluate_parametric_model
-
     params = fit_result.get("params", {})
 
     # Extract model parameters
@@ -1383,8 +1379,6 @@ def _extract_stats_spline(
     Returns:
         Growth statistics dictionary.
     """
-    from .models import spline_from_params
-
     params = fit_result.get("params", {})
 
     # Use stored mu_max and time_at_umax from the original fit
