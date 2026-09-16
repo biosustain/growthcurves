@@ -406,7 +406,7 @@ def _extract_stats_mech_logistic(
     ODE: dN/dt = μ * (1 - N/K) * N
 
     Parameters:
-        fit_result: Dict containing 'params' with mu, K, N0
+        fit_result: Dict containing 'params' with mu, K, N_init
         t: Time array
         N: OD values
         lag_threshold, exp_threshold: Phase detection thresholds
@@ -419,7 +419,7 @@ def _extract_stats_mech_logistic(
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
-    N0 = float(params["N0"])  # Initial population
+    N_init = float(params["N_init"])  # Initial population
     mu_intrinsic = float(params["mu"])  # Intrinsic growth rate
 
     # Evaluate model
@@ -442,7 +442,7 @@ def _extract_stats_mech_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = K
-        stats["N0"] = N0
+        stats["N_init"] = N_init
         stats["intrinsic_growth_rate"] = mu_intrinsic
         stats["fit_method"] = "model_fitting_mech_logistic"
         return stats
@@ -469,7 +469,7 @@ def _extract_stats_mech_logistic(
 
     return {
         "max_od": K,
-        "N0": N0,
+        "N_init": N_init,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": mu_intrinsic,
         "doubling_time": float(doubling_time),
@@ -793,17 +793,18 @@ def _extract_stats_phenom_logistic(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = min(N)  # undefined in log ratio space (ln(N/N0))
+    # ? Should be the fitted one ?
+    N_init = min(N)  # undefined in log ratio space (ln(N/N0))
 
     # Evaluate model: model is defiend for log(N/N0), so convert to linear space for OD
     N_fit = log_to_linear(
-        evaluate_parametric_model(t, "phenom_logistic", params), params["N0"]
+        evaluate_parametric_model(t, "phenom_logistic", params), params["N_init"]
     )
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
     N_dense = log_to_linear(
-        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N0"]
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N_init"]
     )
 
     # Calculate specific growth rate curve
@@ -821,7 +822,7 @@ def _extract_stats_phenom_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
-        stats["N0"] = N0
+        stats["N_init"] = N_init
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -853,7 +854,7 @@ def _extract_stats_phenom_logistic(
 
     return {
         "max_od": max_od,
-        "N0": N0,
+        "N_init": N_init,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),

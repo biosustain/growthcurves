@@ -137,7 +137,7 @@ def fit_mech_logistic(t, N):
         t,
         N,
         model_func=mech_logistic_model,
-        param_names=["mu", "K", "N0"],
+        param_names=["mu", "K", "N_init"],
         p0_func=lambda K, t, dy: [0.5, K, 0.001],
         bounds_func=lambda K, t: (
             [0.0001, 0.001, 1e-6],
@@ -371,22 +371,18 @@ def fit_phenom_logistic(t, N):
         return None
 
     # Estimate initial parameters
-    N0_init = max(float(np.min(N)), 0.01)  # ensure that N0 is positive
-    N_max = max(
-        float(np.max(N)), N0_init + 0.02
-    )  # ensure that N_max is greater than N0
-    A_init = max(
-        np.log((N_max / N0_init)), 0.01
-    )  # ensure that the log-ratio is positive
-    # ! not devided by N0_init, because N0 is fitted as a free parameter
-    ln_N = np.log(N)
+    N_init = max(float(np.min(N)), 0.01)  # ensure that N0 is positive
+    N_max = max(float(np.max(N)), N_init + 0.02)  # ensure that N_max is greater than N0
+    A_init = max(np.log(N_max / N_init), 0.01)  # ensure that the log-ratio is positive
+    # ! not devided by N_init, because N_init is fitted as a free parameter
+    ln_N = np.log(N)  #  / N_init
     gradient_ln_N = np.gradient(ln_N, t)
     mu_max_init = np.max(gradient_ln_N)
     # estimates lag time initialization using the gradient of N with respect to t
     lam_init = _estimate_lag_time(t, gradient_ln_N)
 
     # Initial parameter guess and bounds
-    p0 = [A_init, mu_max_init, lam_init, np.log(N0_init)]
+    p0 = [A_init, mu_max_init, lam_init, np.log(N_init)]
     # ! hard-coded bounds  for A, mu_max, lam. Could be improved.
     # bounds = ([-np.inf, 0.0001, -np.inf, -np.inf], [np.inf, np.inf, np.inf, np.inf])
 
@@ -397,10 +393,15 @@ def fit_phenom_logistic(t, N):
         ln_N,
         p0=p0,
     )
-    A, mu_max, lam, ln_N0 = (float(p) for p in params)
+    A, mu_max, lam, ln_N_init = (float(p) for p in params)
 
     return {
-        "params": {"A": A, "mu_max": mu_max, "lam": lam, "N0": float(np.exp(ln_N0))},
+        "params": {
+            "A": A,
+            "mu_max": mu_max,
+            "lam": lam,
+            "N_init": float(np.exp(ln_N_init)),
+        },
         "model_type": "phenom_logistic",
     }
 

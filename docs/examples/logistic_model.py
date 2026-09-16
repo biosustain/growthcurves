@@ -199,6 +199,7 @@ ground_truth_params = {
 factor = (K - N0) / N0  # N0 is where t = lag for the classic logistic model, not N(0)
 t_inflect = lag + np.log(factor) / mu
 N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
+ground_truth_params["N_init"] = N_at_zero
 
 t_start = min(0.0, t_inflect - 2.0 / mu)
 t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
@@ -406,7 +407,7 @@ t_eval = np.linspace(t_start, t_end, num_points)
 
 # %%
 N_start = K / (1 + factor * np.exp(mu * lag))
-N = mech_logistic_model(t, mu=mu, K=K, N0=N_start)
+N = mech_logistic_model(t, mu=mu, K=K, N_init=N_start)
 
 # %% tags=["hide-input"]
 data = pd.DataFrame(
@@ -569,25 +570,20 @@ pd.concat(
 
 # %% tags=["hide-input"]
 model = "mech_logistic"
-# mask_timepoints_after_lag = data["Time"] > lag
-data_mech = data.query(f"Time >= {lag - 0.0001}")
-
-data_mech["Time"] = data_mech["Time"] - lag  # Shift time to start at lag
-data_mech[["Time", "OD_mech", "OD_phenom_classic"]]
-
 
 # %% [markdown]
 # Fit `OD_mech` using `mech_logistic`. Here we expect to recover the original parameters
 # used to generate the data.
 #
 # - `mu` is recovered
+# - `mu_max` is at the start of the lag phase
 #
 # > check how the stats are calculated here.
 
 # %% tags=["hide-input"]
 model = "mech_logistic"
 fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
-    data_mech["Time"], data_mech["OD_mech"], model=model
+    data["Time"], data["OD_mech"], model=model
 )
 # Combine fits into a  DataFrame for display
 pd.concat(
@@ -598,34 +594,13 @@ pd.concat(
     ],
     axis=1,
     keys=["Ground Truth", "Fit", "Stats"],
-)
+).convert_dtypes()
 
 
 # %% [markdown]
 # Fit `OD_phenom_classic` using `mech_logistic`. Remember that we shifted the data to
 # get rid of the lag phase (which we could do as we generated the data). Whichout
 # lag-phase the mechanistic model can be used to fit the data.
-
-# %%
-model = "mech_logistic"
-fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
-    data_mech["Time"], data_mech["OD_phenom_classic"], model=model
-)
-# Combine fits into a  DataFrame for display
-pd.concat(
-    [
-        pd.Series(ground_truth_params),
-        pd.Series(fit_mech_logistic),
-        pd.Series(stats_mech_logistic),
-    ],
-    axis=1,
-    keys=["Ground Truth", "Fit", "Stats"],
-)
-
-# %% [markdown]
-# With a lag phase, it will be off. We use the non-shifted data to fit
-# `OD_phenom_classic`  using `mech_logistic`.
-
 
 # %%
 model = "mech_logistic"
@@ -641,7 +616,29 @@ pd.concat(
     ],
     axis=1,
     keys=["Ground Truth", "Fit", "Stats"],
+).convert_dtypes()
+
+# %% [markdown]
+# The mechanistic model does not recover N0 directly or the lag.
+# N0 here is N(0) for the mechanistic fit and N(lag) for the closed form solution.
+#
+# > ToDo: N_init is a better name?
+
+# %%
+model = "mech_logistic"
+fit_mech_logistic, stats_mech_logistic = fit_model_and_extract_stats(
+    data["Time"], data["OD_phenom_classic"], model=model
 )
+# Combine fits into a  DataFrame for display
+pd.concat(
+    [
+        pd.Series(ground_truth_params),
+        pd.Series(fit_mech_logistic),
+        pd.Series(stats_mech_logistic),
+    ],
+    axis=1,
+    keys=["Ground Truth", "Fit", "Stats"],
+).convert_dtypes()
 
 # %% [markdown]
 # # 6. Generate the phenomenological model for comparison (paper version)
@@ -787,7 +784,7 @@ data["OD_phenom_classic_fit"] = log_to_linear(
         A=fit_["A"],
         lam=fit_["lam"],
     ),
-    fit_["N0"],
+    N_init=fit_["N_init"],
 )
 ax = data.plot.scatter(
     x="Time",
@@ -895,7 +892,7 @@ data["OD_phenom_paper_fit"] = log_to_linear(
         A=fit_["A"],
         lam=fit_["lam"],
     ),
-    fit_["N0"],
+    fit_["N_init"],
 )
 ax = data.plot.scatter(
     x="Time",
