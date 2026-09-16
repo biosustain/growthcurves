@@ -517,7 +517,10 @@ _ = ax.legend()
 
 # %% [markdown]
 # If we check the derived quantities, we see that the maximum observed growth rate will
-# be by construction at t=lag
+# be after the set lag time. In log-space for the classic logistic close form model,
+# the maximum is at t=0. (Not shown here: By contrast, the phenomological model of the
+# review is also s-shaped in log-space)
+
 # %% tags=["hide-input"]
 _ = (
     data.set_index("Time")
@@ -576,6 +579,10 @@ data_mech[["Time", "OD_mech", "OD_phenom_classic"]]
 # %% [markdown]
 # Fit `OD_mech` using `mech_logistic`. Here we expect to recover the original parameters
 # used to generate the data.
+#
+# - `mu` is recovered
+#
+# > check how the stats are calculated here.
 
 # %% tags=["hide-input"]
 model = "mech_logistic"
