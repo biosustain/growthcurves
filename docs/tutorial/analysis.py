@@ -44,11 +44,15 @@ import growthcurves as gc
 # %% [markdown]
 # ## Generate synthetic data
 #
-# This cell generates synthetic growth data from a clean logistic function.
+# This cell generates synthetic growth data for the specified model and parameters.
 # - time is modeled in hours, with measurements every 12 minutes (0.2 hours) for
 #   a total of 440 points (88 hours).
-# - We assume a lag of 30 hours, an intrinsic growth rate of 0.15 hour⁻¹,
-#   and a carrying capacity of 0.45 OD.
+
+# %% tags=["parameters"]
+K = 2.45  # Carrying capacity (maximum population size)
+mu = 0.15  # intrinsic growth rate (per hour) for mechanistic model
+N0 = 0.05  # N(lag)
+lag = 10.0
 
 # %% tags=["hide-input"]
 # Generate synthetic growth data from logistic function
@@ -82,14 +86,11 @@ def get_logistic_growth_and_rate(t, K, N0, mu, lag):
 # log_der = mu * (1 - 0.5) = 0.5 * mu
 
 # Generate clean logistic curve
-K = 2.45
-mu = 0.15
-N0 = 0.05
-lag = 10.0
-ln_N, t_inflec = logistic_growth(t, N0=N0, K=K, mu=mu, lag=lag)
 
-ax = pd.Series(ln_N, index=t).plot(
-    title="Synthetic Growth Curve", xlabel="Time (hours)", ylabel="$ln(OD/N_0)$"
+N, t_inflec = logistic_growth(t, N0=N0, K=K, mu=mu, lag=lag)
+
+ax = pd.Series(N, index=t).plot(
+    title="Synthetic Logistic Growth Curve", xlabel="Time (hours)", ylabel="$N$"
 )
 _ = ax.vlines(
     t_inflec,
@@ -140,8 +141,6 @@ print(
 # practice.
 
 # %%
-N = N0 * np.exp(ln_N)
-
 ax = pd.Series(N, index=t).plot(
     title="Synthetic Growth Curve", xlabel="Time (hours)", ylabel="OD"
 )
@@ -158,8 +157,8 @@ _ = ax.annotate(
         f"Inflection Point\nt={t_inflec:.2f}\n"
         # f"$\\frac{{dP}}{{dt}}_{{inflection}}$={der_inflec:.5f}"
     ),
-    xy=(t_inflec, 0.063),
-    xytext=(t_inflec + 2, 0.055),
+    xy=(t_inflec, K / 2),
+    xytext=(t_inflec + 2, K / 3),
     arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"),
 )
 delta_t = np.log(2 + np.sqrt(3)) / mu
@@ -177,8 +176,8 @@ _ = ax.annotate(
         f"Mu max\nt={t_accel:.2f}"
         # f"\n$\\frac{{dP}}{{dt}}_{{max}}$={der_max:.5f}"
     ),
-    xy=(t_accel, 0.055),
-    xytext=(t_accel - 22, 0.06),
+    xy=(t_accel, 0.5),
+    xytext=(t_accel - 22, 0.5),
     arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"),
 )
 doubling_time_at_inflection = np.log(2) / (mu * (1 - (p_accel) / K))
@@ -299,10 +298,10 @@ print(
 
 # %%
 # Fit mechanistic models
-fit_mech_logistic = gc.parametric.fit_parametric(t, ln_N, method="mech_logistic")
-fit_mech_gompertz = gc.parametric.fit_parametric(t, ln_N, method="mech_gompertz")
-fit_mech_richards = gc.parametric.fit_parametric(t, ln_N, method="mech_richards")
-fit_mech_baranyi = gc.parametric.fit_parametric(t, ln_N, method="mech_baranyi")
+fit_mech_logistic = gc.parametric.fit_parametric(t, N, method="mech_logistic")
+fit_mech_gompertz = gc.parametric.fit_parametric(t, N, method="mech_gompertz")
+fit_mech_richards = gc.parametric.fit_parametric(t, N, method="mech_richards")
+fit_mech_baranyi = gc.parametric.fit_parametric(t, N, method="mech_baranyi")
 
 # Combine fits into a dictionary
 mechanistic_fits = {
@@ -321,10 +320,10 @@ pprint(fit_mech_logistic, indent=2)
 
 # %%
 # Extract stats from each mechanistic fit
-stats_mech_logistic = gc.inference.extract_stats(fit_mech_logistic, t, ln_N)
-stats_mech_gompertz = gc.inference.extract_stats(fit_mech_gompertz, t, ln_N)
-stats_mech_richards = gc.inference.extract_stats(fit_mech_richards, t, ln_N)
-stats_mech_baranyi = gc.inference.extract_stats(fit_mech_baranyi, t, ln_N)
+stats_mech_logistic = gc.inference.extract_stats(fit_mech_logistic, t, N)
+stats_mech_gompertz = gc.inference.extract_stats(fit_mech_gompertz, t, N)
+stats_mech_richards = gc.inference.extract_stats(fit_mech_richards, t, N)
+stats_mech_baranyi = gc.inference.extract_stats(fit_mech_baranyi, t, N)
 
 # Combine stats into a dictionary
 mechanistic_stats = {
@@ -362,12 +361,12 @@ mechanistic_df.T
 
 # %%
 # Fit phenomenological parametric models
-fit_phenom_logistic = gc.parametric.fit_parametric(t, ln_N, method="phenom_logistic")
-fit_phenom_gompertz = gc.parametric.fit_parametric(t, ln_N, method="phenom_gompertz")
+fit_phenom_logistic = gc.parametric.fit_parametric(t, N, method="phenom_logistic")
+fit_phenom_gompertz = gc.parametric.fit_parametric(t, N, method="phenom_gompertz")
 fit_phenom_gompertz_modified = gc.parametric.fit_parametric(
-    t, ln_N, method="phenom_gompertz_modified"
+    t, N, method="phenom_gompertz_modified"
 )
-fit_phenom_richards = gc.parametric.fit_parametric(t, ln_N, method="phenom_richards")
+fit_phenom_richards = gc.parametric.fit_parametric(t, N, method="phenom_richards")
 
 # Combine fits into a dictionary
 phenom_param_fits = {
@@ -393,16 +392,16 @@ pprint(fit_phenom_gompertz_modified, indent=2)
 # %%
 # Extract stats from each phenomenological parametric fit
 stats_phenom_logistic = gc.inference.extract_stats(
-    fit_phenom_logistic, t, ln_N, phase_boundary_method="tangent"
+    fit_phenom_logistic, t, N, phase_boundary_method="tangent"
 )
 stats_phenom_gompertz = gc.inference.extract_stats(
-    fit_phenom_gompertz, t, ln_N, phase_boundary_method="tangent"
+    fit_phenom_gompertz, t, N, phase_boundary_method="tangent"
 )
 stats_phenom_gompertz_modified = gc.inference.extract_stats(
-    fit_phenom_gompertz_modified, t, ln_N, phase_boundary_method="tangent"
+    fit_phenom_gompertz_modified, t, N, phase_boundary_method="tangent"
 )
 stats_phenom_richards = gc.inference.extract_stats(
-    fit_phenom_richards, t, ln_N, phase_boundary_method="tangent"
+    fit_phenom_richards, t, N, phase_boundary_method="tangent"
 )
 
 # Combine stats into a dictionary
@@ -452,17 +451,17 @@ phenom_param_df.T
 # Spline supports smooth="fast" (default), smooth="slow", or a manual float.
 fit_spline = gc.non_parametric.fit_non_parametric(
     t,
-    ln_N,
+    N,
     method="spline",
     smooth="fast",
 )
 
 # Example manual smoothing value:
-# fit_manual = gc.non_parametric.fit_non_parametric(t, ln_N, method="spline", smooth=0.5)
+# fit_manual = gc.non_parametric.fit_non_parametric(t, N, method="spline", smooth=0.5)
 
 fit_sliding_window = gc.non_parametric.fit_non_parametric(
     t,
-    ln_N,
+    N,
     method="sliding_window",
     window_points=7,
 )
@@ -484,14 +483,14 @@ pprint(phenom_nonparam_fits, indent=2)
 stats_spline = gc.inference.extract_stats(
     fit_spline,
     t,
-    ln_N,
+    N,
     phase_boundary_method="tangent",
 )
 
 stats_sliding_window = gc.inference.extract_stats(
     fit_sliding_window,
     t,
-    ln_N,
+    N,
     phase_boundary_method="tangent",
 )
 
@@ -539,7 +538,7 @@ phase_boundary_rows = []
 stats_tangent = gc.inference.extract_stats(
     fit_spline,
     t,
-    ln_N,
+    N,
     phase_boundary_method="tangent",
 )
 phase_boundary_rows.append(
@@ -561,7 +560,7 @@ for frac, label in [
     stats_threshold = gc.inference.extract_stats(
         fit_spline,
         t,
-        ln_N,
+        N,
         phase_boundary_method="threshold",
         lag_threshold=frac,
         exp_threshold=frac,

@@ -8,11 +8,11 @@ from growthcurves.non_parametric import fit_non_parametric, fit_spline
 # =============================================================================
 
 
-def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N0=0.05, n_points=200):
+def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N_init=0.05, n_points=200):
     """Phenomenological Gompertz curve with known mu_max."""
     t = np.linspace(0, 88, n_points)
     ln_ratio = phenom_gompertz_model_ln(t, A=A, mu_max=mu_max, lam=lam)
-    N = log_to_linear(ln_ratio, N0=N0)
+    N = log_to_linear(ln_ratio, N_init=N_init)
     return t, N, mu_max
 
 
