@@ -40,7 +40,7 @@ def test_fit_parametric_mech_phenom():
     mu_max = 0.3
     lam = 5.0
     N_init = 0.05
-    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam, "N_init": N_init}
+    expected_phenom = {"A": A, "mu_max": mu_max, "lam": lam, "N0": N_init}
 
     ln_ratio = phenom_logistic_model_ln(t, A=A, mu_max=mu_max, lam=lam)
     N = log_to_linear(ln_ratio, N_init=N_init)

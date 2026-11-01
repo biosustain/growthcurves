@@ -10,8 +10,10 @@ import numpy as np
 import plotly.graph_objects as go
 
 from .models import (
+    MODEL_REGISTRY,
     evaluate_parametric_model,
     get_all_parametric_models,
+    log_to_linear,
     spline_from_params,
 )
 
@@ -420,6 +422,9 @@ def prepare_fitted_curve(
     # Evaluate model
     if model_type in get_all_parametric_models():
         od_fit = evaluate_parametric_model(time_fit, model_type, params)
+        # Phenomenological models return ln(N/N0), so convert to OD
+        if model_type in MODEL_REGISTRY["phenomenological"]:
+            od_fit = log_to_linear(od_fit, params["N0"])
     elif model_type == "spline":
         spline = spline_from_params(params)
         od_fit = np.exp(spline(time_fit))
@@ -885,6 +890,9 @@ def plot_derivative_metric(
                 # For parametric models, compute metric from the model
                 # Evaluate the model on fitted range
                 y_model = evaluate_parametric_model(t_model, model_type, params)
+                # Phenomenological models return ln(N/N0), so convert to OD
+                if model_type in MODEL_REGISTRY["phenomenological"]:
+                    y_model = log_to_linear(y_model, params["N0"])
 
                 # Compute metric from model
                 if metric == "dndt":

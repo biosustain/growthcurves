@@ -793,18 +793,15 @@ def _extract_stats_phenom_logistic(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    # ? Should be the fitted one ?
-    N_init = min(N)  # undefined in log ratio space (ln(N/N0))
+    N0 = float(params["N0"])  # Fitted initial OD
 
-    # Evaluate model: model is defiend for log(N/N0), so convert to linear space for OD
-    N_fit = log_to_linear(
-        evaluate_parametric_model(t, "phenom_logistic", params), params["N_init"]
-    )
+    # Evaluate model: model is defined for ln(N/N0), so convert to linear space for OD
+    N_fit = log_to_linear(evaluate_parametric_model(t, "phenom_logistic", params), N0)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
     N_dense = log_to_linear(
-        evaluate_parametric_model(t_dense, "phenom_logistic", params), params["N_init"]
+        evaluate_parametric_model(t_dense, "phenom_logistic", params), N0
     )
 
     # Calculate specific growth rate curve
@@ -822,7 +819,7 @@ def _extract_stats_phenom_logistic(
     if mu_max <= 0:
         stats = bad_fit_stats()
         stats["max_od"] = max_od
-        stats["N_init"] = N_init
+        stats["N0"] = N0
         stats["intrinsic_growth_rate"] = (
             None  # Phenomenological: no intrinsic parameter
         )
@@ -854,7 +851,7 @@ def _extract_stats_phenom_logistic(
 
     return {
         "max_od": max_od,
-        "N_init": N_init,
+        "N0": N0,
         "mu_max": float(mu_max),
         "intrinsic_growth_rate": None,  # Phenomenological: no intrinsic parameter
         "doubling_time": float(doubling_time),
@@ -898,14 +895,16 @@ def _extract_stats_phenom_gompertz(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = np.nan
+    N0 = float(params["N0"])  # Fitted initial OD
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_gompertz", params)
+    # Evaluate model: model is defined for ln(N/N0), so convert to linear space for OD
+    y_fit = log_to_linear(evaluate_parametric_model(t, "phenom_gompertz", params), N0)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_gompertz", params)
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_gompertz", params), N0
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
@@ -997,17 +996,18 @@ def _extract_stats_phenom_gompertz_modified(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    # N0_param = float(params["N0"])  # Fitted normalization parameter
+    N0 = float(params["N0"])  # Fitted initial OD
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_gompertz_modified", params)
+    # Evaluate model: model is defined for ln(N/N0), so convert to linear space for OD
+    y_fit = log_to_linear(
+        evaluate_parametric_model(t, "phenom_gompertz_modified", params), N0
+    )
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params)
-    # For the modified Gompertz form, the fitted N0 parameter is not always the
-    # model value at the earliest timepoint. Use model-predicted initial OD for stats.
-    N0 = np.nan
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_gompertz_modified", params), N0
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)
@@ -1100,14 +1100,16 @@ def _extract_stats_phenom_richards(
     float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
-    N0 = np.nan  # undefined in log ratio space (ln(N/N0))
+    N0 = float(params["N0"])  # Fitted initial OD
 
-    # Evaluate model
-    y_fit = evaluate_parametric_model(t, "phenom_richards", params)
+    # Evaluate model: model is defined for ln(N/N0), so convert to linear space for OD
+    y_fit = log_to_linear(evaluate_parametric_model(t, "phenom_richards", params), N0)
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
-    N_dense = evaluate_parametric_model(t_dense, "phenom_richards", params)
+    N_dense = log_to_linear(
+        evaluate_parametric_model(t_dense, "phenom_richards", params), N0
+    )
 
     # Calculate specific growth rate curve
     N_safe = np.maximum(N_dense, 1e-10)

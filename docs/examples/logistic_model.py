@@ -793,7 +793,7 @@ data["OD_phenom_classic_fit"] = log_to_linear(
         A=fit_["A"],
         lam=fit_["lam"],
     ),
-    N_init=fit_["N_init"],
+    N_init=fit_["N0"],
 )
 ax = data.plot.scatter(
     x="Time",
@@ -901,7 +901,7 @@ data["OD_phenom_paper_fit"] = log_to_linear(
         A=fit_["A"],
         lam=fit_["lam"],
     ),
-    fit_["N_init"],
+    fit_["N0"],
 )
 ax = data.plot.scatter(
     x="Time",
