@@ -47,28 +47,33 @@ def validate_data(t, N, min_points=10):
 
     This function filters out invalid N points that would cause problems in
     growth curve analysis, particularly when taking logarithms for exponential
-    growth calculations.
+    growth calculations, and returns the remaining points sorted by time.
 
     Filters out:
     - Non-finite values (NaN, inf, -inf) in t or OD
     - Non-positive OD values (N <= 0), which are invalid for log transformations
+    - Repeated time points: the first reading at each time is kept
     - Datasets with insufficient N points or no t variation
 
     Parameters:
-        t: Time array
+        t: Time array (must not contain negative times)
         N: OD measurement array
         min_points: Minimum number of valid N points required (default: 10)
 
     Returns:
-        Tuple of (time_clean, data_clean) with only valid N points, or (None, None)
-        if the N doesn't meet minimum requirements.
+        Tuple of (time_clean, data_clean) with only valid N points, sorted by
+        time, or (None, None) if the N doesn't meet minimum requirements.
+
+    Raises:
+        ValueError: If any time is negative. Mechanistic models define N0 at
+            t = 0, so shift the time axis to start at 0 or later.
 
     Examples:
-        >>> t = np.array([0, 1, 2, 3, 4])
-        >>> N = np.array([0.0, 0.1, 0.2, np.nan, 0.4])  # Has zero and NaN
-        >>> time_clean, data_clean = validate_data(t, N)
+        >>> t = np.array([0, 2, 1, 1, 3, 4])
+        >>> N = np.array([0.0, 0.2, 0.1, 0.15, np.nan, 0.4])  # Unsorted, zero, NaN
+        >>> time_clean, data_clean = validate_data(t, N, min_points=3)
         >>> print(time_clean)
-        [1 2 4]
+        [1. 2. 4.]
         >>> print(data_clean)
         [0.1 0.2 0.4]
     """
@@ -78,6 +83,19 @@ def validate_data(t, N, min_points=10):
     # Filter: keep only finite values where N > 0
     mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
     t, N = t[mask], N[mask]
+
+    if np.any(t < 0):
+        raise ValueError(
+            "Negative times are not supported: models define N0 at t = 0. "
+            "Shift the time axis so it starts at 0 or later."
+        )
+
+    # Sort by time (stable, so repeated times keep their input order), then keep
+    # the first reading at each repeated time
+    order = np.argsort(t, kind="mergesort")
+    t, N = t[order], N[order]
+    t, first_idx = np.unique(t, return_index=True)
+    N = N[first_idx]
 
     # Check minimum requirements
     if len(t) < min_points or np.ptp(t) <= 0:

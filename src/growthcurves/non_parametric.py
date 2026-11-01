@@ -13,7 +13,7 @@ import numpy as np
 import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
 
-from .inference import bad_fit_stats
+from .inference import bad_fit_stats, validate_data
 
 logger = getLogger(__name__)
 
@@ -176,26 +176,6 @@ def _sigma_second_diff_mad(t, y, trim_q=0.8):
     return float(1.4826 * mad / np.sqrt(6.0))
 
 
-def _prepare_spline_inputs(t, N):
-    """Sort, clip, and deduplicate inputs for stable spline fitting in log-space."""
-    t = np.asarray(t, dtype=float)
-    N = np.asarray(N, dtype=float)
-
-    order = np.argsort(t, kind="mergesort")
-    t = t[order]
-    N = np.clip(N[order], 1e-12, None)
-
-    uniq_t, uniq_idx = np.unique(t, return_index=True)
-    t = uniq_t
-    N = N[uniq_idx]
-    y_log = np.log(N)
-
-    if len(t) < 5 or np.ptp(t) <= 0:
-        raise ValueError("Need >=5 unique time points with non-zero span.")
-
-    return t, N, y_log
-
-
 def _od_weight_vector(
     N, floor_q=_SPLINE_GCV_WEIGHT_FLOOR_Q, power=_SPLINE_GCV_WEIGHT_POWER
 ):
@@ -272,11 +252,13 @@ def fit_spline(
 
         Returns None if calculation fails.
     """
-    if len(t) < 5:
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t_fit, N_fit = validate_data(t, N, min_points=5)
+    if t_fit is None:
         return None
 
     try:
-        t_fit, N_fit, y_log = _prepare_spline_inputs(t, N)
+        y_log = np.log(N_fit)
         if bool(use_weights):
             w = _od_weight_vector(
                 N_fit,
