@@ -724,8 +724,8 @@ def _extract_stats_mech_baranyi(
         stats["fit_method"] = "model_fitting_mech_baranyi"
         return stats
 
-    # Lag time is the fitted h0 parameter directly
-    exp_phase_start = float(params["h0"])
+    # Lag time λ = h0 / μ (Baranyi & Roberts 1994)
+    exp_phase_start = float(params["h0"]) / mu_intrinsic
 
     # Exp phase end using specified method
     _, exp_phase_end = compute_phase_boundaries(

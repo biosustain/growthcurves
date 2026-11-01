@@ -18,10 +18,16 @@ def test_fit_parametric():
     # test mechanistic Baranyi-Roberts model fitting
 
     N = mech_baranyi_model(t=t, mu=mu, K=K, N0=N0, h0=h0)
-    actual = gc.parametric.fit_parametric(t, N, method="mech_baranyi")
-    actual = actual["params"]
+    fit_result = gc.parametric.fit_parametric(t, N, method="mech_baranyi")
+    actual = fit_result["params"]
     for k, v in expected.items():
         assert k in actual, f"Parameter {k} not found in actual output"
         assert np.isclose(
             actual[k], v, rtol=2e-1
         ), f"Parameter {k} does not match expected value"
+
+    # Lag time is h0 / mu (Baranyi & Roberts 1994), not h0
+    stats = gc.inference.extract_stats(fit_result, t, N)
+    assert np.isclose(
+        stats["exp_phase_start"], h0 / mu, rtol=2e-1
+    ), "Lag time does not match h0 / mu"
