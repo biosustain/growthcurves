@@ -121,32 +121,51 @@ def compute_rmse(y_observed, y_predicted, in_log_space=False):
     return float(np.sqrt(np.mean(residuals**2)))
 
 
-def compute_mu_max(t, N):
+def compute_analytical_mu_max(model_type, params, t_max):
     """
-    Calculate the maximum specific growth rate from a fitted curve.
+    Maximum specific growth rate μmax = max d ln(N)/dt of a mechanistic model,
+    computed analytically from its fitted parameters.
 
-    The specific growth rate is μ = (1/N) * dN/dt = d(ln(N))/dt
+    Logistic, Gompertz and Richards use the closed forms from Ghenu & Marrec et al.
+    (2023), Table 2; their specific rate is highest at t = 0:
+
+        logistic:  μ (1 - N0/K)
+        Gompertz:  -μ ln(N0/K)
+        Richards:  μ (1 - (N0/K)^β)
+
+    Baranyi's specific rate r(t) = μ α(t) (1 - N(t)/K) peaks mid-curve and has no
+    simple formula, so the exact expression is maximised over [0, t_max] using the
+    closed-form N(t). No numerical derivative is taken for any model.
 
     Parameters:
-        t: Time array
-        y_fit: Fitted OD values
+        model_type: "mech_logistic", "mech_gompertz", "mech_richards" or
+            "mech_baranyi"
+        params: Fitted parameters (mu, K, N0 or N_init, plus beta or h0)
+        t_max: End of the time span (Baranyi only)
 
     Returns:
         Maximum specific growth rate (t^-1)
     """
-    # Use dense t points for accurate derivative
-    t_dense = np.linspace(t.min(), t.max(), 1000)
-    N_interp = np.interp(t_dense, t, N)
+    mu = float(params["mu"])
+    K = float(params["K"])
+    N0 = float(params["N0"] if "N0" in params else params["N_init"])
 
-    # Calculate specific growth rate: μ = (1/N) * dN/dt
-    dN_dt = np.gradient(N_interp, t_dense)
-
-    # Avoid division by very small values
-    N_safe = np.maximum(N_interp, 1e-10)
-    mu = dN_dt / N_safe
-
-    # Return maximum specific growth rate
-    return float(np.max(mu))
+    if model_type == "mech_logistic":
+        return mu * (1 - N0 / K)
+    if model_type == "mech_gompertz":
+        return -mu * np.log(N0 / K)
+    if model_type == "mech_richards":
+        return mu * (1 - (N0 / K) ** float(params["beta"]))
+    if model_type == "mech_baranyi":
+        # α(t) = e^(μt) / (e^h0 - 1 + e^(μt)), written as q0 / (q0 + e^(-μt)) to
+        # avoid overflow. N(t) is logistic in the adjusted time A(t) = ∫α ds.
+        q0 = 1 / np.expm1(float(params["h0"]))
+        t_grid = np.linspace(0, t_max, 2001)
+        alpha = q0 / (q0 + np.exp(-mu * t_grid))
+        A = (np.logaddexp(0, np.log(q0) + mu * t_grid) - np.log1p(q0)) / mu
+        N_t = K / (1 + (K / N0 - 1) * np.exp(-mu * A))
+        return float(np.max(mu * alpha * (1 - N_t / K)))
+    raise ValueError(f"No analytic mu_max for model '{model_type}'")
 
 
 def smooth(N, window=11, poly=1, passes=2):
@@ -424,7 +443,7 @@ def _extract_stats_mech_logistic(
 
     # Evaluate model
     N_fit = evaluate_parametric_model(t, "mech_logistic", params)
-    mu_max = compute_mu_max(t, N_fit)
+    mu_max = compute_analytical_mu_max("mech_logistic", params, t.max())
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -516,7 +535,7 @@ def _extract_stats_mech_gompertz(
 
     # Evaluate model
     N_fit = evaluate_parametric_model(t, "mech_gompertz", params)
-    mu_max = compute_mu_max(t, N_fit)
+    mu_max = compute_analytical_mu_max("mech_gompertz", params, t.max())
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -608,7 +627,7 @@ def _extract_stats_mech_richards(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_richards", params)
-    mu_max = compute_mu_max(t, y_fit)
+    mu_max = compute_analytical_mu_max("mech_richards", params, t.max())
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
@@ -701,7 +720,7 @@ def _extract_stats_mech_baranyi(
 
     # Evaluate model
     y_fit = evaluate_parametric_model(t, "mech_baranyi", params)
-    mu_max = compute_mu_max(t, y_fit)
+    mu_max = compute_analytical_mu_max("mech_baranyi", params, t.max())
 
     # Dense grid for accurate calculations
     t_dense = np.linspace(t.min(), t.max(), 500)
