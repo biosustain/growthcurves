@@ -302,7 +302,9 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
     return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
-def _fit_phenom_model(t, N, model_func, model_type, extra_params=None):
+def _fit_phenom_model(
+    t, N, model_func, model_type, extra_params=None, p0_overrides=None
+):
     """
     Generic wrapper for fitting phenomenological growth models.
 
@@ -320,6 +322,9 @@ def _fit_phenom_model(t, N, model_func, model_type, extra_params=None):
         model_type: String identifier for the model
         extra_params: Optional function of the validated t returning a dict of
             {name: (initial, lower, upper)} for parameters after lam
+        p0_overrides: Optional function of the validated (t, N) returning a dict
+            of {name: initial} replacing the shared initial guesses of A, mu_max
+            or lam for models where they are a poor starting point
 
     Returns:
         Dict with 'params' (A, mu_max, lam, *extra, N0) and 'model_type', or None
@@ -340,6 +345,9 @@ def _fit_phenom_model(t, N, model_func, model_type, extra_params=None):
     # Initial parameter guess and bounds for A, mu_max, lam, then extra parameters
     param_names = ["A", "mu_max", "lam"]
     p0 = [A_init, mu_max_init, lam_init]
+    if p0_overrides:
+        overrides = p0_overrides(t, N)
+        p0 = [overrides.get(name, init) for name, init in zip(param_names, p0)]
     lower = [0.01, 0.0001, 0]
     upper = [20, 10, t.max()]
     for name, (init, lo, hi) in (extra_params(t) if extra_params else {}).items():
@@ -472,6 +480,10 @@ def fit_phenom_gompertz_modified(t, N):
             "alpha": (0.05, -1, 1),
             "t_shift": (t.max() * 0.8, 0, t.max()),
         },
+        # The shared A guess, ln(max(N) / N0), includes the second phase, which
+        # traps the fit in a local minimum. The second term equals A at t_shift,
+        # so ln(N/N0) ~ 2A there: halve the observed amplitude instead.
+        p0_overrides=lambda _, N: {"A": np.log(np.max(N) / np.min(N)) / 2},
     )
 
 
