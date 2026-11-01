@@ -60,3 +60,5 @@ tests/test_nb.ipynb
 
 # exploratory notebooks
 exploratory notebooks/
+# personal review checklist
+REVIEW_TODO.md
