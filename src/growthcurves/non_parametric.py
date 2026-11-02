@@ -1,18 +1,18 @@
 """Non-parametric fitting methods for growth curves.
 
-This module provides non-parametric methods for growth curve analysis,
-including sliding window fitting and no-growth detection.
+This module provides the sliding window and spline methods for estimating the
+maximum specific growth rate.
 
-All methods operate in linear OD space (not log-transformed).
+Both methods take OD on a linear scale and fit ln(OD).
 """
 
 from logging import getLogger
 from typing import Union
 
 import numpy as np
-import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
 
+from .inference import smooth as smooth_od
 from .inference import validate_data
 
 logger = getLogger(__name__)
@@ -27,102 +27,118 @@ _SPLINE_GCV_WEIGHT_POWER = 1.0
 # -----------------------------------------------------------------------------
 
 
+# region: sliding window helpers
+def _window_lengths(n, w_min, ratio=1.25):
+    """Window lengths from w_min to n // 2, each ~ratio x the last."""
+    lengths, w = [], w_min
+    while w <= max(w_min, n // 2):
+        lengths.append(w)
+        w = max(w + 1, round(w * ratio))
+    return lengths
+
+
+def _ln_noise_sd(t, N):
+    """Per-reading sd of ln N: proportional noise plus an additive OD floor.
+
+    Both levels come from second differences (MAD): additive from N in the lowest
+    third of readings, proportional from ln N in the highest. The additive level is
+    at least the rounding noise of the data. Each reading uses the smaller of its
+    observed and smoothed OD.
+    """
+    N_ref = smooth_od(N)
+    mid = N_ref[1:-1]
+    lo, hi = mid <= np.quantile(mid, 1 / 3), mid >= np.quantile(mid, 2 / 3)
+    mad_to_sd = 1.4826 / np.sqrt(6)
+    sd_add = mad_to_sd * np.median(np.abs(_second_diff_series(t, N))[lo])
+    sd_add = max(sd_add, np.diff(np.unique(N)).min() / np.sqrt(12))
+    sd_prop = mad_to_sd * np.median(np.abs(_second_diff_series(t, np.log(N)))[hi])
+    return np.hypot(sd_prop, sd_add / np.maximum(np.minimum(N, N_ref), 1e-12))
+
+
+def _wls_windows(t, y, sd, lengths):
+    """Weighted least squares of every window of each length, via prefix sums.
+
+    Returns slope, SE of the slope (from sd), reduced chi-square, start, length.
+    """
+    t, y, w = t - t.mean(), y - y.mean(), 1 / sd**2
+    c = [
+        np.concatenate([[0], np.cumsum(v)])
+        for v in (w, w * t, w * y, w * t * t, w * t * y, w * y * y)
+    ]
+    out = []
+    for L in lengths:
+        i = np.arange(len(t) - L + 1)
+        sw, st, sy, stt, sty, syy = (v[i + L] - v[i] for v in c)
+        sxx, sxy = stt - st**2 / sw, sty - st * sy / sw
+        slope = sxy / sxx
+        chi2 = np.maximum(syy - sy**2 / sw - slope * sxy, 0) / (L - 2)
+        out.append((slope, 1 / np.sqrt(sxx), chi2, i, np.full_like(i, L)))
+    return (np.concatenate(a) for a in zip(*out))
+
+
+# endregion
+
+
 # region: sliding window method
-def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs):
+def fit_sliding_window(t, N, window_points=5):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
-    Finds the maximum specific growth rate by fitting a line to log-transformed
-    OD N in consecutive windows using the Theil-Sen estimator, selecting the
-    window with the steepest slope.
+    Fits ln(N) by weighted least squares in windows of every length from
+    `window_points` readings to half the curve, weighting readings by a noise model
+    estimated from the curve. The window with the highest lower bound, slope - z*SE,
+    wins (z = sqrt(2 ln M) for M windows; SE inflated by sqrt(reduced chi-square)
+    where a window fits worse than the noise). So the window length adapts: short on
+    clean or sparse data, long on noisy data.
 
     Parameters:
         t: Time array (hours)
         N: OD values (linear-scale, baseline-corrected, must be positive)
-        window_points: Number of points in each sliding window
-        step: Step size for sliding window (default: 1 if step is None and
-              `n_fits` is None)
-        n_fits: Approximate number of fits to perform (default: None). Ignored
-                if `step` is provided.
+        window_points: Minimum readings per window (default: 5, at least 3)
 
     Returns:
-        Dict with model parameters:
-            - slope: Slope of the linear fit in log space
-                     (equals specific growth rate, h⁻¹)
-            - intercept: Intercept of the linear fit in log space
-            - time_at_umax: Time at maximum growth rate (hours)
-            - model_type: "sliding_window"
-
-        Returns None if calculation fails.
+        Dict with params (slope = μmax in h⁻¹, intercept in log space, time_at_umax
+        = window midpoint, fit_t_min, fit_t_max) and model_type "sliding_window".
+        None if no window's lower bound is above zero (no growth) or too few points.
     """
-    if kwargs:
-        logger.warning("fit_sliding_window received unused kwargs: %s", kwargs)
-    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    if int(window_points) != window_points or window_points < 3:
+        raise ValueError("window_points must be an integer of at least 3.")
+
     t, N = validate_data(t, N)
-    if t is None or len(t) < window_points:
+    if t is None or len(t) < window_points or np.ptp(N) == 0:
         return None
 
-    # Log-transform for growth rate calculation
-    y_log = np.log(N)
-
-    # Find window with maximum slope on log-transformed N
-    w = window_points
-    best_slope = -np.inf
-    best_intercept = np.nan
-    best_time = np.nan
-    best_window_start = np.nan
-    best_window_end = np.nan
-
-    if step is None:
-        if n_fits is None:
-            step = 1
-        else:
-            step = max(1, int(len(t) / n_fits))
-    huber_regressor = sklearn.linear_model.HuberRegressor()
-    # limit number of fits to avoid excessive computation using step parameter
-    for i in range(0, len(t) - w + 1, step):
-        t_win = t[i : i + w]
-        y_log_win = y_log[i : i + w]
-
-        if np.ptp(t_win) <= 0:
-            continue
-
-        # # Use Theil-Sen estimator for robust line fitting
-        # result = theilslopes(y_log_win, t_win)
-        # slope, intercept = result.slope, result.intercept
-        # # Use HuberRegressor which uses L2 regularization and is twice as fast as
-        # # Theil-Sen.
-        result = huber_regressor.fit(t_win.reshape(-1, 1), y_log_win)
-        slope, intercept = result.coef_[0], result.intercept_
-
-        if slope > best_slope:
-            best_slope = slope
-            best_intercept = intercept
-            best_time = float(np.mean(t_win))
-            best_window_start = float(t_win.min())
-            best_window_end = float(t_win.max())
-
-    if not np.isfinite(best_slope) or best_slope <= 0:
+    y, sd = np.log(N), _ln_noise_sd(t, N)
+    slope, se, chi2, start, length = _wls_windows(
+        t, y, sd, _window_lengths(len(t), int(window_points))
+    )
+    bound = slope - np.sqrt(2 * np.log(len(slope))) * se * np.sqrt(np.maximum(chi2, 1))
+    k = np.nanargmax(bound)
+    if not bound[k] > 0:
         return None
 
+    win = slice(start[k], start[k] + length[k])
+    w = sd[win] ** -2
+    intercept = np.average(y[win], weights=w) - slope[k] * np.average(t[win], weights=w)
     return {
         "params": {
-            "slope": float(best_slope),
-            "intercept": float(best_intercept),
-            "time_at_umax": best_time,
-            "fit_t_min": best_window_start,
-            "fit_t_max": best_window_end,
+            "slope": float(slope[k]),
+            "intercept": float(intercept),
+            "time_at_umax": float(t[win].mean()),
+            "fit_t_min": float(t[win][0]),
+            "fit_t_max": float(t[win][-1]),
         },
         "model_type": "sliding_window",
     }
 
+
+# endregion
 
 # -----------------------------------------------------------------------------
 # Spline
 # -----------------------------------------------------------------------------
 
 
-# endregion
 # region: spline fitting helpers
 def _second_diff_series(t, y):
     """Compute second divided differences of y w.r.t. t, scaled by median(dt)^2."""
@@ -350,7 +366,7 @@ def fit_non_parametric(
     t,
     N,
     method="sliding_window",
-    window_points=15,
+    window_points=5,
     smooth: Union[str, float] = "fast",
     use_weights=False,
     **kwargs,
@@ -361,7 +377,8 @@ def fit_non_parametric(
     This unified function supports multiple methods for calculating the maximum
     specific growth rate (Umax):
 
-    - "sliding_window": Finds maximum slope in log-transformed OD across windows
+    - "sliding_window": Best-supported straight line on log-transformed OD over
+      windows of every length (see `fit_sliding_window`)
     - "spline": Fits spline to entire curve and calculates from derivative
 
 
@@ -375,7 +392,7 @@ def fit_non_parametric(
         Method for calculating Umax ("sliding_window" or "spline"),
         by default "sliding_window"
     window_points : int, optional
-        Number of points in sliding window (for sliding_window method), by default 15
+        Minimum number of readings in a window (sliding_window method), by default 5
     smooth : str or float, optional
         Smoothing mode/value for spline method, by default "fast"
             - "fast": notebook auto-default rule mapped to lam
@@ -384,6 +401,10 @@ def fit_non_parametric(
 
     use_weights : bool, optional
         Whether to apply OD-dependent weighting for spline method, by default False
+    **kwargs
+        Ignored. Accepted so that `fit_model` can pass the same keyword arguments
+        to the fit and to `extract_stats`.
+
     Returns
     -------
     dict
@@ -405,18 +426,7 @@ method-specific values)
 
     # Calculate Umax using specified method
     if method == "sliding_window":
-        umax_result = fit_sliding_window(t, y_raw, window_points, **kwargs)
-
-        if umax_result is None:
-            return None
-
-        return {
-            "params": {
-                **umax_result["params"],
-                "window_points": window_points,
-            },
-            "model_type": "sliding_window",
-        }
+        return fit_sliding_window(t, y_raw, window_points)
 
     elif method == "spline":
         # Fit spline to the entire dataset

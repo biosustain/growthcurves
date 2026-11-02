@@ -118,7 +118,7 @@ The **spline method** fits a smoothing spline to log-transformed OD data and cal
 - `"slow"`: weighted GCV selection (slower)
 - `float`: manual lambda value
 
-The **sliding window method** estimates growth rate by fitting a linear regression to log-transformed data within a moving window, identifying the window with maximum slope.
+The **sliding window method** fits weighted linear regressions to log-transformed data in windows of every length (at least `window_points`, default 5) and reports the window with the highest lower confidence bound on its slope, so the window length adapts to each curve's noise and sampling. It returns `None` when no window shows significant growth.
 
 ### Spline fitting (non-parametric)
 

@@ -1,127 +1,135 @@
 import numpy as np
 import pytest
 
+from growthcurves.inference import extract_stats
 from growthcurves.non_parametric import fit_non_parametric, fit_sliding_window
 
-# =============================================================================
-# Helpers
-# =============================================================================
+MU = 0.6
 
 
-def _exponential_curve(mu=0.4, t_max=10.0, n_points=200):
-    """Pure exponential growth: ln(N) is linear with slope = mu."""
-    t = np.linspace(0, t_max, n_points)
-    N = 0.05 * np.exp(mu * t)
-    return t, N, mu
+def _logistic(n, sd_mult=0.0, sd_add=0.0, seed=0):
+    """Zwietering logistic in ln N (max slope = MU), lag 5 h, over 24 h."""
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, 24, n)
+    N = 0.02 * np.exp(4 / (1 + np.exp(MU * (5 - t) + 2)))
+    return t, N * np.exp(
+        sd_mult * rng.standard_normal(n)
+    ) + sd_add * rng.standard_normal(n)
 
 
-def _logistic_curve(mu=0.4, K=2.5, N0=0.05, t_max=40.0, n_points=200):
-    """Logistic growth curve."""
-    t = np.linspace(0, t_max, n_points)
-    N = K / (1 + ((K - N0) / N0) * np.exp(-mu * t))
-    return t, N, mu
-
-
-def _decreasing_curve(n_points=100):
-    t = np.linspace(0, 10, n_points)
-    N = 2.5 * np.exp(-0.3 * t)
-    return t, N
+def _median_error(n, seeds=20, **kw):
+    slopes = [
+        fit_sliding_window(*_logistic(n, seed=s, **kw))["params"]["slope"]
+        for s in range(seeds)
+    ]
+    return np.median(np.abs(np.array(slopes) / MU - 1))
 
 
 # =============================================================================
-# fit_sliding_window — growth rate recovery
+# mu_max recovery
 # =============================================================================
 
 
-def test_slope_matches_exponential_growth_rate():
-    # Pure exponential: d(ln N)/dt = mu exactly, so the best window slope = mu
-    mu = 0.4
-    t, N, _ = _exponential_curve(mu=mu)
-    result = fit_sliding_window(t, N, window_points=15)
-    assert np.isclose(result["params"]["slope"], mu, rtol=0.05)
+def test_recovers_mu_max_clean():
+    r = fit_sliding_window(*_logistic(200))
+    assert np.isclose(r["params"]["slope"], MU, rtol=0.01)
 
 
-def test_slope_positive_for_growth_curve():
-    t, N, _ = _logistic_curve()
-    result = fit_sliding_window(t, N)
-    assert result["params"]["slope"] > 0
+@pytest.mark.parametrize(
+    "n, kw, tol",
+    [
+        (200, dict(sd_mult=0.03), 0.05),  # dense, noisy
+        (25, dict(sd_mult=0.01), 0.12),  # sparse: window spans curvature
+        (300, dict(sd_mult=0.01, sd_add=0.005), 0.05),  # additive noise floor
+    ],
+)
+def test_recovers_mu_max_noisy(n, kw, tol):
+    assert _median_error(n, **kw) < tol
 
 
-def test_time_at_umax_within_range():
-    t, N, _ = _logistic_curve()
-    result = fit_sliding_window(t, N)
-    assert t.min() <= result["params"]["time_at_umax"] <= t.max()
+def test_window_longer_on_noisy_data():
+    span = lambda r: r["params"]["fit_t_max"] - r["params"]["fit_t_min"]  # noqa: E731
+    clean = fit_sliding_window(*_logistic(200, seed=1))
+    noisy = fit_sliding_window(*_logistic(200, sd_mult=0.03, seed=1))
+    assert span(noisy) > 2 * span(clean)
 
 
-def test_fit_window_bounds_within_time_range():
-    t, N, _ = _logistic_curve()
-    result = fit_sliding_window(t, N)
-    assert result["params"]["fit_t_min"] >= t.min()
-    assert result["params"]["fit_t_max"] <= t.max()
+def test_window_bounds_and_time_at_umax():
+    t, N = _logistic(200)
+    p = fit_sliding_window(t, N)["params"]
+    assert t.min() <= p["fit_t_min"] < p["time_at_umax"] < p["fit_t_max"] <= t.max()
 
 
 # =============================================================================
-# fit_sliding_window — edge cases returning None
+# Robustness
 # =============================================================================
+
+
+def test_spike_does_not_move_estimate():
+    t, N = _logistic(200, sd_mult=0.01, seed=2)
+    base = fit_sliding_window(t, N)["params"]["slope"]
+    N[60] *= 3
+    assert np.isclose(fit_sliding_window(t, N)["params"]["slope"], base, rtol=0.02)
+
+
+def test_rounded_od():
+    t, N = _logistic(200, sd_mult=0.01, seed=3)
+    r = fit_sliding_window(t, np.round(N, 3))
+    assert np.isclose(r["params"]["slope"], MU, rtol=0.05)
+
+
+# =============================================================================
+# No growth and invalid input
+# =============================================================================
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_flat_noise_returns_none(seed):
+    rng = np.random.default_rng(seed)
+    N = 0.2 * np.exp(0.03 * rng.standard_normal(100))
+    assert fit_sliding_window(np.linspace(0, 24, 100), N) is None
+
+
+def test_declining_returns_none():
+    t = np.linspace(0, 24, 100)
+    assert fit_sliding_window(t, 0.5 * np.exp(-0.05 * t)) is None
+
+
+def test_constant_returns_none():
+    assert fit_sliding_window(np.linspace(0, 24, 50), np.full(50, 0.1)) is None
 
 
 def test_too_few_points_returns_none():
-    t = np.linspace(0, 5, 10)
-    N = 0.05 * np.exp(0.3 * t)
-    result = fit_sliding_window(t, N, window_points=15)
-    assert result is None
+    t, N = _logistic(8)
+    assert fit_sliding_window(t, N) is None
 
 
-def test_zero_time_span_returns_none():
-    t = np.ones(20)  # all same time point
-    N = np.ones(20) * 0.1
-    result = fit_sliding_window(t, N)
-    assert result is None
-
-
-def test_decreasing_data_returns_none():
-    t, N = _decreasing_curve()
-    result = fit_sliding_window(t, N)
-    assert result is None
+@pytest.mark.parametrize("window_points", [2, 4.5])
+def test_invalid_window_points_raises(window_points):
+    with pytest.raises(ValueError):
+        fit_sliding_window(*_logistic(50), window_points=window_points)
 
 
 # =============================================================================
-# fit_sliding_window — step parameters
+# fit_non_parametric and extract_stats
 # =============================================================================
 
 
-def test_n_fits_slope_close_to_step_one():
-    # Using n_fits (larger step) should still recover a slope close to step=1
-    mu = 0.4
-    t, N, _ = _exponential_curve(mu=mu)
-    result_dense = fit_sliding_window(t, N, step=1)
-    result_sparse = fit_sliding_window(t, N, n_fits=10)
-    assert np.isclose(
-        result_dense["params"]["slope"], result_sparse["params"]["slope"], rtol=0.1
-    )
-
-
-# =============================================================================
-# fit_non_parametric dispatcher — sliding_window
-# =============================================================================
-
-
-def test_fit_non_parametric_returns_sliding_window_model_type():
-    t, N, _ = _logistic_curve()
-    result = fit_non_parametric(t, N, method="sliding_window")
-    assert result["model_type"] == "sliding_window"
-
-
-def test_fit_non_parametric_includes_window_points_in_params():
-    t, N, _ = _logistic_curve()
-    window_points = 20
-    result = fit_non_parametric(
-        t, N, method="sliding_window", window_points=window_points
-    )
-    assert result["params"]["window_points"] == window_points
+def test_fit_non_parametric_matches_fit_sliding_window():
+    t, N = _logistic(100, sd_mult=0.01)
+    assert fit_non_parametric(t, N, method="sliding_window") == fit_sliding_window(t, N)
 
 
 def test_fit_non_parametric_unknown_method_raises():
-    t, N, _ = _logistic_curve()
     with pytest.raises(ValueError):
-        fit_non_parametric(t, N, method="not_a_method")
+        fit_non_parametric(*_logistic(50), method="not_a_method")
+
+
+def test_extract_stats_uses_fitted_window():
+    t, N = _logistic(200, sd_mult=0.01)
+    fit = fit_sliding_window(t, N)
+    stats = extract_stats(fit, t, N)
+    assert stats["mu_max"] == fit["params"]["slope"]
+    assert stats["fit_t_min"] == fit["params"]["fit_t_min"]
+    assert stats["fit_t_max"] == fit["params"]["fit_t_max"]
+    assert np.isfinite(stats["model_rmse"])

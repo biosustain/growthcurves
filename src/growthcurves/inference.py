@@ -1345,35 +1345,15 @@ def _extract_stats_sliding_window(
         exp_threshold=exp_threshold,
     )
 
-    window_points = params.get("window_points", 15)
     t_window_start = params.get("fit_t_min", np.nan)
     t_window_end = params.get("fit_t_max", np.nan)
-
-    window_centers = []
-    window_indices = []
-    for i in range(len(t_clean) - window_points + 1):
-        window_centers.append(float(t_clean[i : i + window_points].mean()))
-        window_indices.append(i)
-
-    if len(window_centers) > 0:
-        best_idx = min(
-            range(len(window_centers)),
-            key=lambda i: abs(window_centers[i] - time_at_umax),
+    in_window = (t_clean >= t_window_start) & (t_clean <= t_window_end)
+    if in_window.any():
+        y_fit_window = np.exp(
+            params["slope"] * t_clean[in_window] + params["intercept"]
         )
-
-        start_idx = window_indices[best_idx]
-        t_window = t_clean[start_idx : start_idx + window_points]
-        y_window = y_clean[start_idx : start_idx + window_points]
-        if len(t_window) > 0:
-            t_window_start = float(t_window.min())
-            t_window_end = float(t_window.max())
-
-        slope = params["slope"]
-        intercept = params["intercept"]
-        y_fit_window = np.exp(slope * t_window + intercept)
-
         # RMSE in log space (sliding window fits linear model in log space)
-        rmse = compute_rmse(y_window, y_fit_window, in_log_space=True)
+        rmse = compute_rmse(y_clean[in_window], y_fit_window, in_log_space=True)
     else:
         rmse = np.nan
 

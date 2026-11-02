@@ -773,7 +773,6 @@ def plot_derivative_metric(
     from .inference import (
         compute_first_derivative,
         compute_instantaneous_mu,
-        compute_sliding_window_growth_rate,
         smooth,
     )
 
@@ -863,28 +862,20 @@ def plot_derivative_metric(
 
         # Filter to fitted range if available
         if fit_t_min is not None and fit_t_max is not None:
-            fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
-            t_model = t[fit_mask]
-            y_model_raw = N[fit_mask]
-            y_model_smooth = y_smooth[fit_mask]
+            t_model = t[(t >= fit_t_min) & (t <= fit_t_max)]
         else:
             # Use full range if fit bounds not available
             t_model = t
-            y_model_raw = N
-            y_model_smooth = y_smooth
 
         if len(t_model) >= 2:
             if model_type == "sliding_window":
-                # For sliding window, calculate from raw N (as growthcurves does)
-                window_points = params.get("window_points", 15)
+                # The fit is one line in log space over the window: ln N = slope*t + b,
+                # so μ is the slope and dN/dt is slope * N
+                slope = params["slope"]
                 if metric == "dndt":
-                    # For dN/dt, we need to smooth first then compute derivative
-                    _, metric_model = compute_first_derivative(t_model, y_model_smooth)
+                    metric_model = slope * np.exp(slope * t_model + params["intercept"])
                 else:  # mu
-                    # For μ, use sliding window on raw N
-                    _, metric_model = compute_sliding_window_growth_rate(
-                        t_model, y_model_raw, window_points=window_points
-                    )
+                    metric_model = np.full_like(t_model, slope)
 
             elif model_type in get_all_parametric_models():
                 # For parametric models, compute metric from the model
