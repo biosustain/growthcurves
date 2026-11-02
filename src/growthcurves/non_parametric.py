@@ -7,20 +7,15 @@ Both methods take OD on a linear scale and fit ln(OD).
 """
 
 from logging import getLogger
-from typing import Union
 
 import numpy as np
-from scipy.interpolate import make_smoothing_spline
+from scipy.interpolate import BSpline
+from scipy.linalg import cholesky, eigh, solve_triangular
 
 from .inference import smooth as smooth_od
 from .inference import validate_data
 
 logger = getLogger(__name__)
-
-# Default settings for the auto-spline (sigma-based smoothing + OD weights).
-_SPLINE_SMOOTH_MULT = 5.0
-_SPLINE_GCV_WEIGHT_FLOOR_Q = 0.15
-_SPLINE_GCV_WEIGHT_POWER = 1.0
 
 # -----------------------------------------------------------------------------
 # Sliding Window
@@ -37,14 +32,8 @@ def _window_lengths(n, w_min, ratio=1.25):
     return lengths
 
 
-def _ln_noise_sd(t, N):
-    """Per-reading sd of ln N: proportional noise plus an additive OD floor.
-
-    Both levels come from second differences (MAD): additive from N in the lowest
-    third of readings, proportional from ln N in the highest. The additive level is
-    at least the rounding noise of the data. Each reading uses the smaller of its
-    observed and smoothed OD.
-    """
+def _noise_levels(t, N):
+    """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
     N_ref = smooth_od(N)
     mid = N_ref[1:-1]
     lo, hi = mid <= np.quantile(mid, 1 / 3), mid >= np.quantile(mid, 2 / 3)
@@ -52,6 +41,11 @@ def _ln_noise_sd(t, N):
     sd_add = mad_to_sd * np.median(np.abs(_second_diff_series(t, N))[lo])
     sd_add = max(sd_add, np.diff(np.unique(N)).min() / np.sqrt(12))
     sd_prop = mad_to_sd * np.median(np.abs(_second_diff_series(t, np.log(N)))[hi])
+    return sd_add, sd_prop, N_ref
+
+
+def _ln_noise_sd(N, sd_add, sd_prop, N_ref):
+    """Per-reading sd of ln N, using the smaller of the observed and smoothed OD."""
     return np.hypot(sd_prop, sd_add / np.maximum(np.minimum(N, N_ref), 1e-12))
 
 
@@ -108,7 +102,7 @@ def fit_sliding_window(t, N, window_points=5):
     if t is None or len(t) < window_points or np.ptp(N) == 0:
         return None
 
-    y, sd = np.log(N), _ln_noise_sd(t, N)
+    y, sd = np.log(N), _ln_noise_sd(N, *_noise_levels(t, N))
     slope, se, chi2, start, length = _wls_windows(
         t, y, sd, _window_lengths(len(t), int(window_points))
     )
@@ -139,7 +133,7 @@ def fit_sliding_window(t, N, window_points=5):
 # -----------------------------------------------------------------------------
 
 
-# region: spline fitting helpers
+# region: spline helpers
 def _second_diff_series(t, y):
     """Compute second divided differences of y w.r.t. t, scaled by median(dt)^2."""
     t = np.asarray(t, dtype=float)
@@ -163,196 +157,122 @@ def _second_diff_series(t, y):
     return np.asarray(d2 * h**2, dtype=float)
 
 
-def _trim_by_abs_deviation(vals, trim_q=0.8):
-    """Trim values with absolute deviation from median above the trim_q quantile."""
-    vals = np.asarray(vals, dtype=float)
-    vals = vals[np.isfinite(vals)]
-    if len(vals) < 3:
-        return vals
-    q = float(trim_q)
-    if not np.isfinite(q) or q <= 0.0 or q >= 1.0:
-        return vals
-    abs_dev = np.abs(vals - np.median(vals))
-    if len(abs_dev) < 5:
-        return vals
-    cutoff = float(np.quantile(abs_dev, q))
-    core = vals[abs_dev <= cutoff]
-    if len(core) >= 3:
-        return core
-    return vals
+_LAM_GRID = np.logspace(-6, 4, 41)  # in units of tr(BᵀWB)/tr(P)
 
 
-def _sigma_second_diff_mad(t, y, trim_q=0.8):
-    """Estimate log-space noise sigma from second divided differences using MAD."""
-    d2y = _second_diff_series(t, y)
-    if len(d2y) < 3:
-        return np.nan
-    d2y = _trim_by_abs_deviation(d2y, trim_q=trim_q)
-    if len(d2y) < 3:
-        return np.nan
-    mad = float(np.median(np.abs(d2y - np.median(d2y))))
-    return float(1.4826 * mad / np.sqrt(6.0))
-
-
-def _od_weight_vector(
-    N, floor_q=_SPLINE_GCV_WEIGHT_FLOOR_Q, power=_SPLINE_GCV_WEIGHT_POWER
-):
-    """Build OD-dependent weights to downweight low-OD log-noise leverage."""
-    N = np.asarray(N, dtype=float)
-    if len(N) == 0:
-        return np.asarray([], dtype=float)
-
-    q = float(np.clip(float(floor_q), 0.0, 0.49))
-    od_floor = max(float(np.quantile(N, q)), 1e-6)
-    N_eff = np.clip(N, od_floor, None)
-
-    p = float(np.clip(float(power), 0.0, 3.0))
-    med = float(np.median(N_eff))
-    if (not np.isfinite(med)) or (med <= 0):
-        med = od_floor
-
-    w = (N_eff / med) ** p
-    w = np.clip(w, 0.2, 5.0)
-
-    rms = float(np.sqrt(np.mean(w**2)))
-    if (not np.isfinite(rms)) or (rms <= 0):
-        return np.ones_like(N_eff, dtype=float)
-
-    return np.asarray(w / rms, dtype=float)
-
-
-def _fast_auto_lam(t, y_log):
-    """Compute notebook-style fast auto smoothing value for make_smoothing_spline."""
-    sigma = _sigma_second_diff_mad(t, y_log, trim_q=0.8)
-    if not np.isfinite(sigma) or sigma < 1e-8:
-        sigma = 1e-4
-
-    n = len(t)
-    smooth_mult_eff = float(np.clip(_SPLINE_SMOOTH_MULT, 0.25, 30.0))
-    raw_lam = smooth_mult_eff * n * sigma**2
-    lam_max = max(1e-8, 0.8 * n * float(np.var(y_log)))
-    return float(np.clip(raw_lam, 0.0, lam_max))
+def _bisquare(r, c=4.685):
+    """Tukey bisquare weights of standardised residuals."""
+    r = r / max(1.0, 1.4826 * np.median(np.abs(r)))
+    return np.clip(1 - (r / c) ** 2, 0, 1) ** 2
 
 
 # endregion
 
 
 # region: fit_spline
-def fit_spline(
-    t,
-    N,
-    smooth="fast",
-    use_weights=False,
-):
+def fit_spline(t, N, smooth="auto"):
     """
-    Calculate maximum specific growth rate using spline fitting.
+    Maximum specific growth rate from a penalised spline of ln(N).
 
-    Fits a smoothing spline to log-transformed OD N and calculates
-    the maximum specific growth rate from the spline's derivative.
+    Noise-weighted cubic P-spline, smoothing chosen by REML, with robust reweighting
+    and IRLS in OD; long stationary phases are cropped. μmax is the derivative where
+    derivative - 2·SE is highest.
 
     Parameters:
         t: Time array (hours)
-        N: OD values (linear space, must be positive)
-        smooth: Smoothing mode/value.
-                - "fast": notebook auto-default rule mapped to lam
-                - "slow": GCV-selected smoothing (lam=None)
-                - float: manual lam value
-
-        use_weights: Whether to apply OD-dependent weighting (default: False)
+        N: OD values (linear scale, baseline-corrected)
+        smooth: "auto" (chosen by REML) or a fixed value > 0, in units of tr(BᵀWB)/tr(P)
 
     Returns:
-        Dict with model parameters:
-            - t_knots: Spline knot points (t values)
-            - spline_coeffs: Spline coefficients
-            - spline_k: Spline degree (3)
-            - time_at_umax: Time at maximum growth rate (hours)
-            - model_type: "spline"
-
-        Returns None if calculation fails.
+        Dict with params (tck_t, tck_c, tck_k, mu_max, time_at_umax, fit_t_min,
+        fit_t_max) and model_type "spline". None if no growth (derivative - 3.5·SE
+        not above zero) or too few points.
     """
     # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
-    t_fit, N_fit = validate_data(t, N)
-    if t_fit is None:
+    auto = isinstance(smooth, str) and smooth == "auto"
+    if not auto and not (isinstance(smooth, (int, float)) and smooth > 0):
+        raise ValueError('smooth must be "auto" or a positive number.')
+    t, N = validate_data(t, N)
+    if t is None or np.ptp(N) == 0:
         return None
 
-    try:
-        y_log = np.log(N_fit)
-        if bool(use_weights):
-            w = _od_weight_vector(
-                N_fit,
-                floor_q=_SPLINE_GCV_WEIGHT_FLOOR_Q,
-                power=_SPLINE_GCV_WEIGHT_POWER,
-            )
-        else:
-            # Default in scipy.interpolate.make_smoothing_spline are uniform weights.
-            w = np.ones_like(y_log, dtype=float)
+    # Crop: end half the 10-95 % rise duration after the curve reaches 95 % of its rise
+    sd_add, sd_prop, N_ref = _noise_levels(t, N)
+    y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
+    lo, hi = y_ref.min(), y_ref.max()
+    t10, t95 = (t[np.argmax(y_ref >= lo + q * (hi - lo))] for q in (0.1, 0.95))
+    keep = t <= max(t95 + 0.5 * (t95 - t10), t[min(len(t), 20) - 1])
+    if not keep.all():
+        t, N = t[keep], N[keep]
+        sd_add, sd_prop, N_ref = _noise_levels(t, N)
+    n = len(t)
 
-        # Fit spline with selected smoothing mode/value.
-        if isinstance(smooth, str):
-            smooth_mode = smooth.strip().lower()
-            if smooth_mode == "fast":
-                lam = _fast_auto_lam(t_fit, y_log)
-            elif smooth_mode == "slow":
-                lam = None
-            else:
-                raise ValueError("smooth must be 'fast', 'slow', or numeric.")
-            smooth_out = smooth_mode
-        else:
-            lam = float(smooth)
-            if (not np.isfinite(lam)) or (lam < 0):
-                raise ValueError(
-                    "Manual smooth value must be a finite non-negative float."
-                )
-            smooth_out = lam
+    n_seg = max(4, min(round(n / 2), 25))
+    knots = t[0] + (t[-1] - t[0]) / n_seg * np.arange(-3, n_seg + 4)
+    knots[3 + n_seg] = t[-1]  # floating point could leave t[-1] outside
+    B = BSpline.design_matrix(t, knots, 3).toarray()
+    K = B.shape[1]
+    D = np.diff(np.eye(K), 2, axis=0)
+    P = D.T @ D
 
-        spline = make_smoothing_spline(t_fit, y_log, w=w, lam=lam)
-        if lam is None:
-            # ? is this correct? it gives the residual sum of squares?
-            # ! lam is not returned if not provided by make_smoothing_spline
-            resid = y_log - np.asarray(spline(t_fit), dtype=float)
-            spline_s = float(np.sum((w * resid) ** 2))
-        else:
-            spline_s = float(lam)
+    def solve(w, y):
+        # Eigen-decomposition: (A + λP)⁻¹ = T diag(1 / (1 + λe)) Tᵀ for any λ
+        A = (B.T * w) @ B
+        A[np.diag_indices(K)] += 1e-10 * np.trace(A) / K
+        Li = solve_triangular(cholesky(A, lower=True), np.eye(K), lower=True)
+        e, U = eigh(Li @ P @ Li.T)
+        T = Li.T @ U
+        return T, np.maximum(e, 0), T.T @ (B.T @ (w * y)), np.sum(w * y * y)
 
-        # Evaluate spline on dense grid for accurate derivative calculation
-        t_eval = np.linspace(t_fit.min(), t_fit.max(), 200)
+    def reml(S):
+        _, e, beta, yWy = S
+        Q = yWy - np.sum(beta**2 / (1 + lams[:, None] * e), axis=1)
+        logdet = np.sum(np.log1p(lams[:, None] * e), axis=1)
+        logdet -= (e > 1e-10 * e.max()).sum() * np.log(lams)
+        return lams[np.argmin((n - 2) * np.log(np.maximum(Q, 1e-300)) + logdet)]
 
-        # Calculate specific growth rate: μ = d(ln(N))/dt
-        mu_eval = spline.derivative()(t_eval)
+    def fitted(S, lam):
+        T, e, beta, _ = S
+        return B @ (T @ (beta / (1 + lam * e)))
 
-        # Find maximum specific growth rate
-        max_mu_idx = int(np.argmax(mu_eval))
-        mu_max = float(mu_eval[max_mu_idx])
-        time_at_umax = float(t_eval[max_mu_idx])
+    y = np.log(N)
+    w0 = _ln_noise_sd(N, sd_add, sd_prop, N_ref) ** -2
+    scale = np.trace((B.T * w0) @ B) / np.trace(P)
+    lams = _LAM_GRID * scale
+    S = solve(w0, y)
+    lam = reml(S) if auto else smooth * scale
+    for _ in range(2):  # robust weights, smoothing re-chosen
+        S = solve(w0 * _bisquare((y - fitted(S, lam)) * np.sqrt(w0)), y)
+        lam = reml(S) if auto else lam
+    for _ in range(2):  # IRLS with the noise in OD
+        f = fitted(S, lam)
+        m = np.exp(f)
+        sd_N = np.hypot(sd_prop * m, sd_add)
+        S = solve((m / sd_N) ** 2 * _bisquare((N - m) / sd_N), f + (N - m) / m)
 
-        if mu_max <= 0 or not np.isfinite(mu_max):
-            return None
-
-        # Extract spline parameters for later reconstruction.
-        if hasattr(spline, "_eval_args"):
-            tck_t, tck_c, tck_k = spline._eval_args
-        elif hasattr(spline, "t") and hasattr(spline, "c") and hasattr(spline, "k"):
-            tck_t = np.asarray(spline.t, dtype=float)
-            tck_c = np.asarray(spline.c, dtype=float)
-            tck_k = int(spline.k)
-        else:
-            return None
-
-        return {
-            "params": {
-                "tck_t": tck_t.tolist(),
-                "tck_c": tck_c.tolist(),
-                "tck_k": int(tck_k),
-                "smooth": smooth_out,
-                "spline_s": float(spline_s),
-                "time_at_umax": time_at_umax,
-                "mu_max": mu_max,  # Store calculated mu_max for consistency
-            },
-            "model_type": "spline",
-        }
-
-    except Exception:
+    T, e, beta, yWy = S
+    s = 1 / (1 + lam * e)
+    chi2 = (yWy - np.sum(beta**2 * (2 * s - s**2))) / max(n - s.sum(), 1)
+    t_eval = np.linspace(t[0], t[-1], 400)
+    G = BSpline(knots, np.eye(K), 3).derivative()(t_eval) @ T
+    mu = G @ (beta * s)
+    se = np.sqrt(np.sum((G * s) ** 2, axis=1) * max(chi2, 1.0))
+    i = int(np.argmax(mu - 2 * se))
+    if not mu[i] - 3.5 * se[i] > 0:
         return None
+
+    return {
+        "params": {
+            "tck_t": knots.tolist(),
+            "tck_c": (T @ (beta * s)).tolist(),
+            "tck_k": 3,
+            "mu_max": float(mu[i]),
+            "time_at_umax": float(t_eval[i]),
+            "fit_t_min": float(t[0]),
+            "fit_t_max": float(t[-1]),
+        },
+        "model_type": "spline",
+    }
 
 
 # endregion
@@ -362,25 +282,10 @@ def fit_spline(
 # -----------------------------------------------------------------------------
 
 
-def fit_non_parametric(
-    t,
-    N,
-    method="sliding_window",
-    window_points=5,
-    smooth: Union[str, float] = "fast",
-    use_weights=False,
-    **kwargs,
-):
+def fit_non_parametric(t, N, method="sliding_window", window_points=5, smooth="auto", **kwargs):
     """
-    Calculate growth statistics using non-parametric methods.
-
-    This unified function supports multiple methods for calculating the maximum
-    specific growth rate (Umax):
-
-    - "sliding_window": Best-supported straight line on log-transformed OD over
-      windows of every length (see `fit_sliding_window`)
-    - "spline": Fits spline to entire curve and calculates from derivative
-
+    Fit a non-parametric model: "sliding_window" (`fit_sliding_window`) or "spline"
+    (`fit_spline`).
 
     Parameters
     ----------
@@ -389,18 +294,11 @@ def fit_non_parametric(
     N : Iterable[float]
         OD values
     method : str, optional
-        Method for calculating Umax ("sliding_window" or "spline"),
-        by default "sliding_window"
+        "sliding_window" or "spline", by default "sliding_window"
     window_points : int, optional
         Minimum number of readings in a window (sliding_window method), by default 5
-    smooth : str or float, optional
-        Smoothing mode/value for spline method, by default "fast"
-            - "fast": notebook auto-default rule mapped to lam
-            - "slow": GCV-selected smoothing (auto GCV)
-            - float: manual lam value
-
-    use_weights : bool, optional
-        Whether to apply OD-dependent weighting for spline method, by default False
+    smooth : "auto" or float, optional
+        Spline smoothing: "auto" (default, chosen by REML) or a fixed positive value
     **kwargs
         Ignored. Accepted so that `fit_model` can pass the same keyword arguments
         to the fit and to `extract_stats`.
@@ -416,39 +314,10 @@ method-specific values)
     Raises
     ------
     ValueError
-        Method must be "sliding_window" or "spline". Smooth must be "fast", "slow",
-        or a non-negative float.
+        Method must be "sliding_window" or "spline".
     """
-    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
-    t, y_raw = validate_data(t, N)
-    if t is None:
-        return None
-
-    # Calculate Umax using specified method
     if method == "sliding_window":
-        return fit_sliding_window(t, y_raw, window_points)
-
-    elif method == "spline":
-        # Fit spline to the entire dataset
-        umax_result = fit_spline(
-            t,
-            y_raw,
-            smooth=smooth,
-            use_weights=use_weights,
-        )
-
-        if umax_result is None:
-            return None
-
-        # Store fit_t_min and fit_t_max as the full N range
-        return {
-            "params": {
-                **umax_result["params"],
-                "fit_t_min": float(t.min()),
-                "fit_t_max": float(t.max()),
-            },
-            "model_type": "spline",
-        }
-
-    else:
-        raise ValueError(f"Unknown umax_method: {method}")
+        return fit_sliding_window(t, N, window_points)
+    if method == "spline":
+        return fit_spline(t, N, smooth)
+    raise ValueError(f"Unknown umax_method: {method}")
