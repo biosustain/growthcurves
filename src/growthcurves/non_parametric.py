@@ -13,7 +13,7 @@ import numpy as np
 import sklearn.linear_model
 from scipy.interpolate import make_smoothing_spline
 
-from .inference import bad_fit_stats, validate_data
+from .inference import validate_data
 
 logger = getLogger(__name__)
 
@@ -57,7 +57,9 @@ def fit_sliding_window(t, N, window_points=15, step=None, n_fits=None, **kwargs)
     """
     if kwargs:
         logger.warning("fit_sliding_window received unused kwargs: %s", kwargs)
-    if len(t) < window_points or np.ptp(t) <= 0:
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t, N = validate_data(t, N)
+    if t is None or len(t) < window_points:
         return None
 
     # Log-transform for growth rate calculation
@@ -253,7 +255,7 @@ def fit_spline(
         Returns None if calculation fails.
     """
     # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
-    t_fit, N_fit = validate_data(t, N, min_points=5)
+    t_fit, N_fit = validate_data(t, N)
     if t_fit is None:
         return None
 
@@ -396,17 +398,10 @@ method-specific values)
         Method must be "sliding_window" or "spline". Smooth must be "fast", "slow",
         or a non-negative float.
     """
-    t = np.asarray(t, dtype=float)
-    N = np.asarray(N, dtype=float)
-
-    # Filter valid N (N must be positive for log transform)
-    mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
-    t, y_raw = t[mask], N[mask]
-
-    # Check minimum N requirements
-    min_points = window_points if method == "sliding_window" else 10
-    if len(t) < min_points or np.ptp(t) <= 0:
-        return bad_fit_stats()
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t, y_raw = validate_data(t, N)
+    if t is None:
+        return None
 
     # Calculate Umax using specified method
     if method == "sliding_window":

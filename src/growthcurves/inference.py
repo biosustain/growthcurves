@@ -1312,11 +1312,9 @@ def _extract_stats_sliding_window(
     """
     params = fit_result.get("params", {})
 
-    valid_mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
-    t_clean = t[valid_mask]
-    y_clean = N[valid_mask]
-
-    if len(t_clean) < 5 or np.ptp(t_clean) <= 0:
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t_clean, y_clean = validate_data(t, N)
+    if t_clean is None:
         return bad_fit_stats()
 
     y_smooth = smooth(y_clean, 11, 1)
@@ -1441,12 +1439,9 @@ def _extract_stats_spline(
 
     mu_max = float(mu_max)
 
-    # Validate and clean N
-    valid_mask = np.isfinite(t) & np.isfinite(N) & (N > 0)
-    t_clean = t[valid_mask]
-    y_clean = N[valid_mask]
-
-    if len(t_clean) < 5 or np.ptp(t_clean) <= 0:
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t_clean, y_clean = validate_data(t, N)
+    if t_clean is None:
         return bad_fit_stats()
 
     y_smooth = smooth(y_clean, 11, 1)
@@ -1548,8 +1543,8 @@ def extract_stats(
     if "exp_frac" in kwargs:
         exp_threshold = kwargs["exp_frac"]
 
-    # Validate and filter N - remove non-positive and non-finite values
-    t, N = validate_data(t, N, min_points=3)
+    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
+    t, N = validate_data(t, N)
     if t is None or N is None:
         return bad_fit_stats()
 
