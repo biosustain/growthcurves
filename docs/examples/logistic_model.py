@@ -190,7 +190,7 @@ ground_truth_params = {
     "mu_max": mu_max,
     "mu": mu,
     "K": K,
-    "N0": N0,  # N_lag
+    "N_lag": N0,  # N at the lag time (classic logistic)
     "A": A,
     "lag": lag,
 }
@@ -199,7 +199,7 @@ ground_truth_params = {
 factor = (K - N0) / N0  # N0 is where t = lag for the classic logistic model, not N(0)
 t_inflect = lag + np.log(factor) / mu
 N_at_zero = logistic_growth(np.array([0.0]), N0, K, mu, lag)[0]
-ground_truth_params["N_init"] = N_at_zero
+ground_truth_params["N0"] = N_at_zero  # N(0)
 
 t_start = min(0.0, t_inflect - 2.0 / mu)
 t_end = max(24.0, lag + 6.0 / mu, t_inflect + 6.0 / mu)
@@ -407,7 +407,7 @@ t_eval = np.linspace(t_start, t_end, num_points)
 
 # %%
 N_start = K / (1 + factor * np.exp(mu * lag))
-N = mech_logistic_model(t, mu=mu, K=K, N_init=N_start)
+N = mech_logistic_model(t, mu=mu, K=K, N0=N_start)
 
 # %% tags=["hide-input"]
 data = pd.DataFrame(
@@ -620,9 +620,7 @@ pd.concat(
 
 # %% [markdown]
 # The mechanistic model does not recover N0 directly or the lag.
-# N0 here is N(0) for the mechanistic fit and N(lag) for the closed form solution.
-#
-# > ToDo: N_init is a better name?
+# N0 here is N(0) for the mechanistic fit; N_lag is N at the lag time in the classic logistic model.
 
 # %%
 model = "mech_logistic"
@@ -667,7 +665,7 @@ pd.concat(
 # 2. the initial condition at N(0) (again not N0) had to be manually set to closely
 #    match the classic logistic model.
 #
-# You can manipulate `N_0` (`N_init`) and `lam` to get a better fit to the classic
+# You can manipulate `N0` and `lam` to get a better fit to the classic
 # logistic model. With negative `lam` the curve is shifted. Note that `N_0` is one
 # order larger here with `0.06` than the equivalent value in the classic logistic model
 # highlighting that it is still an important parameter.
@@ -793,7 +791,7 @@ data["OD_phenom_classic_fit"] = log_to_linear(
         A=fit_["A"],
         lam=fit_["lam"],
     ),
-    N_init=fit_["N0"],
+    N0=fit_["N0"],
 )
 ax = data.plot.scatter(
     x="Time",
@@ -1186,7 +1184,7 @@ pd.concat(
             {
                 "mu": ground_truth_params["mu"],
                 "K": ground_truth_params["K"],
-                "N_lag": ground_truth_params["N0"],
+                "N_lag": ground_truth_params["N_lag"],
                 "lag": ground_truth_params["lag"],
             },
             name="Ground truth parameters",

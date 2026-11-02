@@ -137,7 +137,7 @@ def fit_mech_logistic(t, N):
         t,
         N,
         model_func=mech_logistic_model,
-        param_names=["mu", "K", "N_init"],
+        param_names=["mu", "K", "N0"],
         p0_func=lambda K, t, dy: [0.5, K, 0.001],
         bounds_func=lambda K, t: (
             [0.0001, 0.001, 1e-6],
@@ -203,35 +203,19 @@ def fit_mech_richards(t, N):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    # Multistart over β: a single seed often lands in the wrong basin for true
-    # β at the extremes of the (0.1, 10) range. Three log-spaced seeds at ~3× cost.
-    best, best_ssr = None, np.inf
-    for beta_init in (0.1, 1.0, 10.0):
-        try:
-            result = _fit_model_generic(
-                t,
-                N,
-                model_func=mech_richards_model,
-                param_names=["mu", "K", "N0", "beta"],
-                p0_func=lambda K, t, dy, b=beta_init: [0.5, K, 0.001, b],
-                bounds_func=lambda K, t: (
-                    [0.0001, 0.001, 1e-6, 0.01],
-                    [10, np.inf, 10, 100],
-                ),
-                model_type="mech_richards",
-                log_space=True,
-            )
-        except Exception:
-            continue
-        if result is None:
-            continue
-        p = result["params"]
-        pred = mech_richards_model(t, p["mu"], p["K"], p["N0"], p["beta"])
-        log_resid = np.log(np.maximum(pred, 1e-8)) - np.log(np.maximum(N, 1e-8))
-        ssr = float(np.sum(log_resid**2))
-        if ssr < best_ssr:
-            best_ssr, best = ssr, result
-    return best
+    return _fit_model_generic(
+        t,
+        N,
+        model_func=mech_richards_model,
+        param_names=["mu", "K", "N0", "beta"],
+        p0_func=lambda K, t, dy: [0.5, K, 0.001, 1.0],
+        bounds_func=lambda K, t: (
+            [0.0001, 0.001, 1e-6, 0.01],
+            [10, np.inf, 10, 100],
+        ),
+        model_type="mech_richards",
+        log_space=True,
+    )
 
 
 def fit_mech_baranyi(t, N):

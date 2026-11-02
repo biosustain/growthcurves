@@ -124,7 +124,7 @@ def test_compute_analytical_mu_max_mech_gompertz():
     N_fine = evaluate_parametric_model(t_fine, "mech_gompertz", params)
     true_mu_max = np.max(np.gradient(np.log(N_fine), t_fine))
 
-    mu_max = gc.inference.compute_analytical_mu_max("mech_gompertz", params, 24.0)
+    mu_max = gc.inference.compute_analytical_mu_max("mech_gompertz", params, 0.0, 24.0)
     assert np.isclose(
         mu_max, true_mu_max, rtol=1e-2
     ), f"mu_max {mu_max:.3f} does not match true value {true_mu_max:.3f}"

@@ -3,7 +3,8 @@
 This module defines parametric growth model functions for growth curve analysis.
 Models are categorized into two classes:
 
-1. **Mechanistic models**: Defined as ODEs (dN/dt), fitted using ODE integration
+1. **Mechanistic models**: Defined as ODEs (dN/dt), evaluated with their exact
+   closed-form solutions (Ghenu & Marrec et al. 2023, Tables 1 and 3)
    - mech_logistic, mech_gompertz, mech_richards, mech_baranyi
 
 2. **Phenomenological models**: Fitted directly to ln(OD/OD0)
@@ -16,7 +17,6 @@ Models are categorized into two classes:
 """
 
 import numpy as np
-from scipy.integrate import solve_ivp
 from scipy.interpolate import UnivariateSpline
 
 # =============================================================================
@@ -79,144 +79,19 @@ def get_model_category(model_type):
 
 
 # =============================================================================
-# MECHANISTIC MODELS (ODE-based)
+# MECHANISTIC MODELS (closed-form ODE solutions)
 # =============================================================================
 # ! no lag phase directly modeled in these ODEs.
 
 
-def mech_logistic_ode(t, N, mu, K):
+def mech_logistic_model(t, mu, K, N0):
     """
-    Logistic growth Ordinary Differential Equation (ODE):
-
-    dN/dt = μ * (1 - N/K) * N
-
-    Parameters:
-        t: Time (scalar)
-        N: Population (OD) at t
-        mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity (maximum OD)
-
-    Returns:
-        dN/dt: Rate of change
-    """
-    return mu * (1 - N / K) * N
-
-
-def mech_gompertz_ode(t, N, mu, K):
-    """
-    Gompertz growth Ordinary Differential Equation (ODE):
-
-    dN/dt = μ * log(K/N) * N
-
-    Parameters:
-        t: Time (scalar)
-        N: Population (OD) at t
-        mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity (maximum OD)
-
-    Returns:
-        dN/dt: Rate of change
-    """
-    if N <= 0:
-        return 0.0
-    # Ensure N is at least 0.1% of K to prevent log from exploding
-    # This provides numerical stability without affecting realistic growth dynamics
-    data_safe = np.maximum(N, K * 0.001)
-    return mu * np.log(K / data_safe) * N
-
-
-def mech_richards_ode(t, N, mu, K, beta):
-    """
-    Richards growth Ordinary Differential Equation (ODE):
-
-    dN/dt = μ * (1 - (N/K)^β) * N
-
-    Parameters:
-        t: Time (scalar)
-        N: Population (OD) at t
-        mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity (maximum OD)
-        beta: Shape parameter
-
-    Returns:
-        dN/dt: Rate of change
-    """
-    if N <= 0:
-        return 0.0
-    ratio = N / K
-    if ratio >= 1:
-        return 0.0
-    return mu * (1 - ratio**beta) * N
-
-
-def mech_baranyi_ode(t, N, mu, K, h0):
-    """
-    Baranyi-Roberts growth Ordinary Differential Equation (ODE):
-
-    dN/dt = μ * A(t) * (1 - N/K) * N
-
-    where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
-
-    Parameters:
-        t: Time (scalar)
-        N: Population (OD) at t
-        mu: Maximum specific growth rate (h^-1)
-        K: Carrying capacity (maximum OD)
-        h0: Dimensionless lag parameter
-
-    Returns:
-        dN/dt: Rate of change
-    """
-    # Adjustment function A(t)
-    exp_mu_t = np.exp(mu * t)
-    exp_h0 = np.exp(h0)
-    A_t = exp_mu_t / (exp_h0 - 1 + exp_mu_t)
-
-    return mu * A_t * (1 - N / K) * N
-
-
-# ? parameter N0 should be rather N_start or N_init
-def mech_logistic_model(t, mu, K, N_init):
-    """
-    Solve logistic ODE and return measurement values at t points. N(t) could be optical
-    density (OD) or any other measurement depending on variable t (which often is time).
+    Logistic growth: closed-form solution of the ODE, returned at t points. N(t) could
+    be optical density (OD) or any other measurement depending on variable t (which
+    often is time).
 
     ODE: dN/dt = μ * (1 - N/K) * N
-
-    Assumes input data is baseline-corrected (no additive offset).
-
-    Parameters:
-        t: Time array
-        mu: Intrinsic growth rate (h^-1)
-        K: Carrying capacity (maximum OD)
-        N_init: Initial population at t=0
-
-    Returns:
-        OD values at each t point
-    """
-    t = np.asarray(t, dtype=float)
-    if np.isscalar(t):
-        t = np.array([t])
-
-    # Solve ODE. N_init is defined at t=0 (see docstring), not at t.min(), so the
-    # integration span must start at 0 even if the query times don't.
-    sol = solve_ivp(
-        lambda time_val, N: mech_logistic_ode(time_val, N[0], mu, K),
-        [min(0.0, t.min()), t.max()],
-        [N_init],
-        t_eval=t,
-        method="RK45",
-    )
-
-    return sol.y[0]
-
-
-def mech_gompertz_model(t, mu, K, N0):
-    """
-    Solve Gompertz ODE and return measurement values at t points. N(t) could be optical
-    density (OD) or any other measurement depending on variable t (which often is time).
-
-    ODE: dN/dt = μ * log(K/N) * N
+    Solution: N(t) = K / (1 + (K/N0 - 1) * exp(-μt))
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -230,28 +105,41 @@ def mech_gompertz_model(t, mu, K, N0):
         OD values at each t point
     """
     t = np.asarray(t, dtype=float)
-    if np.isscalar(t):
-        t = np.array([t])
+    return K / (1 + (K / N0 - 1) * np.exp(-mu * t))
 
-    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
-    # integration span must start at 0 even if the query times don't.
-    sol = solve_ivp(
-        lambda time_val, N: mech_gompertz_ode(time_val, N[0], mu, K),
-        [min(0.0, t.min()), t.max()],
-        [N0],
-        t_eval=t,
-        method="RK45",
-    )
 
-    return sol.y[0]
+def mech_gompertz_model(t, mu, K, N0):
+    """
+    Gompertz growth: closed-form solution of the ODE, returned at t points. N(t) could
+    be optical density (OD) or any other measurement depending on variable t (which
+    often is time).
+
+    ODE: dN/dt = μ * log(K/N) * N
+    Solution: N(t) = K * exp(log(N0/K) * exp(-μt))
+
+    Assumes input data is baseline-corrected (no additive offset).
+
+    Parameters:
+        t: Time array
+        mu: Intrinsic growth rate (h^-1)
+        K: Carrying capacity (maximum OD)
+        N0: Initial population at t=0
+
+    Returns:
+        OD values at each t point
+    """
+    t = np.asarray(t, dtype=float)
+    return K * np.exp(np.log(N0 / K) * np.exp(-mu * t))
 
 
 def mech_richards_model(t, mu, K, N0, beta):
     """
-    Solve Richards ODE and return measurement values at t points. N(t) could be optical
-    density (OD) or any other measurement depending on variable t (which often is time).
+    Richards growth: closed-form solution of the ODE, returned at t points. N(t) could
+    be optical density (OD) or any other measurement depending on variable t (which
+    often is time).
 
     ODE: dN/dt = μ * (1 - (N/K)^β) * N
+    Solution: N(t) = K * (1 + ((K/N0)^β - 1) * exp(-βμt))^(-1/β)
 
     Assumes input data is baseline-corrected (no additive offset).
 
@@ -266,32 +154,23 @@ def mech_richards_model(t, mu, K, N0, beta):
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
-    if np.isscalar(t):
-        t = np.array([t])
-
-    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
-    # integration span must start at 0 even if the query times don't.
-    sol = solve_ivp(
-        lambda time_val, N: mech_richards_ode(time_val, N[0], mu, K, beta),
-        [min(0.0, t.min()), t.max()],
-        [N0],
-        t_eval=t,
-        method="RK45",
-    )
-
-    return sol.y[0]
+    return K * (1 + ((K / N0) ** beta - 1) * np.exp(-beta * mu * t)) ** (-1 / beta)
 
 
 def mech_baranyi_model(t, mu, K, N0, h0):
     """
-    Solve Baranyi-Roberts ODE and return measurement values at t points. N(t) could be
-    optical density (OD) or any other measurement depending on variable t (which often
-    is time).
+    Baranyi-Roberts growth: closed-form solution of the ODE, returned at t points. N(t)
+    could be optical density (OD) or any other measurement depending on variable t
+    (which often is time).
 
     ODE: dN/dt = μ * A(t) * (1 - N/K) * N
 
     where A(t) = exp(μ*t) / (exp(h0) - 1 + exp(μ*t))
 
+    Solution: logistic growth in the adjusted time a(t) = ∫A ds,
+        N(t) = K / (1 + (K/N0 - 1) * exp(-μ a(t))),
+        μ a(t) = log(1 + q0 * exp(μt)) - log(1 + q0), with q0 = 1 / (exp(h0) - 1)
+
     Assumes input data is baseline-corrected (no additive offset).
 
     Parameters:
@@ -305,20 +184,10 @@ def mech_baranyi_model(t, mu, K, N0, h0):
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
-    if np.isscalar(t):
-        t = np.array([t])
-
-    # Solve ODE. N0 is defined at t=0 (see docstring), not at t.min(), so the
-    # integration span must start at 0 even if the query times don't.
-    sol = solve_ivp(
-        lambda time_val, N: mech_baranyi_ode(time_val, N[0], mu, K, h0),
-        [min(0.0, t.min()), t.max()],
-        [N0],
-        t_eval=t,
-        method="RK45",
-    )
-
-    return sol.y[0]
+    q0 = 1 / np.expm1(h0)
+    # logaddexp(0, x) = log(1 + exp(x)) without overflow for large μt
+    mu_a = np.logaddexp(0, np.log(q0) + mu * t) - np.log1p(q0)
+    return K / (1 + (K / N0 - 1) * np.exp(-mu_a))
 
 
 # =============================================================================
@@ -326,7 +195,7 @@ def mech_baranyi_model(t, mu, K, N0, h0):
 # =============================================================================
 
 
-def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N_init=0.0):
+def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N0=0.0):
     """
     Phenomenological logistic model in ln-space.
 
@@ -337,7 +206,7 @@ def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N_init=0.0):
         A: Maximum ln(OD/OD0) (amplitude)
         mu_max: Maximum specific growth rate (h^-1)
         lam: Lag time (hours)
-        ln_N_init: Optional ln(baseline OD) offset as ln(Nt/N0) is non-zero
+        ln_N0: Optional ln(baseline OD) offset as ln(Nt/N0) is non-zero
             at t=0. Default is 0.0 (no offset) for this formulation
             of logistic growth.
 
@@ -347,7 +216,7 @@ def phenom_logistic_model_ln(t, A, mu_max, lam, ln_N_init=0.0):
 
     t = np.asarray(t, dtype=float)
     ln_ratio = A / (1 + np.exp((4 * mu_max / A * (lam - t)) + 2))
-    return ln_ratio + ln_N_init
+    return ln_ratio + ln_N0
 
 
 def phenom_gompertz_model_ln(t, A, mu_max, lam):
@@ -425,7 +294,7 @@ def phenom_richards_model_ln(t, A, mu_max, lam, nu):
 # Phenomenological models are fitted to ln(OD/OD0) values, so the output of these
 # functions is in ln-space. To convert to linear space, use the log_to_linear function
 # below.
-def log_to_linear(ln_ratio, N_init):
+def log_to_linear(ln_ratio, N0):
     """
     Convert log-space values to linear-space values.
 
@@ -436,7 +305,7 @@ def log_to_linear(ln_ratio, N_init):
     Returns:
         Linear-space values
     """
-    return N_init * np.exp(ln_ratio)
+    return N0 * np.exp(ln_ratio)
 
 
 # =============================================================================
@@ -523,8 +392,8 @@ def evaluate_parametric_model(t, model_type, params):
     """
     # Model function registry: maps model_type to (function, required_param_names)
     PARAMETRIC_MODEL_FUNCTIONS = {
-        # Mechanistic models (ODE-based)
-        "mech_logistic": (mech_logistic_model, ["mu", "K", "N_init"]),
+        # Mechanistic models (closed-form)
+        "mech_logistic": (mech_logistic_model, ["mu", "K", "N0"]),
         "mech_gompertz": (mech_gompertz_model, ["mu", "K", "N0"]),
         "mech_richards": (mech_richards_model, ["mu", "K", "N0", "beta"]),
         "mech_baranyi": (mech_baranyi_model, ["mu", "K", "N0", "h0"]),
