@@ -215,15 +215,30 @@ def compute_analytical_time_at_umax(model_type, params, t_min, t_max):
 
 
 def smooth(N, window=11, poly=1, passes=2):
-    """Apply Savitzky-Golay smoothing filter."""
+    """Apply smoothing filter."""
     n = len(N)
     if n < 7:
         return N
     w = int(window) | 1  # Ensure odd
     w = min(w, n if n % 2 else n - 1)
     p = min(int(poly), w - 1)
+    if p > 1:
+        for _ in range(passes):
+            N = savgol_filter(N, w, p, mode="interp")
+        return N
+    # Order 0 or 1: a moving average, with the first and last w readings replaced by their
+    # least-squares constant or line (savgol_filter's "interp" mode), ~6x faster
+    h, x = w // 2, np.arange(w) - (w - 1) / 2
     for _ in range(passes):
-        N = savgol_filter(N, w, p, mode="interp")
+        N = np.asarray(N, dtype=float)
+        c = np.concatenate([[0.0], np.cumsum(N)])
+        out = np.empty(n)
+        out[h : n - h] = (c[w:] - c[:-w]) / w
+        for edge, keep in ((slice(0, w), slice(0, h)), (slice(n - w, n), slice(w - h, w))):
+            v = N[edge]
+            fit = v.mean() + p * x * (x @ (v - v.mean())) / (x @ x)
+            out[edge][keep] = fit[keep]
+        N = out
     return N
 
 

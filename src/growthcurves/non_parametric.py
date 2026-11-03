@@ -10,7 +10,6 @@ from logging import getLogger
 
 import numpy as np
 from scipy.interpolate import BSpline
-from scipy.linalg import cholesky, eigh, solve_triangular
 
 from .inference import smooth as smooth_od
 from .inference import validate_data
@@ -36,7 +35,8 @@ def _noise_levels(t, N):
     """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
     N_ref = smooth_od(N)
     mid = N_ref[1:-1]
-    lo, hi = mid <= np.quantile(mid, 1 / 3), mid >= np.quantile(mid, 2 / 3)
+    q1, q2 = np.quantile(mid, [1 / 3, 2 / 3])
+    lo, hi = mid <= q1, mid >= q2
     mad_to_sd = 1.4826 / np.sqrt(6)
     sd_add = mad_to_sd * np.median(np.abs(_second_diff_series(t, N))[lo])
     sd_add = max(sd_add, np.diff(np.unique(N)).min() / np.sqrt(12))
@@ -190,7 +190,7 @@ def _bisquare(r, c=4.685):
 
 
 # region: fit_spline
-def fit_spline(t, N, smooth="auto"):
+def fit_spline(t, N, smooth="auto", min_fold=1.5):
     """
     Maximum specific growth rate from a penalised spline of ln(N).
 
@@ -202,22 +202,30 @@ def fit_spline(t, N, smooth="auto"):
         t: Time array (hours)
         N: OD values (linear scale, baseline-corrected)
         smooth: "auto" (chosen by REML) or a fixed value > 0, in units of tr(BᵀWB)/tr(P)
+        min_fold: Minimum fold increase of the smoothed OD, from its lowest value before
+            the peak to the peak, for growth (default: 1.5, as in `fit_sliding_window`)
 
     Returns:
         Dict with params (tck_t, tck_c, tck_k, mu_max, time_at_umax, fit_t_min,
-        fit_t_max) and model_type "spline". None if no growth (derivative - 3.5·SE
-        not above zero) or too few points.
+        fit_t_max) and model_type "spline". None if no growth (fold increase below
+        `min_fold`, or derivative - 3.5·SE not above zero) or too few points.
     """
     # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
     auto = isinstance(smooth, str) and smooth == "auto"
     if not auto and not (isinstance(smooth, (int, float)) and smooth > 0):
         raise ValueError('smooth must be "auto" or a positive number.')
+    if min_fold < 1:
+        raise ValueError("min_fold must be at least 1.")
     t, N = validate_data(t, N)
     if t is None or np.ptp(N) == 0:
         return None
 
-    # Crop: end half the 10-95 % rise duration after the curve reaches 95 % of its rise
     sd_add, sd_prop, N_ref = _noise_levels(t, N)
+    peak = int(np.argmax(N_ref))
+    if N_ref[peak] < min_fold * N_ref[: peak + 1].min():
+        return None
+
+    # Crop: end half the 10-95 % rise duration after the curve reaches 95 % of its rise
     y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
     lo, hi = y_ref.min(), y_ref.max()
     t10, t95 = (t[np.argmax(y_ref >= lo + q * (hi - lo))] for q in (0.1, 0.95))
@@ -239,8 +247,8 @@ def fit_spline(t, N, smooth="auto"):
         # Eigen-decomposition: (A + λP)⁻¹ = T diag(1 / (1 + λe)) Tᵀ for any λ
         A = (B.T * w) @ B
         A[np.diag_indices(K)] += 1e-10 * np.trace(A) / K
-        Li = solve_triangular(cholesky(A, lower=True), np.eye(K), lower=True)
-        e, U = eigh(Li @ P @ Li.T)
+        Li = np.linalg.inv(np.linalg.cholesky(A))  # numpy: less overhead than scipy at K ~ 30
+        e, U = np.linalg.eigh(Li @ P @ Li.T)
         T = Li.T @ U
         return T, np.maximum(e, 0), T.T @ (B.T @ (w * y)), np.sum(w * y * y)
 

@@ -120,7 +120,7 @@ The **sliding window method** fits weighted linear regressions to log-transforme
 The spline method fits $s(t) \approx \ln N$ and takes $\mu(t) = \frac{d\,s(t)}{dt}$:
 
 1. Each reading is weighted by a noise model (proportional noise plus an additive OD floor, estimated from the curve).
-2. Long stationary phases are cropped.
+2. If the smoothed OD does not rise at least `min_fold` (default 1.5) times from its lowest value before the peak, the method returns `None` (no growth). Long stationary phases are cropped.
 3. A cubic P-spline (up to 25 equal segments, second-difference penalty) is fitted, with the smoothing chosen by REML. Two robust reweighting passes downweight outliers, and two IRLS passes treat the noise in OD rather than ln OD.
 4. $\mu_{\max}$ is $\mu(t)$ where $\mu(t) - 2\,\mathrm{SE}$ is highest. If $\mu - 3.5\,\mathrm{SE}$ is not above zero there, the method returns `None` (no growth).
 

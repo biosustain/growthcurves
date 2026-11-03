@@ -124,6 +124,31 @@ def test_flat_noise_returns_none():
     assert fit_spline(t, N) is None
 
 
+@pytest.mark.parametrize("seed", range(5))
+def test_flat_correlated_noise_returns_none(seed):
+    # AR(1) noise wanders smoothly, so a REML spline can see a significant slope in it
+    rng = np.random.default_rng(seed)
+    z = np.zeros(200)
+    for i in range(1, 200):
+        z[i] = 0.8 * z[i - 1] + 0.6 * rng.standard_normal()
+    N = 0.05 + 0.004 * z
+    assert fit_spline(np.linspace(0, 48, 200), N) is None
+
+
+def test_small_rise_returns_none():
+    # OD rises 1.3-fold: below min_fold
+    t = np.linspace(0, 48, 200)
+    N = log_to_linear(phenom_gompertz_model_ln(t, A=np.log(1.3), mu_max=0.1, lam=5.0), N0=0.05)
+    assert fit_spline(t, N) is None
+    assert fit_spline(t, N, min_fold=1.2) is not None
+
+
+def test_invalid_min_fold_raises():
+    t, N, _ = _gompertz_curve()
+    with pytest.raises(ValueError):
+        fit_spline(t, N, min_fold=0.5)
+
+
 # =============================================================================
 # fit_spline — edge cases returning None
 # =============================================================================
