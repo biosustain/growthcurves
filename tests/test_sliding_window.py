@@ -17,6 +17,23 @@ def _logistic(n, sd_mult=0.0, sd_add=0.0, seed=0):
     ) + sd_add * rng.standard_normal(n)
 
 
+def _ar1(n, rho, rng):
+    """Unit-variance AR(1) noise."""
+    z, e = rng.standard_normal(n), np.zeros(n)
+    e[0] = z[0]
+    for i in range(1, n):
+        e[i] = rho * e[i - 1] + np.sqrt(1 - rho**2) * z[i]
+    return e
+
+
+def _lagged_correlated(seed, n=500, rho=0.7, sd=0.002):
+    """Logistic in ln N (max slope MU), 20 h lag, rounded additive AR(1) noise."""
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, 48, n)
+    N = 0.005 * np.exp(5 / (1 + np.exp(4 * MU / 5 * (20 - t) + 2)))
+    return t, np.round(N + sd * _ar1(n, rho, rng), 4)
+
+
 def _median_error(n, seeds=20, **kw):
     slopes = [
         fit_sliding_window(*_logistic(n, seed=s, **kw))["params"]["slope"]
@@ -31,6 +48,7 @@ def _median_error(n, seeds=20, **kw):
 
 
 def test_recovers_mu_max_clean():
+    # The minimum rise forces a wider window, biasing the slope ~1 % low.
     r = fit_sliding_window(*_logistic(200))
     assert np.isclose(r["params"]["slope"], MU, rtol=0.01)
 
@@ -72,6 +90,24 @@ def test_spike_does_not_move_estimate():
     assert np.isclose(fit_sliding_window(t, N)["params"]["slope"], base, rtol=0.02)
 
 
+def test_correlated_noise_baseline_not_picked():
+    # Correlated baseline noise can otherwise win over true growth.
+    errors = [
+        fit_sliding_window(*_lagged_correlated(seed))["params"]["slope"] / MU - 1
+        for seed in range(20)
+    ]
+    assert np.max(np.abs(errors)) < 0.25
+    assert np.median(np.abs(errors)) < 0.05
+
+
+def test_window_ends_at_or_before_peak():
+    t = np.linspace(0, 48, 300)
+    N = 0.01 * np.exp(4 / (1 + np.exp(4 * MU / 4 * (10 - t) + 2)))
+    N = N * np.exp(-0.05 * np.clip(t - 30, 0, None))  # death phase after 30 h
+    p = fit_sliding_window(t, N)["params"]
+    assert p["fit_t_max"] <= t[np.argmax(N)] + 1e-9
+
+
 def test_rounded_od():
     t, N = _logistic(200, sd_mult=0.01, seed=3)
     r = fit_sliding_window(t, np.round(N, 3))
@@ -88,6 +124,19 @@ def test_flat_noise_returns_none(seed):
     rng = np.random.default_rng(seed)
     N = 0.2 * np.exp(0.03 * rng.standard_normal(100))
     assert fit_sliding_window(np.linspace(0, 24, 100), N) is None
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_flat_correlated_noise_returns_none(seed):
+    t = np.linspace(0, 48, 400)
+    N = np.round(0.05 + 0.002 * _ar1(400, 0.7, np.random.default_rng(seed)), 4)
+    assert fit_sliding_window(t, N) is None
+
+
+def test_small_rise_returns_none():
+    # OD rises 1.3-fold: below min_fold
+    t = np.linspace(0, 24, 100)
+    assert fit_sliding_window(t, 0.1 * (1 + 0.3 / (1 + np.exp(-(t - 12))))) is None
 
 
 def test_declining_returns_none():
@@ -108,6 +157,12 @@ def test_too_few_points_returns_none():
 def test_invalid_window_points_raises(window_points):
     with pytest.raises(ValueError):
         fit_sliding_window(*_logistic(50), window_points=window_points)
+
+
+@pytest.mark.parametrize("kw", [dict(min_rise=-0.1), dict(min_rise=1), dict(min_fold=0.5)])
+def test_invalid_window_rules_raise(kw):
+    with pytest.raises(ValueError):
+        fit_sliding_window(*_logistic(50), **kw)
 
 
 # =============================================================================

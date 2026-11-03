@@ -74,7 +74,7 @@ def _wls_windows(t, y, sd, lengths):
 
 
 # region: sliding window method
-def fit_sliding_window(t, N, window_points=5):
+def fit_sliding_window(t, N, window_points=5, min_rise=0.10, min_fold=1.5):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -85,28 +85,48 @@ def fit_sliding_window(t, N, window_points=5):
     where a window fits worse than the noise). So the window length adapts: short on
     clean or sparse data, long on noisy data.
 
+    To reject correlated baseline noise, windows must end by the smoothed OD peak
+    and cover at least `min_rise` of its rise from the preceding minimum.
+    The peak must reach `min_fold` times that minimum.
+
     Parameters:
         t: Time array (hours)
         N: OD values (linear-scale, baseline-corrected, must be positive)
         window_points: Minimum readings per window (default: 5, at least 3)
+        min_rise: Minimum share of the OD rise a window must cover (default: 0.10)
+        min_fold: Minimum fold increase of the smoothed OD for growth (default: 1.5)
 
     Returns:
         Dict with params (slope = μmax in h⁻¹, intercept in log space, time_at_umax
         = window midpoint, fit_t_min, fit_t_max) and model_type "sliding_window".
-        None if no window's lower bound is above zero (no growth) or too few points.
+        None for too few points, insufficient fold increase, or no qualifying
+        window with a positive lower bound.
     """
     if int(window_points) != window_points or window_points < 3:
         raise ValueError("window_points must be an integer of at least 3.")
+    if not 0 <= min_rise < 1:
+        raise ValueError("min_rise must be in [0, 1).")
+    if min_fold < 1:
+        raise ValueError("min_fold must be at least 1.")
 
     t, N = validate_data(t, N)
     if t is None or len(t) < window_points or np.ptp(N) == 0:
         return None
 
-    y, sd = np.log(N), _ln_noise_sd(N, *_noise_levels(t, N))
+    sd_add, sd_prop, N_ref = _noise_levels(t, N)
+    peak = int(np.argmax(N_ref))
+    base = N_ref[: peak + 1].min()
+    if N_ref[peak] < min_fold * base:
+        return None
+
+    y, sd = np.log(N), _ln_noise_sd(N, sd_add, sd_prop, N_ref)
     slope, se, chi2, start, length = _wls_windows(
         t, y, sd, _window_lengths(len(t), int(window_points))
     )
+    end = start + length - 1
+    on_growth = (end <= peak) & (N_ref[end] - N_ref[start] >= min_rise * (N_ref[peak] - base))
     bound = slope - np.sqrt(2 * np.log(len(slope))) * se * np.sqrt(np.maximum(chi2, 1))
+    bound = np.where(on_growth, bound, -np.inf)
     k = np.nanargmax(bound)
     if not bound[k] > 0:
         return None
