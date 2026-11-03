@@ -7,7 +7,6 @@ derivative calculations, and RMSE computation.
 import numpy as np
 from scipy.signal import savgol_filter
 
-import growthcurves as gc
 from growthcurves.models import (
     MODEL_REGISTRY,
     evaluate_parametric_model,
@@ -836,7 +835,6 @@ def _extract_stats_phenom_logistic(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
     N0 = float(params["N0"])  # Fitted initial OD
@@ -938,7 +936,6 @@ def _extract_stats_phenom_gompertz(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
     N0 = float(params["N0"])  # Fitted initial OD
@@ -1039,7 +1036,6 @@ def _extract_stats_phenom_gompertz_modified(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
     N0 = float(params["N0"])  # Fitted initial OD
@@ -1143,7 +1139,6 @@ def _extract_stats_phenom_richards(
     params = fit_result.get("params", {})
 
     # Extract model parameters
-    float(params["A"])  # Maximum ln(OD/OD0)
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
     lam = float(params["lam"])  # Lag t
     N0 = float(params["N0"])  # Fitted initial OD
@@ -1892,7 +1887,7 @@ def compare_methods(
         If None, uses default for each model type.
     **fit_kwargs
         Additional keyword arguments to pass to fitting functions
-        (e.g., spline_s=100, window_points=15)
+        (e.g., smooth=1.0, window_points=15)
 
     Returns
     -------
@@ -1935,14 +1930,13 @@ def compare_methods(
             f"Choose from: {list(MODEL_REGISTRY.keys()) + ['all']}"
         )
 
-    # spline_kwargs = ["spline_s", "k"]
-    # sliding_window_kwargs = ["window_points", "poly_order"]
+    from .fit import fit_model  # local: fit imports this module
 
     # Fit all models
     fits = {}
     stats = {}
     for model_name in models_to_fit:
-        fits[model_name], stats[model_name] = gc.fit_model(
+        fits[model_name], stats[model_name] = fit_model(
             t=t,
             N=N,
             model_name=model_name,

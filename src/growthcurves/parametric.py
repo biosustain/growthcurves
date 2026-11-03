@@ -38,25 +38,6 @@ from .models import (
 # -----------------------------------------------------------------------------
 
 
-def _estimate_initial_params(t, N):
-    """
-    Estimate common initial parameters for all growth models.
-
-    Parameters:
-        t: Time array
-        N: OD values (assumed baseline-corrected)
-
-    Returns:
-        Tuple of (K_init, dN) where:
-            K_init: Initial carrying capacity (max OD)
-            dN: First derivative (gradient) of OD with respect to t
-
-    """
-    K_init = np.max(N)
-    dN = np.gradient(N, t)
-    return K_init, dN
-
-
 def _fit_model_generic(
     t, N, model_func, param_names, p0_func, bounds_func, model_type, log_space=False
 ):
@@ -71,7 +52,7 @@ def _fit_model_generic(
         N: OD values
         model_func: Model function to fit (e.g., mech_logistic_model)
         param_names: List of parameter names in order
-        p0_func: Function that takes (K_init, t, dN) and returns p0
+        p0_func: Function that takes K_init and returns p0
         bounds_func: Function that takes (K_init, t) and returns bounds
         model_type: String identifier for the model
 
@@ -83,11 +64,9 @@ def _fit_model_generic(
     if t is None:
         return None
 
-    # Estimate common initial parameters
-    K_init, dN = _estimate_initial_params(t, N)
-
-    # Generate initial guess and bounds
-    p0 = p0_func(K_init, t, dN)
+    # Initial guess and bounds; K starts at the max OD
+    K_init = np.max(N)
+    p0 = p0_func(K_init)
     bounds = bounds_func(K_init, t)
 
     # Fit the model
@@ -138,7 +117,7 @@ def fit_mech_logistic(t, N):
         N,
         model_func=mech_logistic_model,
         param_names=["mu", "K", "N0"],
-        p0_func=lambda K, t, dy: [0.5, K, 0.001],
+        p0_func=lambda K: [0.5, K, 0.001],
         bounds_func=lambda K, t: (
             [0.0001, 0.001, 1e-6],
             [10, np.inf, 10],
@@ -176,7 +155,7 @@ def fit_mech_gompertz(t, N):
         N,
         model_func=mech_gompertz_model,
         param_names=["mu", "K", "N0"],
-        p0_func=lambda K, t, dy: [0.05, K, 0.01],
+        p0_func=lambda K: [0.05, K, 0.01],
         # ToDo: This should be a function to avoid hardcoding K bounds.
         bounds_func=lambda K, t: (
             [0.0001, 0.01, 1e-4],
@@ -208,7 +187,7 @@ def fit_mech_richards(t, N):
         N,
         model_func=mech_richards_model,
         param_names=["mu", "K", "N0", "beta"],
-        p0_func=lambda K, t, dy: [0.5, K, 0.001, 1.0],
+        p0_func=lambda K: [0.5, K, 0.001, 1.0],
         bounds_func=lambda K, t: (
             [0.0001, 0.001, 1e-6, 0.01],
             [10, np.inf, 10, 100],
@@ -238,7 +217,7 @@ def fit_mech_baranyi(t, N):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
 
-    def p0_baranyi(K, t, dy):
+    def p0_baranyi(K):
         mu_init = 0.5
         h0_init = 1.0
         N0_init = 0.001
