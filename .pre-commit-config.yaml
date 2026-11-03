@@ -1,0 +1,58 @@
+# Local mirror of the checks in .github/workflows/cicd.yml
+#
+# Setup (once per clone):
+#   pip install -e ".[dev]"   # or: pip install pre-commit
+#   pre-commit install
+#
+# Run manually over the whole repository:
+#   pre-commit run --all-files
+#
+# Tool versions are pinned to what the CI/CD pipeline uses. Keep them in sync
+# with .github/workflows/cicd.yml (and bump both with `pre-commit autoupdate`).
+default_language_version:
+  python: python3
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  # cheap sanity checks on the files that are about to be committed
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+
+  # CI job: format -> psf/black@stable (runs `black --check --diff .`)
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
+    hooks:
+      - id: black
+
+  # CI job: format -> isort/isort-action@v1 (runs `isort --check-only --diff .`)
+  # configuration (profile = "black") is read from pyproject.toml
+  - repo: https://github.com/PyCQA/isort
+    rev: 9.0.1
+    hooks:
+      - id: isort
+
+  # CI job: lint -> `ruff check src` with "ruff<0.16.0"
+  # 0.16 enables additional rules by default, so the pin has to be kept.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff-check
+        files: ^src/
+
+  # CI job: test -> `python -m pytest tests`
+  # Uses the active environment, so `pip install -e ".[dev]"` is required.
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (tests/)
+        entry: python -m pytest tests
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true

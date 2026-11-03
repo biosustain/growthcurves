@@ -52,7 +52,7 @@ docs = [
   "sympy",
 ]
 # local development options
-dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext"]
+dev = ["black[jupyter]", "ruff", "pytest", "isort", "jupytext", "pre-commit"]
 
 [tool.ruff]
 # https://docs.astral.sh/ruff/rules/#flake8-bandit-s
