@@ -116,9 +116,7 @@ def compute_rmse(y_observed, y_predicted, in_log_space=False):
         RMSE value (float), or np.nan if no valid data points
 
     Note:
-        - Parametric models use in_log_space=False (linear space)
-        - Non-parametric models (spline, sliding window) use in_log_space=False
-          when data is already log-transformed
+        All fitting methods report model_rmse in linear (OD) space.
     """
     mask = np.isfinite(y_observed) & np.isfinite(y_predicted)
     if mask.sum() == 0:
@@ -530,7 +528,7 @@ def _extract_stats_mech_logistic(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -617,7 +615,7 @@ def _extract_stats_mech_gompertz(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -704,7 +702,7 @@ def _extract_stats_mech_richards(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -795,7 +793,7 @@ def _extract_stats_mech_baranyi(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=K,
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -896,7 +894,7 @@ def _extract_stats_phenom_logistic(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=float(np.max(N_dense)),
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -996,7 +994,7 @@ def _extract_stats_phenom_gompertz(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=float(np.max(N_dense)),
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -1099,7 +1097,7 @@ def _extract_stats_phenom_gompertz_modified(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=float(np.max(N_dense)),
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -1200,7 +1198,7 @@ def _extract_stats_phenom_richards(
         time_at_umax=time_at_umax,
         od_at_umax=od_at_umax,
         mu_max=mu_max,
-        baseline_od=float(np.min(N_dense)),
+        baseline_od=N0,
         plateau_od=float(np.max(N_dense)),
         lag_threshold=lag_threshold,
         exp_threshold=exp_threshold,
@@ -1340,7 +1338,7 @@ def _extract_stats_sliding_window(
     od_at_umax = float(np.exp(params["slope"] * time_at_umax + params["intercept"]))
 
     # Calculate phase boundaries using specified method
-    baseline_od = float(np.min(y_clean))
+    baseline_od = N0
     plateau_od = max_od
     exp_start, exp_end = compute_phase_boundaries(
         t_clean,
@@ -1362,8 +1360,8 @@ def _extract_stats_sliding_window(
         y_fit_window = np.exp(
             params["slope"] * t_clean[in_window] + params["intercept"]
         )
-        # RMSE in log space (sliding window fits linear model in log space)
-        rmse = compute_rmse(y_clean[in_window], y_fit_window, in_log_space=True)
+        # RMSE in OD of the window line that gives mu_max
+        rmse = compute_rmse(y_clean[in_window], y_fit_window)
     else:
         rmse = np.nan
 
@@ -1439,16 +1437,14 @@ def _extract_stats_spline(
         return bad_fit_stats()
 
     # Reconstruct spline to calculate od_at_umax and RMSE
-    y_log_exp = np.log(y_exp)
     try:
         spline = spline_from_params(params)
         # Evaluate spline at time_at_umax to get the OD value
         # Spline is fitted to log(y), so exponentiate to get actual OD
         od_at_umax = float(np.exp(spline(time_at_umax)))
 
-        # Calculate RMSE in log space
-        y_log_fit = spline(t_exp)
-        rmse = compute_rmse(y_log_exp, y_log_fit, in_log_space=False)
+        # RMSE in OD
+        rmse = compute_rmse(y_exp, np.exp(spline(t_exp)))
     except Exception:
         od_at_umax = np.nan
         rmse = np.nan
@@ -1459,7 +1455,7 @@ def _extract_stats_spline(
     N0 = float(np.mean(y_clean[: min(10, len(y_clean))]))
 
     # Calculate phase boundaries using specified method
-    baseline_od = float(np.min(y_clean))
+    baseline_od = N0
     plateau_od = max_od
     exp_start, exp_end = compute_phase_boundaries(
         t_clean,

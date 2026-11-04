@@ -445,6 +445,8 @@ def prepare_tangent_line(
     fig: go.Figure,
     scale: Optional[str] = "linear",
     n_points: Optional[int] = 100,
+    n0: Optional[float] = None,
+    max_od: Optional[float] = None,
 ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     Calculate tangent line at maximum growth rate point.
@@ -489,6 +491,12 @@ def prepare_tangent_line(
     else:
         baseline_od = min(all_y_values)
         plateau_od = max(all_y_values)
+
+    # Run between the N0 and max OD lines when given, as the phase boundaries do
+    if n0 is not None and np.isfinite(n0):
+        baseline_od = n0
+    if max_od is not None and np.isfinite(max_od):
+        plateau_od = max_od
 
     # Ensure baseline < od_umax < plateau (with safety margins)
     baseline_od = min(baseline_od, od_umax * 0.95)
@@ -674,7 +682,10 @@ def annotate_plot(
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
         if umax is not None and time_umax is not None and od_umax is not None:
-            tangent_data = prepare_tangent_line(umax, time_umax, od_umax, fig, scale)
+            tangent_data = prepare_tangent_line(
+                umax, time_umax, od_umax, fig, scale,
+                n0=stats.get("N0"), max_od=stats.get("max_od"),
+            )
             if tangent_data is not None:
                 time_vals, od_vals = tangent_data
                 y_vals = np.log(od_vals) if scale == "log" else od_vals
