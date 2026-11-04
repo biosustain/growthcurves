@@ -111,7 +111,7 @@ Phenomenological models are fitted directly to ln(OD/OD0) data.
 | Spline         | `non_parametric.fit_non_parametric` | `smooth`        |
 | Sliding window | `non_parametric.fit_non_parametric` | `window_points` |
 
-The **spline method** fits a penalised spline to log-transformed OD data and calculates growth rate from the spline's derivative. By default (`smooth="auto"`) the smoothing is chosen per curve by REML; pass a positive number to fix it instead. It returns `None` when the curve shows no significant growth.
+The **spline method** fits a penalised spline to log-transformed OD data and calculates growth rate from the spline's derivative. By default (`smooth="auto"`) the smoothing is chosen per curve by REML (Restricted Maximum Likelihood); pass a positive number to fix it instead. It returns `None` when the curve shows no significant growth.
 
 The **sliding window method** fits weighted linear regressions to log-transformed data in windows of every length (at least `window_points`, default 5) and reports the window with the highest lower confidence bound on its slope, so the window length adapts to each curve's noise and sampling. It returns `None` when no window shows significant growth.
 
@@ -121,7 +121,7 @@ The spline method fits $s(t) \approx \ln N$ and takes $\mu(t) = \frac{d\,s(t)}{d
 
 1. Each reading is weighted by a noise model (proportional noise plus an additive OD floor, estimated from the curve).
 2. If the smoothed OD does not rise at least `min_fold` (default 1.5) times from its lowest value before the peak, the method returns `None` (no growth). Long stationary phases are cropped.
-3. A cubic P-spline (up to 25 equal segments, second-difference penalty) is fitted, with the smoothing chosen by REML. Two robust reweighting passes downweight outliers, and two IRLS passes treat the noise in OD rather than ln OD.
+3. A cubic P-spline (up to 25 equal segments, second-difference penalty) is fitted, with the smoothing chosen by REML. Two robust reweighting passes downweight outliers, and two IRLS (Iteratively Reweighted Least Squares) passes treat the noise in OD rather than ln OD.
 4. $\mu_{\max}$ is $\mu(t)$ where $\mu(t) - 2\,\mathrm{SE}$ is highest. If $\mu - 3.5\,\mathrm{SE}$ is not above zero there, the method returns `None` (no growth).
 
 ### Derived growth statistics
