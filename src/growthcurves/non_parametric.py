@@ -52,22 +52,21 @@ def _ln_noise_sd(N: np.ndarray, sd_add: float, sd_prop: float, N_ref: np.ndarray
 def _wls_windows(t: np.ndarray, y: np.ndarray, sd: np.ndarray, lengths: list):
     """Weighted least squares of every window of each length, via prefix sums.
 
-    Returns slope, SE of the slope (from sd), reduced chi-square, start, length.
+    Yields, per length, slope, SE of the slope (from sd), reduced chi-square, start
+    and length of every window, so only one length is held in memory at a time.
     """
     t, y, w = t - t.mean(), y - y.mean(), 1 / sd**2
     c = [
         np.concatenate([[0], np.cumsum(v)])
         for v in (w, w * t, w * y, w * t * t, w * t * y, w * y * y)
     ]
-    out = []
     for L in lengths:
         i = np.arange(len(t) - L + 1)
         sw, st, sy, stt, sty, syy = (v[i + L] - v[i] for v in c)
         sxx, sxy = stt - st**2 / sw, sty - st * sy / sw
         slope = sxy / sxx
         chi2 = np.maximum(syy - sy**2 / sw - slope * sxy, 0) / (L - 2)
-        out.append((slope, 1 / np.sqrt(sxx), chi2, i, np.full_like(i, L)))
-    return (np.concatenate(a) for a in zip(*out))
+        yield slope, 1 / np.sqrt(sxx), chi2, i, L
 
 
 # endregion
@@ -126,23 +125,30 @@ def fit_sliding_window(
         return None
 
     y, sd = np.log(N), _ln_noise_sd(N, sd_add, sd_prop, N_ref)
-    slope, se, chi2, start, length = _wls_windows(
-        t, y, sd, _window_lengths(len(t), int(window_points))
-    )
-    end = start + length - 1
-    on_growth = (end <= peak) & (N_ref[end] - N_ref[start] >= min_rise * (N_ref[peak] - base))
-    bound = slope - np.sqrt(2 * np.log(len(slope))) * se * np.sqrt(np.maximum(chi2, 1))
-    bound = np.where(on_growth, bound, -np.inf)
-    k = np.nanargmax(bound)
-    if not bound[k] > 0:
+    lengths = _window_lengths(len(t), int(window_points))
+    z = np.sqrt(2 * np.log(sum(len(t) - L + 1 for L in lengths)))
+    # Keep only the best window so far: memory stays O(n) on long curves
+    best_bound, best = -np.inf, None
+    for slope, se, chi2, start, L in _wls_windows(t, y, sd, lengths):
+        end = start + L - 1
+        on_growth = (end <= peak) & (
+            N_ref[end] - N_ref[start] >= min_rise * (N_ref[peak] - base)
+        )
+        bound = slope - z * se * np.sqrt(np.maximum(chi2, 1))
+        bound = np.where(on_growth & ~np.isnan(bound), bound, -np.inf)
+        k = int(np.argmax(bound))
+        if bound[k] > best_bound:
+            best_bound, best = bound[k], (slope[k], start[k], L)
+    if not best_bound > 0:
         return None
 
-    win = slice(start[k], start[k] + length[k])
+    slope_k, s0, L = best
+    win = slice(s0, s0 + L)
     w = sd[win] ** -2
-    intercept = np.average(y[win], weights=w) - slope[k] * np.average(t[win], weights=w)
+    intercept = np.average(y[win], weights=w) - slope_k * np.average(t[win], weights=w)
     return {
         "params": {
-            "slope": float(slope[k]),
+            "slope": float(slope_k),
             "intercept": float(intercept),
             "time_at_umax": float(t[win].mean()),
             "fit_t_min": float(t[win][0]),
