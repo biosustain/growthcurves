@@ -1320,10 +1320,8 @@ def _extract_stats_sliding_window(
     """
     params = fit_result.get("params", {})
 
-    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
-    t_clean, y_clean = validate_data(t, N)
-    if t_clean is None:
-        return bad_fit_stats()
+    # t and N were already cleaned by validate_data in extract_stats
+    t_clean, y_clean = t, N
 
     y_smooth = smooth(y_clean, 11, 1)
 
@@ -1421,10 +1419,8 @@ def _extract_stats_spline(
 
     mu_max = float(mu_max)
 
-    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
-    t_clean, y_clean = validate_data(t, N)
-    if t_clean is None:
-        return bad_fit_stats()
+    # t and N were already cleaned by validate_data in extract_stats
+    t_clean, y_clean = t, N
 
     y_smooth = smooth(y_clean, 11, 1)
 
