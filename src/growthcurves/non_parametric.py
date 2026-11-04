@@ -22,7 +22,7 @@ logger = getLogger(__name__)
 
 
 # region: sliding window helpers
-def _window_lengths(n, w_min, ratio=1.25):
+def _window_lengths(n: int, w_min: int, ratio: float = 1.25):
     """Window lengths from w_min to n // 2, each ~ratio x the last."""
     lengths, w = [], w_min
     while w <= max(w_min, n // 2):
@@ -31,7 +31,7 @@ def _window_lengths(n, w_min, ratio=1.25):
     return lengths
 
 
-def _noise_levels(t, N):
+def _noise_levels(t: np.ndarray, N: np.ndarray):
     """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
     N_ref = smooth_od(N)
     mid = N_ref[1:-1]
@@ -44,12 +44,12 @@ def _noise_levels(t, N):
     return sd_add, sd_prop, N_ref
 
 
-def _ln_noise_sd(N, sd_add, sd_prop, N_ref):
+def _ln_noise_sd(N: np.ndarray, sd_add: float, sd_prop: float, N_ref: np.ndarray):
     """Per-reading sd of ln N, using the smaller of the observed and smoothed OD."""
     return np.hypot(sd_prop, sd_add / np.maximum(np.minimum(N, N_ref), 1e-12))
 
 
-def _wls_windows(t, y, sd, lengths):
+def _wls_windows(t: np.ndarray, y: np.ndarray, sd: np.ndarray, lengths: list):
     """Weighted least squares of every window of each length, via prefix sums.
 
     Returns slope, SE of the slope (from sd), reduced chi-square, start, length.
@@ -74,7 +74,13 @@ def _wls_windows(t, y, sd, lengths):
 
 
 # region: sliding window method
-def fit_sliding_window(t, N, window_points=5, min_rise=0.10, min_fold=1.5):
+def fit_sliding_window(
+    t: np.ndarray,
+    N: np.ndarray,
+    window_points: int = 5,
+    min_rise: float = 0.10,
+    min_fold: float = 1.5,
+):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -154,7 +160,7 @@ def fit_sliding_window(t, N, window_points=5, min_rise=0.10, min_fold=1.5):
 
 
 # region: spline helpers
-def _second_diff_series(t, y):
+def _second_diff_series(t: np.ndarray, y: np.ndarray):
     """Compute second divided differences of y w.r.t. t, scaled by median(dt)^2."""
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -180,7 +186,7 @@ def _second_diff_series(t, y):
 _LAM_GRID = np.logspace(-6, 4, 41)  # in units of tr(BᵀWB)/tr(P)
 
 
-def _bisquare(r, c=4.685):
+def _bisquare(r: np.ndarray, c: float = 4.685):
     """Tukey bisquare weights of standardised residuals."""
     r = r / max(1.0, 1.4826 * np.median(np.abs(r)))
     return np.clip(1 - (r / c) ** 2, 0, 1) ** 2
@@ -190,7 +196,7 @@ def _bisquare(r, c=4.685):
 
 
 # region: fit_spline
-def fit_spline(t, N, smooth="auto", min_fold=1.5):
+def fit_spline(t: np.ndarray, N: np.ndarray, smooth="auto", min_fold: float = 1.5):
     """
     Maximum specific growth rate from a penalised spline of ln(N).
 
@@ -310,7 +316,14 @@ def fit_spline(t, N, smooth="auto", min_fold=1.5):
 # -----------------------------------------------------------------------------
 
 
-def fit_non_parametric(t, N, method="sliding_window", window_points=5, smooth="auto", **kwargs):
+def fit_non_parametric(
+    t: np.ndarray,
+    N: np.ndarray,
+    method: str = "sliding_window",
+    window_points: int = 5,
+    smooth="auto",
+    **kwargs,
+):
     """
     Fit a non-parametric model: "sliding_window" (`fit_sliding_window`) or "spline"
     (`fit_spline`).

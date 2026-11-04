@@ -39,7 +39,14 @@ from .models import (
 
 
 def _fit_model_generic(
-    t, N, model_func, param_names, p0_func, bounds_func, model_type, log_space=False
+    t: np.ndarray,
+    N: np.ndarray,
+    model_func,
+    param_names: list,
+    p0_func,
+    bounds_func,
+    model_type: str,
+    log_space: bool = False,
 ):
     """
     Generic wrapper for fitting parametric growth models.
@@ -94,7 +101,7 @@ def _fit_model_generic(
 # -----------------------------------------------------------------------------
 
 
-def fit_mech_logistic(t, N):
+def fit_mech_logistic(t: np.ndarray, N: np.ndarray):
     """
     Fit mechanistic logistic model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -127,7 +134,7 @@ def fit_mech_logistic(t, N):
     )
 
 
-def fit_mech_gompertz(t, N):
+def fit_mech_gompertz(t: np.ndarray, N: np.ndarray):
     """
     Fit mechanistic Gompertz model (ODE) to growth data N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -166,7 +173,7 @@ def fit_mech_gompertz(t, N):
     )
 
 
-def fit_mech_richards(t, N):
+def fit_mech_richards(t: np.ndarray, N: np.ndarray):
     """
     Fit mechanistic Richards model (ODE) to growth N(t). N(t) could be Optical Density
     (OD) or any other measurement depending on variable t (which is time).
@@ -197,7 +204,7 @@ def fit_mech_richards(t, N):
     )
 
 
-def fit_mech_baranyi(t, N):
+def fit_mech_baranyi(t: np.ndarray, N: np.ndarray):
     """
     Fit mechanistic Baranyi-Roberts model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -247,7 +254,7 @@ def fit_mech_baranyi(t, N):
 # -----------------------------------------------------------------------------
 
 
-def _estimate_lag_time(t, dN, threshold_frac=0.1):
+def _estimate_lag_time(t: np.ndarray, dN: np.ndarray, threshold_frac: float = 0.1):
     """
     Estimate lag t from growth rate threshold.
 
@@ -266,7 +273,12 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
 
 
 def _fit_phenom_model(
-    t, N, model_func, model_type, extra_params=None, p0_overrides=None
+    t: np.ndarray,
+    N: np.ndarray,
+    model_func,
+    model_type: str,
+    extra_params=None,
+    p0_overrides=None,
 ):
     """
     Generic wrapper for fitting phenomenological growth models.
@@ -345,7 +357,7 @@ def _fit_phenom_model(
 # -----------------------------------------------------------------------------
 # Phenomenological Model Fitting Functions (ln-space)
 # -----------------------------------------------------------------------------
-def fit_fct(t, N, fct):
+def fit_fct(t: np.ndarray, N: np.ndarray, fct):
     """
     Fit an arbitrary model function fct(t, *params) directly to N(t).
 
@@ -384,7 +396,7 @@ def fit_fct(t, N, fct):
     }
 
 
-def fit_phenom_logistic(t, N):
+def fit_phenom_logistic(t: np.ndarray, N: np.ndarray):
     """
     Fit non-standard phenomenological logistic model to OD data
     N(t) = N0 * exp(ln_ratio(t)).
@@ -402,7 +414,7 @@ def fit_phenom_logistic(t, N):
     return _fit_phenom_model(t, N, phenom_logistic_model_ln, "phenom_logistic")
 
 
-def fit_phenom_gompertz(t, N):
+def fit_phenom_gompertz(t: np.ndarray, N: np.ndarray):
     """
     Fit phenomenological Gompertz model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
@@ -419,7 +431,7 @@ def fit_phenom_gompertz(t, N):
     return _fit_phenom_model(t, N, phenom_gompertz_model_ln, "phenom_gompertz")
 
 
-def fit_phenom_gompertz_modified(t, N):
+def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray):
     """
     Fit phenomenological modified Gompertz model with decay term to OD data
     N(t) = N0 * exp(ln_ratio(t)).
@@ -450,7 +462,7 @@ def fit_phenom_gompertz_modified(t, N):
     )
 
 
-def fit_phenom_richards(t, N):
+def fit_phenom_richards(t: np.ndarray, N: np.ndarray):
     """
     Fit phenomenological Richards model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
@@ -489,7 +501,9 @@ FITTING_FUNCTIONS = {
 }
 
 
-def fit_parametric(t, N, method="mech_logistic", **kwargs):
+def fit_parametric(
+    t: np.ndarray, N: np.ndarray, method: str = "mech_logistic", **kwargs
+):
     """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
 
 
