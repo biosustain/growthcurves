@@ -240,6 +240,26 @@ def smooth(N, window=11, poly=1, passes=2):
     return N
 
 
+def _second_diff_series(t: np.ndarray, y: np.ndarray):
+    """Second divided differences of y w.r.t. t (sorted, unique), scaled by median(dt)^2."""
+    dt = np.diff(t)
+    d2 = np.diff(np.diff(y) / dt) / (0.5 * (dt[:-1] + dt[1:]))
+    return d2 * np.median(dt) ** 2
+
+
+def _noise_levels(t: np.ndarray, N: np.ndarray):
+    """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
+    N_ref = smooth(N)
+    mid = N_ref[1:-1]
+    q1, q2 = np.quantile(mid, [1 / 3, 2 / 3])
+    lo, hi = mid <= q1, mid >= q2
+    mad_to_sd = 1.4826 / np.sqrt(6)
+    sd_add = mad_to_sd * np.median(np.abs(_second_diff_series(t, N))[lo])
+    sd_add = max(sd_add, np.diff(np.unique(N)).min() / np.sqrt(12))
+    sd_prop = mad_to_sd * np.median(np.abs(_second_diff_series(t, np.log(N)))[hi])
+    return sd_add, sd_prop, N_ref
+
+
 def _linear_interpolate_crossing(t, values, threshold, search_condition):
     """
     Find t at which values cross a threshold using linear interpolation.

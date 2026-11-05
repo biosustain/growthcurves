@@ -1,13 +1,16 @@
 """Data preprocessing utilities for growth curve analysis.
 
 This module provides functions for common preprocessing steps such as blank
-subtraction and path length correction.
+subtraction and path length correction, and `prepare_curve`, the standard
+preprocessing every growth model fit applies to its data.
 """
 
 from functools import partial
 
 import numpy as np
 from pyod.models.ecod import ECOD
+
+from .inference import _noise_levels, validate_data
 
 
 def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
@@ -45,6 +48,62 @@ def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
     blank_array = np.asarray(blank, dtype=float)
 
     return data_array - blank_array
+
+
+def prepare_curve(
+    t: np.ndarray,
+    N: np.ndarray,
+    min_fold: float = 1.5,
+    truncate: bool = True,
+    min_keep: int = 20,
+) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
+    """
+    Standard preprocessing applied by every growth model fit before fitting.
+
+    1. Validation (`validate_data`): finite readings with N > 0, sorted by time,
+       repeated times dropped, at least 10 readings.
+    2. Growth check: the smoothed OD must rise at least `min_fold` times from its
+       lowest value before its peak (as QurvE's `growth.thresh`), otherwise there is
+       no growth to fit.
+    3. Truncation after the growth phase: readings later than the smoothed OD peak,
+       or later than half the 10-95 % rise duration after the curve reaches 95 % of
+       its ln rise (long stationary phases), are dropped; the first `min_keep`
+       readings are always kept. A decline or a long plateau otherwise pulls
+       whole-curve fits away from the growth phase.
+
+    Parameters:
+        t: Time array (hours)
+        N: OD values (linear scale, baseline-corrected)
+        min_fold: Minimum fold increase of the smoothed OD for growth (default: 1.5)
+        truncate: Drop the readings after the growth phase (default: True)
+        min_keep: Readings always kept by the truncation (default: 20)
+
+    Returns:
+        Tuple (t, N) of the readings to fit, or (None, None) for invalid data or no
+        growth.
+
+    Raises:
+        ValueError: If `min_fold` is below 1, or any time is negative.
+    """
+    if min_fold < 1:
+        raise ValueError("min_fold must be at least 1.")
+    t, N = validate_data(t, N)
+    if t is None or np.ptp(N) == 0:
+        return None, None
+
+    sd_add, _, N_ref = _noise_levels(t, N)
+    peak = int(np.argmax(N_ref))
+    if N_ref[peak] < min_fold * N_ref[: peak + 1].min():
+        return None, None
+    if not truncate:
+        return t, N
+
+    y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
+    lo, hi = y_ref.min(), y_ref.max()
+    t10, t95 = (t[np.argmax(y_ref >= lo + q * (hi - lo))] for q in (0.1, 0.95))
+    t_end = min(t[peak], t95 + 0.5 * (t95 - t10))
+    keep = t <= max(t_end, t[min(len(t), min_keep) - 1])
+    return t[keep], N[keep]
 
 
 def path_correct(N: np.ndarray, path_length_cm: float) -> np.ndarray:

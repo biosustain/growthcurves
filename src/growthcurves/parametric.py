@@ -21,6 +21,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .inference import validate_data
+from .preprocessing import prepare_curve
 from .models import (
     get_all_models,
     mech_baranyi_model,
@@ -64,10 +65,11 @@ def _fit_model_generic(
         model_type: String identifier for the model
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails
+        Dict with 'params' (incl. fit_t_min, fit_t_max) and 'model_type', or None
+        for no growth or too few points
 
     """
-    t, N = validate_data(t, N)
+    t, N = prepare_curve(t, N)
     if t is None:
         return None
 
@@ -89,9 +91,12 @@ def _fit_model_generic(
     else:
         params, _ = curve_fit(model_func, t, N, p0=p0, bounds=bounds, maxfev=20000)
 
-    # Return structured result
     return {
-        "params": dict(zip(param_names, params)),
+        "params": {
+            **dict(zip(param_names, params)),
+            "fit_t_min": float(t[0]),
+            "fit_t_max": float(t[-1]),
+        },
         "model_type": model_type,
     }
 
@@ -279,6 +284,7 @@ def _fit_phenom_model(
     model_type: str,
     extra_params=None,
     p0_overrides=None,
+    truncate=True,
 ):
     """
     Generic wrapper for fitting phenomenological growth models.
@@ -300,12 +306,14 @@ def _fit_phenom_model(
         p0_overrides: Optional function of the validated (t, N) returning a dict
             of {name: initial} replacing the shared initial guesses of A, mu_max
             or lam for models where they are a poor starting point
+        truncate: Drop the readings after the growth phase (`prepare_curve`); False
+            for models that describe the phase after growth themselves
 
     Returns:
-        Dict with 'params' (A, mu_max, lam, *extra, N0) and 'model_type', or None
-        if fitting fails.
+        Dict with 'params' (A, mu_max, lam, *extra, N0, fit_t_min, fit_t_max) and
+        'model_type', or None for no growth or too few points.
     """
-    t, N = validate_data(t, N)
+    t, N = prepare_curve(t, N, truncate=truncate)
     if t is None:
         return None
 
@@ -349,6 +357,8 @@ def _fit_phenom_model(
         "params": {
             **dict(zip(param_names, (float(p) for p in params[:-1]))),
             "N0": float(np.exp(params[-1])),
+            "fit_t_min": float(t[0]),
+            "fit_t_max": float(t[-1]),
         },
         "model_type": model_type,
     }
@@ -459,6 +469,8 @@ def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray):
         # traps the fit in a local minimum. The second term equals A at t_shift,
         # so ln(N/N0) ~ 2A there: halve the observed amplitude instead.
         p0_overrides=lambda _, N: {"A": np.log(np.max(N) / np.min(N)) / 2},
+        # the second term models the phase after growth: keep it in the data
+        truncate=False,
     )
 
 
@@ -541,13 +553,4 @@ def fit_parametric(
             f"Unknown method '{method}'. Must be one of {list(get_all_models())}."
         )
 
-    result = fit_func(t, N)
-    if result is not None:
-        # ? validate_data is called in fitting functions. recomputation could be
-        # ? avoided by returning time_valid from validate_data in fitting functions.
-        time_valid, _ = validate_data(t, N)
-        if time_valid is None:
-            return None
-        result["params"]["fit_t_min"] = float(np.min(time_valid))
-        result["params"]["fit_t_max"] = float(np.max(time_valid))
-    return result
+    return fit_func(t, N)

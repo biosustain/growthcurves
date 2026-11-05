@@ -11,8 +11,8 @@ from logging import getLogger
 import numpy as np
 from scipy.interpolate import BSpline
 
-from .inference import smooth as smooth_od
-from .inference import validate_data
+from .inference import _noise_levels
+from .preprocessing import prepare_curve
 
 logger = getLogger(__name__)
 
@@ -29,19 +29,6 @@ def _window_lengths(n: int, w_min: int, ratio: float = 1.25):
         lengths.append(w)
         w = max(w + 1, round(w * ratio))
     return lengths
-
-
-def _noise_levels(t: np.ndarray, N: np.ndarray):
-    """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
-    N_ref = smooth_od(N)
-    mid = N_ref[1:-1]
-    q1, q2 = np.quantile(mid, [1 / 3, 2 / 3])
-    lo, hi = mid <= q1, mid >= q2
-    mad_to_sd = 1.4826 / np.sqrt(6)
-    sd_add = mad_to_sd * np.median(np.abs(_second_diff_series(t, N))[lo])
-    sd_add = max(sd_add, np.diff(np.unique(N)).min() / np.sqrt(12))
-    sd_prop = mad_to_sd * np.median(np.abs(_second_diff_series(t, np.log(N)))[hi])
-    return sd_add, sd_prop, N_ref
 
 
 def _ln_noise_sd(N: np.ndarray, sd_add: float, sd_prop: float, N_ref: np.ndarray):
@@ -90,16 +77,18 @@ def fit_sliding_window(
     where a window fits worse than the noise). So the window length adapts: short on
     clean or sparse data, long on noisy data.
 
-    To reject correlated baseline noise, windows must end by the smoothed OD peak
-    and cover at least `min_rise` of its rise from the preceding minimum.
-    The peak must reach `min_fold` times that minimum.
+    The data are first prepared by `preprocessing.prepare_curve` (growth check with
+    `min_fold`, truncation at the smoothed OD peak and after long stationary phases),
+    as for every growth model. To reject correlated baseline noise, windows must
+    cover at least `min_rise` of the smoothed OD rise from its minimum to its peak.
 
     Parameters:
         t: Time array (hours)
         N: OD values (linear-scale, baseline-corrected, must be positive)
         window_points: Minimum readings per window (default: 5, at least 3)
         min_rise: Minimum share of the OD rise a window must cover (default: 0.10)
-        min_fold: Minimum fold increase of the smoothed OD for growth (default: 1.5)
+        min_fold: Minimum fold increase of the smoothed OD for growth (default: 1.5;
+            see `prepare_curve`)
 
     Returns:
         Dict with params (slope = μmax in h⁻¹, intercept in log space, time_at_umax
@@ -111,18 +100,14 @@ def fit_sliding_window(
         raise ValueError("window_points must be an integer of at least 3.")
     if not 0 <= min_rise < 1:
         raise ValueError("min_rise must be in [0, 1).")
-    if min_fold < 1:
-        raise ValueError("min_fold must be at least 1.")
 
-    t, N = validate_data(t, N)
-    if t is None or len(t) < window_points or np.ptp(N) == 0:
+    t, N = prepare_curve(t, N, min_fold=min_fold)
+    if t is None or len(t) < window_points:
         return None
 
     sd_add, sd_prop, N_ref = _noise_levels(t, N)
     peak = int(np.argmax(N_ref))
     base = N_ref[: peak + 1].min()
-    if N_ref[peak] < min_fold * base:
-        return None
 
     y, sd = np.log(N), _ln_noise_sd(N, sd_add, sd_prop, N_ref)
     lengths = _window_lengths(len(t), int(window_points))
@@ -131,9 +116,7 @@ def fit_sliding_window(
     best_bound, best = -np.inf, None
     for slope, se, chi2, start, L in _wls_windows(t, y, sd, lengths):
         end = start + L - 1
-        on_growth = (end <= peak) & (
-            N_ref[end] - N_ref[start] >= min_rise * (N_ref[peak] - base)
-        )
+        on_growth = N_ref[end] - N_ref[start] >= min_rise * (N_ref[peak] - base)
         bound = slope - z * se * np.sqrt(np.maximum(chi2, 1))
         bound = np.where(on_growth & ~np.isnan(bound), bound, -np.inf)
         k = int(np.argmax(bound))
@@ -166,29 +149,6 @@ def fit_sliding_window(
 
 
 # region: spline helpers
-def _second_diff_series(t: np.ndarray, y: np.ndarray):
-    """Compute second divided differences of y w.r.t. t, scaled by median(dt)^2."""
-    t = np.asarray(t, dtype=float)
-    y = np.asarray(y, dtype=float)
-    if len(t) < 4 or np.ptp(t) <= 0:
-        return np.array([], dtype=float)
-    order = np.argsort(t, kind="mergesort")
-    t = t[order]
-    y = y[order]
-    dt = np.diff(t)
-    if len(dt) < 2 or np.any(dt <= 0):
-        return np.array([], dtype=float)
-    d1 = np.diff(y) / dt
-    dt2 = 0.5 * (dt[:-1] + dt[1:])
-    if len(dt2) < 1 or np.any(dt2 <= 0):
-        return np.array([], dtype=float)
-    d2 = np.diff(d1) / dt2
-    if len(d2) < 3:
-        return np.array([], dtype=float)
-    h = float(np.median(dt))
-    return np.asarray(d2 * h**2, dtype=float)
-
-
 _LAM_GRID = np.logspace(-6, 4, 41)  # in units of tr(BᵀWB)/tr(P)
 
 
@@ -207,44 +167,30 @@ def fit_spline(t: np.ndarray, N: np.ndarray, smooth="auto", min_fold: float = 1.
     Maximum specific growth rate from a penalised spline of ln(N).
 
     Noise-weighted cubic P-spline, smoothing chosen by REML, with robust reweighting
-    and IRLS in OD; long stationary phases are cropped. μmax is the derivative where
-    derivative - 2·SE is highest.
+    and IRLS in OD. μmax is the derivative where derivative - 2·SE is highest.
+    The data are first prepared by `preprocessing.prepare_curve` (growth check,
+    truncation after the growth phase), as for every growth model.
 
     Parameters:
         t: Time array (hours)
         N: OD values (linear scale, baseline-corrected)
         smooth: "auto" (chosen by REML) or a fixed value > 0, in units of tr(BᵀWB)/tr(P)
         min_fold: Minimum fold increase of the smoothed OD, from its lowest value before
-            the peak to the peak, for growth (default: 1.5, as in `fit_sliding_window`)
+            the peak to the peak, for growth (default: 1.5; see `prepare_curve`)
 
     Returns:
         Dict with params (tck_t, tck_c, tck_k, mu_max, time_at_umax, fit_t_min,
         fit_t_max) and model_type "spline". None if no growth (fold increase below
         `min_fold`, or derivative - 3.5·SE not above zero) or too few points.
     """
-    # Sorted, de-duplicated, finite and N > 0 (raises on negative times)
     auto = isinstance(smooth, str) and smooth == "auto"
     if not auto and not (isinstance(smooth, (int, float)) and smooth > 0):
         raise ValueError('smooth must be "auto" or a positive number.')
-    if min_fold < 1:
-        raise ValueError("min_fold must be at least 1.")
-    t, N = validate_data(t, N)
-    if t is None or np.ptp(N) == 0:
+    t, N = prepare_curve(t, N, min_fold=min_fold)
+    if t is None:
         return None
 
     sd_add, sd_prop, N_ref = _noise_levels(t, N)
-    peak = int(np.argmax(N_ref))
-    if N_ref[peak] < min_fold * N_ref[: peak + 1].min():
-        return None
-
-    # Crop: end half the 10-95 % rise duration after the curve reaches 95 % of its rise
-    y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
-    lo, hi = y_ref.min(), y_ref.max()
-    t10, t95 = (t[np.argmax(y_ref >= lo + q * (hi - lo))] for q in (0.1, 0.95))
-    keep = t <= max(t95 + 0.5 * (t95 - t10), t[min(len(t), 20) - 1])
-    if not keep.all():
-        t, N = t[keep], N[keep]
-        sd_add, sd_prop, N_ref = _noise_levels(t, N)
     n = len(t)
 
     n_seg = max(4, min(round(n / 2), 25))
