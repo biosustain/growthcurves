@@ -312,6 +312,7 @@ def detect_outliers_ecod(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
         Boolean mask of the same length as N where True indicates an outlier.
     """
 
+    N = np.asarray(N)
     n = len(N)
     half = 15 // 2
     residual = np.zeros(n)

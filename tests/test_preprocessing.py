@@ -203,6 +203,21 @@ def test_detect_outliers_ecod_output_shape():
     assert mask.shape == N.shape
 
 
+@pytest.mark.parametrize("index_kind", ["string", "integer"])
+@pytest.mark.filterwarnings("error::FutureWarning")
+def test_detect_outliers_ecod_series_uses_positions(index_kind):
+    pd = pytest.importorskip("pandas")
+    _, N, _ = _sigmoid_with_spike()
+    index = (
+        [str(i) for i in range(len(N))]
+        if index_kind == "string"
+        else range(100, 100 + len(N))
+    )
+    series = pd.Series(N, index=index)
+
+    np.testing.assert_array_equal(detect_outliers_ecod(series), detect_outliers_ecod(N))
+
+
 def test_detect_outliers_ecod_no_false_positives_on_smooth():
     _, N = _smooth_sigmoid()
     mask = detect_outliers_ecod(
