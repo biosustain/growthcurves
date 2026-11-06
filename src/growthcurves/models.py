@@ -153,7 +153,12 @@ def mech_richards_model(t, mu, K, N0, beta):
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
-    return K * (1 + ((K / N0) ** beta - 1) * np.exp(-beta * mu * t)) ** (-1 / beta)
+    log_ratio = beta * (np.log(K) - np.log(N0))
+    if log_ratio > 0:
+        log_c = log_ratio + np.log(-np.expm1(-log_ratio))
+        log_denominator = np.logaddexp(0.0, log_c - beta * mu * t)
+        return K * np.exp(-log_denominator / beta)
+    return K * (1 + np.expm1(log_ratio) * np.exp(-beta * mu * t)) ** (-1 / beta)
 
 
 def mech_baranyi_model(t, mu, K, N0, h0):
@@ -183,6 +188,8 @@ def mech_baranyi_model(t, mu, K, N0, h0):
         OD values at each time point
     """
     t = np.asarray(t, dtype=float)
+    if h0 == 0:
+        return mech_logistic_model(t, mu, K, N0)
     q0 = 1 / np.expm1(h0)
     # logaddexp(0, x) = log(1 + exp(x)) without overflow for large μt
     mu_a = np.logaddexp(0, np.log(q0) + mu * t) - np.log1p(q0)

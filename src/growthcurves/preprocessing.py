@@ -101,8 +101,12 @@ def prepare_curve(
         return t, N
 
     y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
-    lo, hi = y_ref.min(), y_ref.max()
-    t10, t95 = (t[np.argmax(y_ref >= lo + q * (hi - lo))] for q in (0.1, 0.95))
+    trough = int(np.argmin(y_ref[: peak + 1]))
+    lo, hi = y_ref[trough], y_ref[peak]
+    t10, t95 = (
+        t[trough + np.argmax(y_ref[trough : peak + 1] >= lo + q * (hi - lo))]
+        for q in (0.1, 0.95)
+    )
     t_end = min(t[peak], t95 + 0.5 * (t95 - t10))
     keep = t <= max(t_end, t[min(len(t), min_keep) - 1])
     return t[keep], N[keep]
