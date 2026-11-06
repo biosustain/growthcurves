@@ -21,7 +21,6 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from .inference import validate_data
-from .preprocessing import prepare_curve
 from .models import (
     get_all_models,
     mech_baranyi_model,
@@ -33,6 +32,7 @@ from .models import (
     phenom_logistic_model_ln,
     phenom_richards_model_ln,
 )
+from .preprocessing import prepare_curve
 
 # -----------------------------------------------------------------------------
 # Helper Functions for mechanistic model fitting
