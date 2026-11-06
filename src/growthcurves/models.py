@@ -316,7 +316,9 @@ def spline_from_params(params):
     """Reconstruct the spline of ln(N) from fit_spline's tck_t, tck_c and tck_k."""
     from scipy.interpolate import BSpline
 
-    return BSpline(np.asarray(params["tck_t"]), np.asarray(params["tck_c"]), int(params["tck_k"]))
+    return BSpline(
+        np.asarray(params["tck_t"]), np.asarray(params["tck_c"]), int(params["tck_k"])
+    )
 
 
 # =============================================================================

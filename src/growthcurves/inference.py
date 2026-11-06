@@ -232,7 +232,10 @@ def smooth(N, window=11, poly=1, passes=2):
         c = np.concatenate([[0.0], np.cumsum(N)])
         out = np.empty(n)
         out[h : n - h] = (c[w:] - c[:-w]) / w
-        for edge, keep in ((slice(0, w), slice(0, h)), (slice(n - w, n), slice(w - h, w))):
+        for edge, keep in (
+            (slice(0, w), slice(0, h)),
+            (slice(n - w, n), slice(w - h, w)),
+        ):
             v = N[edge]
             fit = v.mean() + p * x * (x @ (v - v.mean())) / (x @ x)
             out[edge][keep] = fit[keep]
@@ -529,7 +532,9 @@ def _extract_stats_mech_logistic(
     N_dense = evaluate_parametric_model(t_dense, "mech_logistic", params)
 
     # Time and OD at the maximum specific growth rate, exact from the parameters
-    time_at_umax = compute_analytical_time_at_umax("mech_logistic", params, t.min(), t.max())
+    time_at_umax = compute_analytical_time_at_umax(
+        "mech_logistic", params, t.min(), t.max()
+    )
     od_at_umax = float(evaluate_parametric_model(time_at_umax, "mech_logistic", params))
 
     if mu_max <= 0:
@@ -616,7 +621,9 @@ def _extract_stats_mech_gompertz(
     N_dense = evaluate_parametric_model(t_dense, "mech_gompertz", params)
 
     # Time and OD at the maximum specific growth rate, exact from the parameters
-    time_at_umax = compute_analytical_time_at_umax("mech_gompertz", params, t.min(), t.max())
+    time_at_umax = compute_analytical_time_at_umax(
+        "mech_gompertz", params, t.min(), t.max()
+    )
     od_at_umax = float(evaluate_parametric_model(time_at_umax, "mech_gompertz", params))
 
     if mu_max <= 0:
@@ -703,7 +710,9 @@ def _extract_stats_mech_richards(
     N_dense = evaluate_parametric_model(t_dense, "mech_richards", params)
 
     # Time and OD at the maximum specific growth rate, exact from the parameters
-    time_at_umax = compute_analytical_time_at_umax("mech_richards", params, t.min(), t.max())
+    time_at_umax = compute_analytical_time_at_umax(
+        "mech_richards", params, t.min(), t.max()
+    )
     od_at_umax = float(evaluate_parametric_model(time_at_umax, "mech_richards", params))
 
     if mu_max <= 0:
@@ -791,7 +800,9 @@ def _extract_stats_mech_baranyi(
     N_dense = evaluate_parametric_model(t_dense, "mech_baranyi", params)
 
     # Time and OD at the maximum specific growth rate, exact from the parameters
-    time_at_umax = compute_analytical_time_at_umax("mech_baranyi", params, t.min(), t.max())
+    time_at_umax = compute_analytical_time_at_umax(
+        "mech_baranyi", params, t.min(), t.max()
+    )
     od_at_umax = float(evaluate_parametric_model(time_at_umax, "mech_baranyi", params))
 
     if mu_max <= 0:

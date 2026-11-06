@@ -205,7 +205,9 @@ def fit_spline(t: np.ndarray, N: np.ndarray, smooth="auto", min_fold: float = 1.
         # Eigen-decomposition: (A + λP)⁻¹ = T diag(1 / (1 + λe)) Tᵀ for any λ
         A = (B.T * w) @ B
         A[np.diag_indices(K)] += 1e-10 * np.trace(A) / K
-        Li = np.linalg.inv(np.linalg.cholesky(A))  # numpy: less overhead than scipy at K ~ 30
+        Li = np.linalg.inv(
+            np.linalg.cholesky(A)
+        )  # numpy: less overhead than scipy at K ~ 30
         e, U = np.linalg.eigh(Li @ P @ Li.T)
         T = Li.T @ U
         return T, np.maximum(e, 0), T.T @ (B.T @ (w * y)), np.sum(w * y * y)

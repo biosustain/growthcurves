@@ -683,8 +683,13 @@ def annotate_plot(
         od_umax = stats.get("od_at_umax")
         if umax is not None and time_umax is not None and od_umax is not None:
             tangent_data = prepare_tangent_line(
-                umax, time_umax, od_umax, fig, scale,
-                n0=stats.get("N0"), max_od=stats.get("max_od"),
+                umax,
+                time_umax,
+                od_umax,
+                fig,
+                scale,
+                n0=stats.get("N0"),
+                max_od=stats.get("max_od"),
             )
             if tangent_data is not None:
                 time_vals, od_vals = tangent_data
