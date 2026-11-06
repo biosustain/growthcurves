@@ -609,47 +609,51 @@ def annotate_plot(
     if show_crosshairs and stats is not None:
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
-        if time_umax is not None and od_umax is not None:
-            if np.isfinite(time_umax) and np.isfinite(od_umax):
-                y_val = np.log(od_umax) if scale == "log" else od_umax
+        if (
+            time_umax is not None
+            and od_umax is not None
+            and np.isfinite(time_umax)
+            and np.isfinite(od_umax)
+        ):
+            y_val = np.log(od_umax) if scale == "log" else od_umax
 
-                # Determine bottom of vertical line
-                if scale == "log":
-                    y_min_vals = []
-                    for trace in fig.data:
-                        if trace.y is not None and len(trace.y) > 0:
-                            valid_y = [y for y in trace.y if np.isfinite(y)]
-                            if valid_y:
-                                y_min_vals.append(min(valid_y))
-                    y_bottom = min(y_min_vals) if y_min_vals else y_val
-                else:
-                    y_bottom = 0
+            # Determine bottom of vertical line
+            if scale == "log":
+                y_min_vals = []
+                for trace in fig.data:
+                    if trace.y is not None and len(trace.y) > 0:
+                        valid_y = [y for y in trace.y if np.isfinite(y)]
+                        if valid_y:
+                            y_min_vals.append(min(valid_y))
+                y_bottom = min(y_min_vals) if y_min_vals else y_val
+            else:
+                y_bottom = 0
 
-                # Vertical line
-                fig.add_shape(
-                    type="line",
-                    x0=time_umax,
-                    y0=y_bottom,
-                    x1=time_umax,
-                    y1=y_val,
-                    line={"color": "black", "dash": "dot", "width": 2},
-                    opacity=0.5,
-                    row=row,
-                    col=col,
-                )
+            # Vertical line
+            fig.add_shape(
+                type="line",
+                x0=time_umax,
+                y0=y_bottom,
+                x1=time_umax,
+                y1=y_val,
+                line={"color": "black", "dash": "dot", "width": 2},
+                opacity=0.5,
+                row=row,
+                col=col,
+            )
 
-                # Horizontal line
-                fig.add_shape(
-                    type="line",
-                    x0=0,
-                    y0=y_val,
-                    x1=time_umax,
-                    y1=y_val,
-                    line={"color": "black", "dash": "dot", "width": 2},
-                    opacity=0.5,
-                    row=row,
-                    col=col,
-                )
+            # Horizontal line
+            fig.add_shape(
+                type="line",
+                x0=0,
+                y0=y_val,
+                x1=time_umax,
+                y1=y_val,
+                line={"color": "black", "dash": "dot", "width": 2},
+                opacity=0.5,
+                row=row,
+                col=col,
+            )
 
     # Add od_max horizontal line
     if show_od_max_line and stats is not None:
@@ -667,20 +671,24 @@ def annotate_plot(
     if show_umax_marker and stats is not None:
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
-        if time_umax is not None and od_umax is not None:
-            if np.isfinite(time_umax) and np.isfinite(od_umax):
-                y_val = np.log(od_umax) if scale == "log" else od_umax
-                fig.add_trace(
-                    go.Scatter(
-                        x=[time_umax],
-                        y=[y_val],
-                        mode="markers",
-                        marker={"size": 15, "color": "#66BB6A", "symbol": "circle"},
-                        showlegend=False,
-                    ),
-                    row=row,
-                    col=col,
-                )
+        if (
+            time_umax is not None
+            and od_umax is not None
+            and np.isfinite(time_umax)
+            and np.isfinite(od_umax)
+        ):
+            y_val = np.log(od_umax) if scale == "log" else od_umax
+            fig.add_trace(
+                go.Scatter(
+                    x=[time_umax],
+                    y=[y_val],
+                    mode="markers",
+                    marker={"size": 15, "color": "#66BB6A", "symbol": "circle"},
+                    showlegend=False,
+                ),
+                row=row,
+                col=col,
+            )
 
     # Add tangent line at umax
     if show_tangent and stats is not None:
@@ -926,9 +934,9 @@ def plot_derivative_metric(
                     else:  # mu
                         # μ = d(ln(y))/dt, which is the derivative of the spline
                         metric_model = spline.derivative()(t_model)
-                except Exception:
+                except (KeyError, ValueError, TypeError):
                     # If spline reconstruction fails, skip model trace
-                    pass
+                    metric_model = None
 
         # Plot model metric if available
         if (
@@ -954,9 +962,13 @@ def plot_derivative_metric(
     # Add phase boundary annotations if provided
     if phase_boundaries is not None and len(phase_boundaries) == 2:
         exp_start, exp_end = phase_boundaries
-        if exp_start is not None and exp_end is not None:
-            if np.isfinite(exp_start) and np.isfinite(exp_end):
-                fig = add_exponential_phase(fig, exp_start, exp_end)
+        if (
+            exp_start is not None
+            and exp_end is not None
+            and np.isfinite(exp_start)
+            and np.isfinite(exp_end)
+        ):
+            fig = add_exponential_phase(fig, exp_start, exp_end)
 
     # Update layout
     fig.update_layout(

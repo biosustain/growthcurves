@@ -140,7 +140,8 @@ def compute_rmse(y_observed, y_predicted, in_log_space=False):
 
 def _baranyi_peak(params, t_min, t_max):
     """
-    Peak of the Baranyi specific growth rate in v = q0 e^(μt), clipped to [t_min, t_max].
+    Peak of the Baranyi specific growth rate in v = q0 e^(μt), clipped to
+    [t_min, t_max].
 
     Returns (v, q0, c, D): q0 = 1 / (e^h0 - 1), c = K/N0 - 1, D = 1 + c (1 + q0).
     """
@@ -226,8 +227,8 @@ def smooth(N, window=11, poly=1, passes=2):
         for _ in range(passes):
             N = savgol_filter(N, w, p, mode="interp")
         return N
-    # Order 0 or 1: a moving average, with the first and last w readings replaced by their
-    # least-squares constant or line (savgol_filter's "interp" mode), ~6x faster
+    # Order 0 or 1: a moving average, with the first and last w readings replaced by
+    # their least-squares constant or line (savgol_filter's "interp" mode), ~6x faster
     h, x = w // 2, np.arange(w) - (w - 1) / 2
     for _ in range(passes):
         N = np.asarray(N, dtype=float)
@@ -246,14 +247,20 @@ def smooth(N, window=11, poly=1, passes=2):
 
 
 def _second_diff_series(t: np.ndarray, y: np.ndarray):
-    """Second divided differences of y w.r.t. t (sorted, unique), scaled by median(dt)^2."""
+    """Second divided differences of y w.r.t. t (sorted, unique).
+
+    Scaled by median(dt)^2.
+    """
     dt = np.diff(t)
     d2 = np.diff(np.diff(y) / dt) / (0.5 * (dt[:-1] + dt[1:]))
     return d2 * np.median(dt) ** 2
 
 
 def _noise_levels(t: np.ndarray, N: np.ndarray):
-    """Additive OD and proportional noise sds (second differences, MAD) and the smoothed OD."""
+    """Additive OD and proportional noise sds (second differences, MAD).
+
+    Also returns the smoothed OD.
+    """
     N_ref = smooth(N)
     mid = N_ref[1:-1]
     q1, q2 = np.quantile(mid, [1 / 3, 2 / 3])
@@ -1474,7 +1481,7 @@ def _extract_stats_spline(
 
         # RMSE in OD
         rmse = compute_rmse(y_exp, np.exp(spline(t_exp)))
-    except Exception:
+    except (KeyError, ValueError, TypeError):
         od_at_umax = np.nan
         rmse = np.nan
 
