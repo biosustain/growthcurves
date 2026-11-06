@@ -507,6 +507,13 @@ def compute_phase_boundaries(
 # -----------------------------------------------------------------------------
 
 
+def _parametric_fit_window(params, t):
+    fit_t_min = float(params.get("fit_t_min", t.min()))
+    fit_t_max = float(params.get("fit_t_max", t.max()))
+    fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
+    return fit_t_min, fit_t_max, fit_mask
+
+
 def _extract_stats_mech_logistic(
     fit_result,
     t,
@@ -531,6 +538,7 @@ def _extract_stats_mech_logistic(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
@@ -577,7 +585,7 @@ def _extract_stats_mech_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, N_fit)
+    rmse = compute_rmse(N[fit_mask], N_fit[fit_mask])
 
     return {
         "max_od": K,
@@ -589,8 +597,8 @@ def _extract_stats_mech_logistic(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_mech_logistic",
         "model_rmse": rmse,
     }
@@ -620,6 +628,7 @@ def _extract_stats_mech_gompertz(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
@@ -666,7 +675,7 @@ def _extract_stats_mech_gompertz(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, N_fit)
+    rmse = compute_rmse(N[fit_mask], N_fit[fit_mask])
 
     return {
         "max_od": K,
@@ -678,8 +687,8 @@ def _extract_stats_mech_gompertz(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_mech_gompertz",
         "model_rmse": rmse,
     }
@@ -709,6 +718,7 @@ def _extract_stats_mech_richards(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
@@ -755,7 +765,7 @@ def _extract_stats_mech_richards(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N[fit_mask], y_fit[fit_mask])
 
     return {
         "max_od": K,
@@ -767,8 +777,8 @@ def _extract_stats_mech_richards(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_mech_richards",
         "model_rmse": rmse,
     }
@@ -799,6 +809,7 @@ def _extract_stats_mech_baranyi(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     K = float(params["K"])  # Carrying capacity
@@ -848,7 +859,7 @@ def _extract_stats_mech_baranyi(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N[fit_mask], y_fit[fit_mask])
 
     return {
         "max_od": K,
@@ -860,8 +871,8 @@ def _extract_stats_mech_baranyi(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_mech_baranyi",
         "model_rmse": rmse,
     }
@@ -891,6 +902,7 @@ def _extract_stats_phenom_logistic(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
@@ -949,7 +961,7 @@ def _extract_stats_phenom_logistic(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, N_fit)
+    rmse = compute_rmse(N[fit_mask], N_fit[fit_mask])
 
     return {
         "max_od": max_od,
@@ -961,8 +973,8 @@ def _extract_stats_phenom_logistic(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_phenom_logistic",
         "model_rmse": rmse,
     }
@@ -992,6 +1004,7 @@ def _extract_stats_phenom_gompertz(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
@@ -1049,7 +1062,7 @@ def _extract_stats_phenom_gompertz(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N[fit_mask], y_fit[fit_mask])
 
     return {
         "max_od": max_od,
@@ -1061,8 +1074,8 @@ def _extract_stats_phenom_gompertz(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_phenom_gompertz",
         "model_rmse": rmse,
     }
@@ -1092,6 +1105,7 @@ def _extract_stats_phenom_gompertz_modified(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
@@ -1152,7 +1166,7 @@ def _extract_stats_phenom_gompertz_modified(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N[fit_mask], y_fit[fit_mask])
 
     return {
         "max_od": max_od,
@@ -1164,8 +1178,8 @@ def _extract_stats_phenom_gompertz_modified(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_phenom_gompertz_modified",
         "model_rmse": rmse,
     }
@@ -1195,6 +1209,7 @@ def _extract_stats_phenom_richards(
         Growth statistics dictionary.
     """
     params = fit_result.get("params", {})
+    fit_t_min, fit_t_max, fit_mask = _parametric_fit_window(params, t)
 
     # Extract model parameters
     mu_max = float(params["mu_max"])  # Maximum specific growth rate (fitted parameter)
@@ -1253,7 +1268,7 @@ def _extract_stats_phenom_richards(
     doubling_time = np.log(2) / mu_max if mu_max > 0 else np.nan
 
     # RMSE
-    rmse = compute_rmse(N, y_fit)
+    rmse = compute_rmse(N[fit_mask], y_fit[fit_mask])
 
     return {
         "max_od": max_od,
@@ -1265,8 +1280,8 @@ def _extract_stats_phenom_richards(
         "exp_phase_end": max(exp_phase_end, exp_phase_start),
         "time_at_umax": time_at_umax,
         "od_at_umax": od_at_umax,
-        "fit_t_min": float(t.min()),
-        "fit_t_max": float(t.max()),
+        "fit_t_min": fit_t_min,
+        "fit_t_max": fit_t_max,
         "fit_method": "model_fitting_phenom_richards",
         "model_rmse": rmse,
     }

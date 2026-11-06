@@ -332,6 +332,24 @@ def test_parametric_fits_use_prepare_curve(model):
     assert fit_parametric(t, np.full_like(t, 0.1), model) is None
 
 
+@pytest.mark.parametrize("model", ["mech_logistic", "phenom_logistic"])
+def test_parametric_stats_use_fitted_window_for_rmse(model):
+    from growthcurves.inference import extract_stats
+    from growthcurves.parametric import fit_parametric
+
+    t, N = _growth_then_decline()
+    fit = fit_parametric(t, N, model)
+    params = fit["params"]
+    fit_mask = (t >= params["fit_t_min"]) & (t <= params["fit_t_max"])
+
+    stats_full = extract_stats(fit, t, N)
+    stats_fit_window = extract_stats(fit, t[fit_mask], N[fit_mask])
+
+    assert stats_full["fit_t_min"] == params["fit_t_min"]
+    assert stats_full["fit_t_max"] == params["fit_t_max"]
+    assert stats_full["model_rmse"] == pytest.approx(stats_fit_window["model_rmse"])
+
+
 def test_gompertz_modified_is_not_truncated():
     from growthcurves.parametric import fit_parametric
 
