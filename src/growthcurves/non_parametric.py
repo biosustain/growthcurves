@@ -49,32 +49,45 @@ def _ln_noise_sd(N, sd_add, sd_prop, N_ref):
     return np.hypot(sd_prop, sd_add / np.maximum(np.minimum(N, N_ref), 1e-12))
 
 
-def _wls_windows(t, y, sd, lengths):
-    """Weighted least squares of every window of each length, via prefix sums.
+def _best_window(t, y, sd, lengths, stride):
+    """Window with the highest lower bound, slope - z*SE, found length by length.
 
-    Returns slope, SE of the slope (from sd), reduced chi-square, start, length.
+    Weighted least squares of every window of each length (starting every `stride`
+    readings) via prefix sums. Only the best window so far is kept, so memory is
+    O(n) however many windows there are. z = sqrt(2 ln M) for M windows in total;
+    SE is inflated by sqrt(reduced chi-square) where a window fits worse than the noise.
+
+    Returns (bound, slope, start, length), or None if no window has a finite bound.
     """
     t, y, w = t - t.mean(), y - y.mean(), 1 / sd**2
     c = [
         np.concatenate([[0], np.cumsum(v)])
         for v in (w, w * t, w * y, w * t * t, w * t * y, w * y * y)
     ]
-    out = []
+    n = len(t)
+    z = np.sqrt(2 * np.log(sum(len(range(0, n - L + 1, stride)) for L in lengths)))
+    best = None
     for L in lengths:
-        i = np.arange(len(t) - L + 1)
+        i = np.arange(0, n - L + 1, stride)
         sw, st, sy, stt, sty, syy = (v[i + L] - v[i] for v in c)
         sxx, sxy = stt - st**2 / sw, sty - st * sy / sw
+        sxx = np.where(sxx > 0, sxx, np.nan)  # float cancellation in tiny windows
         slope = sxy / sxx
         chi2 = np.maximum(syy - sy**2 / sw - slope * sxy, 0) / (L - 2)
-        out.append((slope, 1 / np.sqrt(sxx), chi2, i, np.full_like(i, L)))
-    return (np.concatenate(a) for a in zip(*out))
+        bound = slope - z * np.sqrt(np.maximum(chi2, 1) / sxx)
+        if np.isnan(bound).all():
+            continue
+        k = np.nanargmax(bound)
+        if best is None or bound[k] > best[0]:
+            best = (bound[k], slope[k], int(i[k]), L)
+    return best
 
 
 # endregion
 
 
 # region: sliding window method
-def fit_sliding_window(t, N, window_points=5):
+def fit_sliding_window(t, N, window_points=5, stride=1):
     """
     Calculate maximum specific growth rate using the sliding window method.
 
@@ -89,6 +102,8 @@ def fit_sliding_window(t, N, window_points=5):
         t: Time array (hours)
         N: OD values (linear-scale, baseline-corrected, must be positive)
         window_points: Minimum readings per window (default: 5, at least 3)
+        stride: Readings between successive window starts (default: 1, every window).
+            Larger values fit fewer windows, trading start-time resolution for speed.
 
     Returns:
         Dict with params (slope = μmax in h⁻¹, intercept in log space, time_at_umax
@@ -97,26 +112,27 @@ def fit_sliding_window(t, N, window_points=5):
     """
     if int(window_points) != window_points or window_points < 3:
         raise ValueError("window_points must be an integer of at least 3.")
+    if int(stride) != stride or stride < 1:
+        raise ValueError("stride must be an integer of at least 1.")
 
     t, N = validate_data(t, N)
     if t is None or len(t) < window_points or np.ptp(N) == 0:
         return None
 
     y, sd = np.log(N), _ln_noise_sd(N, *_noise_levels(t, N))
-    slope, se, chi2, start, length = _wls_windows(
-        t, y, sd, _window_lengths(len(t), int(window_points))
+    best = _best_window(
+        t, y, sd, _window_lengths(len(t), int(window_points)), int(stride)
     )
-    bound = slope - np.sqrt(2 * np.log(len(slope))) * se * np.sqrt(np.maximum(chi2, 1))
-    k = np.nanargmax(bound)
-    if not bound[k] > 0:
+    if best is None or not best[0] > 0:
         return None
+    _, slope, start, length = best
 
-    win = slice(start[k], start[k] + length[k])
+    win = slice(start, start + length)
     w = sd[win] ** -2
-    intercept = np.average(y[win], weights=w) - slope[k] * np.average(t[win], weights=w)
+    intercept = np.average(y[win], weights=w) - slope * np.average(t[win], weights=w)
     return {
         "params": {
-            "slope": float(slope[k]),
+            "slope": float(slope),
             "intercept": float(intercept),
             "time_at_umax": float(t[win].mean()),
             "fit_t_min": float(t[win][0]),
@@ -282,7 +298,9 @@ def fit_spline(t, N, smooth="auto"):
 # -----------------------------------------------------------------------------
 
 
-def fit_non_parametric(t, N, method="sliding_window", window_points=5, smooth="auto", **kwargs):
+def fit_non_parametric(
+    t, N, method="sliding_window", window_points=5, smooth="auto", **kwargs
+):
     """
     Fit a non-parametric model: "sliding_window" (`fit_sliding_window`) or "spline"
     (`fit_spline`).
