@@ -50,8 +50,7 @@ print(f"Specific growth rate: {stats['mu_max']:.4f} h⁻¹")
 print(f"Doubling time:        {stats['doubling_time']:.2f} h")
 
 # Or use a non-parametric spline fit
-# smooth: "fast" (auto-default), "slow" (GCV), or a float (manual lambda)
-spline_fit, spline_stats = gc.fit_model(t, N, "spline", smooth="fast")
+spline_fit, spline_stats = gc.fit_model(t, N, "spline")
 
 print(f"\nSpline fit results:")
 print(f"Specific growth rate: {spline_stats['mu_max']:.4f} h⁻¹")
@@ -105,36 +104,36 @@ Mechanistic models are defined as ordinary differential equations (ODEs) and fit
 
 Phenomenological models are fitted directly to ln(OD/OD0) data.
 
+### Curve preprocessing before every fit
+
+Every growth model fit (parametric and non-parametric) first passes its data through
+`preprocessing.prepare_curve`:
+
+1. **Validation**: finite readings with OD > 0, sorted by time, repeated times dropped, at least 10 readings.
+2. **Growth check**: if the smoothed OD does not rise at least `min_fold` (default 1.5) times from its lowest value before the peak, the fit returns `None` (no growth), as QurvE's `growth.thresh` does.
+3. **Truncation after growth**: readings after the smoothed OD peak, and after long stationary phases (later than half the 10-95 % rise duration past the point where the curve reaches 95 % of its ln rise), are dropped; the first 20 readings are always kept. A decline or a long plateau otherwise pulls whole-curve fits away from the growth phase. `phenom_gompertz_modified`, whose second term models the phase after growth, is not truncated.
+
+`fit_t_min` and `fit_t_max` in the fit parameters give the time range that was fitted. Statistics such as max OD are still computed from all the data.
+
 ### Non-parametric methods
 
-| Method         | Function                            | Key parameters          |
-| -------------- | ----------------------------------- | ----------------------- |
-| Spline         | `non_parametric.fit_non_parametric` | `smooth`, `use_weights` |
-| Sliding window | `non_parametric.fit_non_parametric` | `window_points`         |
+| Method         | Function                            | Key parameters  |
+| -------------- | ----------------------------------- | --------------- |
+| Spline         | `non_parametric.fit_non_parametric` | `smooth`        |
+| Sliding window | `non_parametric.fit_non_parametric` | `window_points` |
 
-The **spline method** fits a smoothing spline to log-transformed OD data and calculates growth rate from the spline's derivative. Smoothing is controlled by `smooth`:
+The **spline method** fits a penalised spline to log-transformed OD data and calculates growth rate from the spline's derivative. By default (`smooth="auto"`) the smoothing is chosen per curve by REML (Restricted Maximum Likelihood); pass a positive number to fix it instead. It returns `None` when the curve shows no significant growth.
 
-- `"fast"`: automatic default lambda rule (fast)
-- `"slow"`: weighted GCV selection (slower)
-- `float`: manual lambda value
-
-The **sliding window method** estimates growth rate by fitting a linear regression to log-transformed data within a moving window, identifying the window with maximum slope.
+The **sliding window method** fits weighted linear regressions to log-transformed data in windows of every length (at least `window_points`, default 5) and reports the window with the highest lower confidence bound on its slope, so the window length adapts to each curve's noise and sampling. Windows must cover at least `min_rise` (default 10 %) of the smoothed OD rise, as QurvE's `lin.dY`, which keeps correlated baseline noise from winning. It returns `None` when no window shows significant growth.
 
 ### Spline fitting (non-parametric)
 
-The spline method provides a model-free approach to growth curve analysis by fitting a smoothing spline to log-transformed OD data:
+The spline method fits $s(t) \approx \ln N$ and takes $\mu(t) = \frac{d\,s(t)}{dt}$:
 
-1. Transform OD data: $y_{\text{log}} = \ln(N)$
-2. Fit a cubic smoothing spline $s(t)$ to $(t, y_{\text{log}})$ using `scipy.interpolate.make_smoothing_spline`
-3. Calculate specific growth rate: $\mu(t) = \frac{d\,s(t)}{dt}$
-4. Find maximum growth rate: $\mu_{\max} = \max_{t} \mu(t)$
-
-| Parameter     | Meaning                                          |
-| ------------- | ------------------------------------------------ |
-| `smooth`      | `"fast"`, `"slow"`, or manual float lambda value |
-| `use_weights` | Apply OD-dependent weighting (default: `False`)   |
-
-When `smooth` is a float, higher values produce smoother curves and lower values follow the data more tightly.
+1. Each reading is weighted by a noise model (proportional noise plus an additive OD floor, estimated from the curve).
+2. The data are prepared as for every fit (growth check, truncation after growth; see above).
+3. A cubic P-spline (up to 25 equal segments, second-difference penalty) is fitted, with the smoothing chosen by REML. Two robust reweighting passes downweight outliers, and two IRLS (Iteratively Reweighted Least Squares) passes treat the noise in OD rather than ln OD.
+4. $\mu_{\max}$ is $\mu(t)$ where $\mu(t) - 2\,\mathrm{SE}$ is highest. If $\mu - 3.5\,\mathrm{SE}$ is not above zero there, the method returns `None` (no growth).
 
 ### Derived growth statistics
 

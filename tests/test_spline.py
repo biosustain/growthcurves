@@ -1,6 +1,11 @@
 import numpy as np
+import pytest
 
-from growthcurves.models import log_to_linear, phenom_gompertz_model_ln
+from growthcurves.models import (
+    log_to_linear,
+    phenom_gompertz_model_ln,
+    spline_from_params,
+)
 from growthcurves.non_parametric import fit_non_parametric, fit_spline
 
 # =============================================================================
@@ -8,11 +13,11 @@ from growthcurves.non_parametric import fit_non_parametric, fit_spline
 # =============================================================================
 
 
-def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N_init=0.05, n_points=200):
+def _gompertz_curve(mu_max=0.4, A=2.5, lam=5.0, N0=0.05, n_points=200):
     """Phenomenological Gompertz curve with known mu_max."""
     t = np.linspace(0, 88, n_points)
     ln_ratio = phenom_gompertz_model_ln(t, A=A, mu_max=mu_max, lam=lam)
-    N = log_to_linear(ln_ratio, N_init=N_init)
+    N = log_to_linear(ln_ratio, N0=N0)
     return t, N, mu_max
 
 
@@ -45,35 +50,12 @@ def test_mu_max_positive():
     assert result["params"]["mu_max"] > 0
 
 
-def test_mu_max_close_to_known_value_fast():
+def test_mu_max_close_to_known_value():
     # The spline derivative of ln(N) should approximate the true mu_max
-    t, N, _ = _gompertz_curve(mu_max=0.4)
-    result = fit_spline(t, N, smooth="fast")
-    assert np.isclose(result["params"]["mu_max"], 0.4, rtol=0.01)
-
-    t1, N1, _ = _gompertz_curve(mu_max=0.6)
-    result1 = fit_spline(t1, N1, smooth="fast")
-    assert np.isclose(result1["params"]["mu_max"], 0.6, rtol=0.01)
-
-    t2, N2, _ = _gompertz_curve(mu_max=0.2)
-    result2 = fit_spline(t2, N2, smooth="fast")
-    assert np.isclose(result2["params"]["mu_max"], 0.2, rtol=0.01)
-
-
-def test_mu_max_close_to_known_value_slow():
-
-    # The spline derivative of ln(N) should approximate the true mu_max
-    t, N, _ = _gompertz_curve(mu_max=0.4)
-    result = fit_spline(t, N, smooth="slow")
-    assert np.isclose(result["params"]["mu_max"], 0.4, rtol=0.01)
-
-    t1, N1, _ = _gompertz_curve(mu_max=0.6)
-    result1 = fit_spline(t1, N1, smooth="slow")
-    assert np.isclose(result1["params"]["mu_max"], 0.6, rtol=0.01)
-
-    t2, N2, _ = _gompertz_curve(mu_max=0.2)
-    result2 = fit_spline(t2, N2, smooth="slow")
-    assert np.isclose(result2["params"]["mu_max"], 0.2, rtol=0.01)
+    for mu_max in (0.2, 0.4, 0.6):
+        t, N, _ = _gompertz_curve(mu_max=mu_max)
+        result = fit_spline(t, N)
+        assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.01)
 
 
 def test_time_at_umax_within_range():
@@ -82,65 +64,99 @@ def test_time_at_umax_within_range():
     assert t.min() <= result["params"]["time_at_umax"] <= t.max()
 
 
-# =============================================================================
-# fit_spline — smoothing modes
-# =============================================================================
-
-
-def test_smooth_fast_returns_result():
+def test_spline_from_params_reproduces_fit():
     t, N, _ = _gompertz_curve()
-    result = fit_spline(t, N, smooth="fast")
-    assert result is not None
-    assert result["params"]["smooth"] == "fast"
+    params = fit_spline(t, N)["params"]
+    spline = spline_from_params(params)
+    assert np.isclose(
+        spline.derivative()(params["time_at_umax"]), params["mu_max"], rtol=1e-3
+    )
 
 
-def test_smooth_slow_returns_result():
+def test_fixed_smooth():
+    t, N, mu_max = _gompertz_curve(mu_max=0.4)
+    result = fit_spline(t, N, smooth=0.1)
+    assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.05)
+    assert fit_spline(t, N, smooth=1e4)["params"]["mu_max"] < result["params"]["mu_max"]
+
+
+def test_invalid_smooth_raises():
     t, N, _ = _gompertz_curve()
-    result = fit_spline(t, N, smooth="slow")
-    assert result is not None
-    assert result["params"]["smooth"] == "slow"
-
-
-def test_smooth_manual_float_returns_result():
-    t, N, _ = _gompertz_curve()
-    lam = 0.01
-    result = fit_spline(t, N, smooth=lam)
-    assert result is not None
-    assert result["params"]["smooth"] == lam
-
-
-def test_smooth_invalid_string_returns_none():
-    # fit_spline catches all exceptions and returns None
-    t, N, _ = _gompertz_curve()
-    result = fit_spline(t, N, smooth="invalid")
-    assert result is None
-
-
-def test_smooth_negative_float_returns_none():
-    t, N, _ = _gompertz_curve()
-    result = fit_spline(t, N, smooth=-1.0)
-    assert result is None
+    for bad in (-1.0, 0, "fast"):
+        with pytest.raises(ValueError):
+            fit_spline(t, N, smooth=bad)
 
 
 # =============================================================================
-# fit_spline — use_weights parameter
+# fit_spline — noise, outliers, long runs
 # =============================================================================
 
 
-def test_use_weights_false_returns_result():
+def test_noisy_curve_recovers_mu_max():
+    t, N, mu_max = _gompertz_curve(mu_max=0.4)
+    rng = np.random.default_rng(0)
+    N = N * np.exp(0.03 * rng.standard_normal(len(N))) + 0.002 * rng.standard_normal(
+        len(N)
+    )
+    result = fit_spline(t, N)
+    assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.1)
+
+
+def test_spike_does_not_move_mu_max():
+    t, N, mu_max = _gompertz_curve(mu_max=0.4)
+    N = N.copy()
+    N[len(N) // 3] *= 3
+    result = fit_spline(t, N)
+    assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.05)
+
+
+def test_long_stationary_phase_is_cropped():
+    # Growth over the first ~25 h, then days of plateau
+    t = np.linspace(0, 200, 1000)
+    N = log_to_linear(phenom_gompertz_model_ln(t, A=2.5, mu_max=0.6, lam=5.0), N0=0.05)
+    result = fit_spline(t, N)
+    assert result["params"]["fit_t_max"] < 50
+    assert np.isclose(result["params"]["mu_max"], 0.6, rtol=0.02)
+
+
+def test_rounded_data_recovers_mu_max():
+    t, N, mu_max = _gompertz_curve(mu_max=0.4)
+    result = fit_spline(t, np.round(N, 3))
+    assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.05)
+
+
+def test_flat_noise_returns_none():
+    rng = np.random.default_rng(1)
+    t = np.linspace(0, 48, 150)
+    N = 0.05 * np.exp(0.02 * rng.standard_normal(150))
+    assert fit_spline(t, N) is None
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_flat_correlated_noise_returns_none(seed):
+    # AR(1) noise wanders smoothly, so a REML spline can see a significant slope in it
+    rng = np.random.default_rng(seed)
+    z = np.zeros(200)
+    for i in range(1, 200):
+        z[i] = 0.8 * z[i - 1] + 0.6 * rng.standard_normal()
+    N = 0.05 + 0.004 * z
+    assert fit_spline(np.linspace(0, 48, 200), N) is None
+
+
+def test_small_rise_returns_none():
+    # OD rises 1.3-fold: below min_fold
+    t = np.linspace(0, 48, 200)
+    N = log_to_linear(
+        phenom_gompertz_model_ln(t, A=np.log(1.3), mu_max=0.1, lam=5.0), N0=0.05
+    )
+    assert fit_spline(t, N) is None
+    assert fit_spline(t, N, min_fold=1.2) is not None
+
+
+def test_invalid_min_fold_raises():
     t, N, _ = _gompertz_curve()
-    result = fit_spline(t, N, use_weights=False)
-    assert result is not None
-    assert result["params"]["mu_max"] > 0
-
-
-def test_use_weights_true_and_false_both_recover_mu_max():
-    mu_max = 0.4
-    t, N, _ = _gompertz_curve(mu_max=mu_max)
-    r_weighted = fit_spline(t, N, use_weights=True)
-    r_unweighted = fit_spline(t, N, use_weights=False)
-    assert np.isclose(r_weighted["params"]["mu_max"], mu_max, rtol=0.15)
-    assert np.isclose(r_unweighted["params"]["mu_max"], mu_max, rtol=0.15)
+    with pytest.raises(ValueError):
+        fit_spline(t, N, min_fold=0.5)
 
 
 # =============================================================================
@@ -149,20 +165,16 @@ def test_use_weights_true_and_false_both_recover_mu_max():
 
 
 def test_too_few_points_returns_none():
-    t = np.linspace(0, 5, 4)  # fewer than 5
+    t = np.linspace(0, 5, 4)  # fewer than validate_data's minimum
     N = 0.05 * np.exp(0.3 * t)
     result = fit_spline(t, N)
     assert result is None
 
 
-def test_flat_curve_mu_max_negligible():
-    # Constant OD — the spline fits fine but its derivative is numerical noise (~1e-15)
+def test_constant_curve_returns_none():
     t = np.linspace(0, 10, 50)
     N = np.ones(50) * 0.5
-    result = fit_spline(t, N)
-    # result may be None or may return near-zero mu_max due to floating-point noise
-    if result is not None:
-        assert result["params"]["mu_max"] < 1e-10
+    assert fit_spline(t, N) is None
 
 
 # =============================================================================
@@ -182,7 +194,7 @@ def test_fit_non_parametric_spline_includes_fit_bounds():
     assert "fit_t_min" in result["params"]
     assert "fit_t_max" in result["params"]
     assert result["params"]["fit_t_min"] == t.min()
-    assert result["params"]["fit_t_max"] == t.max()
+    assert t.min() < result["params"]["fit_t_max"] <= t.max()
 
 
 def test_fit_non_parametric_spline_mu_max_close_to_known():

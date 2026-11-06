@@ -1,13 +1,18 @@
 """Data preprocessing utilities for growth curve analysis.
 
 This module provides functions for common preprocessing steps such as blank
-subtraction and path length correction.
+subtraction and path length correction, and `prepare_curve`, the standard
+preprocessing every growth model fit applies to its data.
 """
+
+from __future__ import annotations
 
 from functools import partial
 
 import numpy as np
 from pyod.models.ecod import ECOD
+
+from .inference import _noise_levels, validate_data
 
 
 def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
@@ -45,6 +50,66 @@ def blank_subtraction(N: np.ndarray, blank: np.ndarray) -> np.ndarray:
     blank_array = np.asarray(blank, dtype=float)
 
     return data_array - blank_array
+
+
+def prepare_curve(
+    t: np.ndarray,
+    N: np.ndarray,
+    min_fold: float = 1.5,
+    truncate: bool = True,
+    min_keep: int = 20,
+) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
+    """
+    Standard preprocessing applied by every growth model fit before fitting.
+
+    1. Validation (`validate_data`): finite readings with N > 0, sorted by time,
+       repeated times dropped, at least 10 readings.
+    2. Growth check: the smoothed OD must rise at least `min_fold` times from its
+       lowest value before its peak (as QurvE's `growth.thresh`), otherwise there is
+       no growth to fit.
+    3. Truncation after the growth phase: readings later than the smoothed OD peak,
+       or later than half the 10-95 % rise duration after the curve reaches 95 % of
+       its ln rise (long stationary phases), are dropped; the first `min_keep`
+       readings are always kept. A decline or a long plateau otherwise pulls
+       whole-curve fits away from the growth phase.
+
+    Parameters:
+        t: Time array (hours)
+        N: OD values (linear scale, baseline-corrected)
+        min_fold: Minimum fold increase of the smoothed OD for growth (default: 1.5)
+        truncate: Drop the readings after the growth phase (default: True)
+        min_keep: Readings always kept by the truncation (default: 20)
+
+    Returns:
+        Tuple (t, N) of the readings to fit, or (None, None) for invalid data or no
+        growth.
+
+    Raises:
+        ValueError: If `min_fold` is below 1, or any time is negative.
+    """
+    if min_fold < 1:
+        raise ValueError("min_fold must be at least 1.")
+    t, N = validate_data(t, N)
+    if t is None or np.ptp(N) == 0:
+        return None, None
+
+    sd_add, _, N_ref = _noise_levels(t, N)
+    peak = int(np.argmax(N_ref))
+    if N_ref[peak] < min_fold * N_ref[: peak + 1].min():
+        return None, None
+    if not truncate:
+        return t, N
+
+    y_ref = np.log(np.maximum(N_ref, max(3 * sd_add, 1e-12)))
+    trough = int(np.argmin(y_ref[: peak + 1]))
+    lo, hi = y_ref[trough], y_ref[peak]
+    t10, t95 = (
+        t[trough + np.argmax(y_ref[trough : peak + 1] >= lo + q * (hi - lo))]
+        for q in (0.1, 0.95)
+    )
+    t_end = min(t[peak], t95 + 0.5 * (t95 - t10))
+    keep = t <= max(t_end, t[min(len(t), min_keep) - 1])
+    return t[keep], N[keep]
 
 
 def path_correct(N: np.ndarray, path_length_cm: float) -> np.ndarray:
@@ -251,6 +316,7 @@ def detect_outliers_ecod(N: np.ndarray, factor: float = 3.5) -> np.ndarray:
         Boolean mask of the same length as N where True indicates an outlier.
     """
 
+    N = np.asarray(N)
     n = len(N)
     half = 15 // 2
     residual = np.zeros(n)
@@ -321,56 +387,3 @@ def detect_outliers(N: np.ndarray, method: str = "ecod", **kwargs) -> np.ndarray
         raise ValueError(
             f"Unknown method '{method}'. Choose from: 'iqr', 'ecod', 'hampel'."
         )
-
-
-if __name__ == "__main__":
-    # Example usage
-    data = np.array([20, 1, 2, 3, 4, 5, 20, 6, 7, 8, 9, 10, 25])
-    print(out_of_iqr_window(data))
-
-    # rolling windows of size 5: shape -> (len(data)-4, 5)
-    window_size = 5
-    edge_idx = window_size // 2
-    windows = np.lib.stride_tricks.sliding_window_view(data, window_size)
-
-    # outlier flag for each 5-value window (checks center element of each window)
-    # center points (indices 2..-3)
-    window_flags = np.apply_along_axis(out_of_iqr_window, 1, windows)
-    edge_window_size = window_size + window_size // 2 - 1
-    start_windows = np.lib.stride_tricks.sliding_window_view(
-        data[:edge_window_size], window_size
-    )
-    start_window_flags = np.apply_along_axis(
-        out_of_iqr_window,
-        1,
-        start_windows,
-        position="first",  # passed to out_of_iqr_window
-    )
-    end_windows = np.lib.stride_tricks.sliding_window_view(
-        data[-(edge_window_size):], window_size
-    )
-    end_window_flags = np.apply_along_axis(
-        out_of_iqr_window,
-        1,
-        end_windows,
-        position="last",  # passed to out_of_iqr_window
-    )
-    print("center windows flags:", window_flags)
-    print("start edge windows:", start_windows)
-    print("start edge window flags:", start_window_flags)
-    print("end edge windows:", end_windows)
-    print("end edge window flags:", end_window_flags)
-    # optional: align back to original array length (center indices only)
-    flags = np.full(data.shape, False)
-
-    flags[:edge_idx] = start_window_flags  # [:edge_idx]
-    flags[edge_idx:-edge_idx] = window_flags
-    flags[-edge_idx:] = end_window_flags
-
-    print("windows:\n", windows)
-    print("window_flags:", window_flags)
-    print("aligned flags:", flags)
-    mask = detect_outliers_iqr(data, window_size=5)
-
-    print("final mask:", mask)
-    assert (mask == flags).all()

@@ -19,18 +19,18 @@ from .preprocessing import blank_subtraction, path_correct
 # The __all__ variable is a list of variables which are imported
 # when a user does "from example import *"
 __all__ = [
-    "models",
-    "inference",
-    "parametric",
-    "non_parametric",
-    "plot",
-    "preprocessing",
     "MODEL_REGISTRY",
+    "blank_subtraction",
+    "compare_methods",
+    "fit_model",
     "get_all_models",
     "get_all_parametric_models",
     "get_model_category",
-    "blank_subtraction",
+    "inference",
+    "models",
+    "non_parametric",
+    "parametric",
     "path_correct",
-    "compare_methods",
-    "fit_model",
+    "plot",
+    "preprocessing",
 ]

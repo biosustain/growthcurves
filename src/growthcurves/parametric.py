@@ -32,33 +32,23 @@ from .models import (
     phenom_logistic_model_ln,
     phenom_richards_model_ln,
 )
+from .preprocessing import prepare_curve
 
 # -----------------------------------------------------------------------------
 # Helper Functions for mechanistic model fitting
 # -----------------------------------------------------------------------------
 
 
-def _estimate_initial_params(t, N):
-    """
-    Estimate common initial parameters for all growth models.
-
-    Parameters:
-        t: Time array
-        N: OD values (assumed baseline-corrected)
-
-    Returns:
-        Tuple of (K_init, dN) where:
-            K_init: Initial carrying capacity (max OD)
-            dN: First derivative (gradient) of OD with respect to t
-
-    """
-    K_init = np.max(N)
-    dN = np.gradient(N, t)
-    return K_init, dN
-
-
 def _fit_model_generic(
-    t, N, model_func, param_names, p0_func, bounds_func, model_type, log_space=False
+    t: np.ndarray,
+    N: np.ndarray,
+    model_func,
+    param_names: list,
+    p0_func,
+    bounds_func,
+    model_type: str,
+    log_space: bool = False,
+    min_fold: float = 1.5,
 ):
     """
     Generic wrapper for fitting parametric growth models.
@@ -71,23 +61,23 @@ def _fit_model_generic(
         N: OD values
         model_func: Model function to fit (e.g., mech_logistic_model)
         param_names: List of parameter names in order
-        p0_func: Function that takes (K_init, t, dN) and returns p0
+        p0_func: Function that takes K_init and returns p0
         bounds_func: Function that takes (K_init, t) and returns bounds
         model_type: String identifier for the model
+        min_fold: Minimum fold increase of the smoothed OD for growth (`prepare_curve`)
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails
+        Dict with 'params' (incl. fit_t_min, fit_t_max) and 'model_type', or None
+        for no growth or too few points
 
     """
-    t, N = validate_data(t, N)
+    t, N = prepare_curve(t, N, min_fold=min_fold)
     if t is None:
         return None
 
-    # Estimate common initial parameters
-    K_init, dN = _estimate_initial_params(t, N)
-
-    # Generate initial guess and bounds
-    p0 = p0_func(K_init, t, dN)
+    # Initial guess and bounds; K starts at the max OD
+    K_init = np.max(N)
+    p0 = p0_func(K_init)
     bounds = bounds_func(K_init, t)
 
     # Fit the model
@@ -103,9 +93,12 @@ def _fit_model_generic(
     else:
         params, _ = curve_fit(model_func, t, N, p0=p0, bounds=bounds, maxfev=20000)
 
-    # Return structured result
     return {
-        "params": dict(zip(param_names, params)),
+        "params": {
+            **dict(zip(param_names, params)),
+            "fit_t_min": float(t[0]),
+            "fit_t_max": float(t[-1]),
+        },
         "model_type": model_type,
     }
 
@@ -115,7 +108,7 @@ def _fit_model_generic(
 # -----------------------------------------------------------------------------
 
 
-def fit_mech_logistic(t, N):
+def fit_mech_logistic(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic logistic model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -136,9 +129,10 @@ def fit_mech_logistic(t, N):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_logistic_model,
-        param_names=["mu", "K", "N_init"],
-        p0_func=lambda K, t, dy: [0.5, K, 0.001],
+        param_names=["mu", "K", "N0"],
+        p0_func=lambda K: [0.5, K, 0.001],
         bounds_func=lambda K, t: (
             [0.0001, 0.001, 1e-6],
             [10, np.inf, 10],
@@ -148,7 +142,7 @@ def fit_mech_logistic(t, N):
     )
 
 
-def fit_mech_gompertz(t, N):
+def fit_mech_gompertz(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Gompertz model (ODE) to growth data N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -174,9 +168,10 @@ def fit_mech_gompertz(t, N):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_gompertz_model,
         param_names=["mu", "K", "N0"],
-        p0_func=lambda K, t, dy: [0.05, K, 0.01],
+        p0_func=lambda K: [0.05, K, 0.01],
         # ToDo: This should be a function to avoid hardcoding K bounds.
         bounds_func=lambda K, t: (
             [0.0001, 0.01, 1e-4],
@@ -187,7 +182,7 @@ def fit_mech_gompertz(t, N):
     )
 
 
-def fit_mech_richards(t, N):
+def fit_mech_richards(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Richards model (ODE) to growth N(t). N(t) could be Optical Density
     (OD) or any other measurement depending on variable t (which is time).
@@ -203,38 +198,23 @@ def fit_mech_richards(t, N):
     Returns:
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
-    # Multistart over β: a single seed often lands in the wrong basin for true
-    # β at the extremes of the (0.1, 10) range. Three log-spaced seeds at ~3× cost.
-    best, best_ssr = None, np.inf
-    for beta_init in (0.1, 1.0, 10.0):
-        try:
-            result = _fit_model_generic(
-                t,
-                N,
-                model_func=mech_richards_model,
-                param_names=["mu", "K", "N0", "beta"],
-                p0_func=lambda K, t, dy, b=beta_init: [0.5, K, 0.001, b],
-                bounds_func=lambda K, t: (
-                    [0.0001, 0.001, 1e-6, 0.01],
-                    [10, np.inf, 10, 100],
-                ),
-                model_type="mech_richards",
-                log_space=True,
-            )
-        except Exception:
-            continue
-        if result is None:
-            continue
-        p = result["params"]
-        pred = mech_richards_model(t, p["mu"], p["K"], p["N0"], p["beta"])
-        log_resid = np.log(np.maximum(pred, 1e-8)) - np.log(np.maximum(N, 1e-8))
-        ssr = float(np.sum(log_resid**2))
-        if ssr < best_ssr:
-            best_ssr, best = ssr, result
-    return best
+    return _fit_model_generic(
+        t,
+        N,
+        min_fold=min_fold,
+        model_func=mech_richards_model,
+        param_names=["mu", "K", "N0", "beta"],
+        p0_func=lambda K: [0.5, K, 0.001, 1.0],
+        bounds_func=lambda K, t: (
+            [0.0001, 0.001, 1e-6, 0.01],
+            [10, np.inf, 10, 100],
+        ),
+        model_type="mech_richards",
+        log_space=True,
+    )
 
 
-def fit_mech_baranyi(t, N):
+def fit_mech_baranyi(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Baranyi-Roberts model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -254,7 +234,7 @@ def fit_mech_baranyi(t, N):
         Dict with 'params' and 'model_type', or None if fitting fails.
     """
 
-    def p0_baranyi(K, t, dy):
+    def p0_baranyi(K):
         mu_init = 0.5
         h0_init = 1.0
         N0_init = 0.001
@@ -269,6 +249,7 @@ def fit_mech_baranyi(t, N):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_baranyi_model,
         param_names=["mu", "K", "N0", "h0"],
         p0_func=p0_baranyi,
@@ -284,7 +265,7 @@ def fit_mech_baranyi(t, N):
 # -----------------------------------------------------------------------------
 
 
-def _estimate_lag_time(t, dN, threshold_frac=0.1):
+def _estimate_lag_time(t: np.ndarray, dN: np.ndarray, threshold_frac: float = 0.1):
     """
     Estimate lag t from growth rate threshold.
 
@@ -302,32 +283,120 @@ def _estimate_lag_time(t, dN, threshold_frac=0.1):
     return t[lag_idx[0]] if len(lag_idx) > 0 else t[0]
 
 
-# -----------------------------------------------------------------------------
-# Phenomenological Model Fitting Functions (ln-space)
-# -----------------------------------------------------------------------------
-def fit_fct(t, N, fct):
+def _fit_phenom_model(
+    t: np.ndarray,
+    N: np.ndarray,
+    model_func,
+    model_type: str,
+    extra_params=None,
+    p0_overrides=None,
+    truncate=True,
+    min_fold: float = 1.5,
+):
     """
-    Fit any phenomenological logistic model to OD data N(t).
+    Generic wrapper for fitting phenomenological growth models.
 
-    N0 is fit jointly with A, mu_max, lam rather than estimated as min(N):
-    the ln-ratio term is not zero at t=0 (it equals A/(1+exp(4*mu_max*lam/A+2))
-    for the smallest sampled time), so using min(N) systematically overestimates the
-    true baseline, biasing the other fitted parameters.
+    Fits ln(N) = model_func(t, A, mu_max, lam, *extra) + ln(N0), with ln(N0) as a
+    free parameter. N0 is fit jointly rather than estimated as min(N): the
+    ln-ratio term is not zero at the smallest sampled time, so using min(N)
+    systematically overestimates the true baseline, biasing the other fitted
+    parameters.
 
     Parameters:
         t: Time array (hours)
         N: OD values
+        model_func: Phenomenological model returning ln(Nt/N0), with signature
+            (t, A, mu_max, lam, *extra)
+        model_type: String identifier for the model
+        extra_params: Optional function of the validated t returning a dict of
+            {name: (initial, lower, upper)} for parameters after lam
+        p0_overrides: Optional function of the validated (t, N) returning a dict
+            of {name: initial} replacing the shared initial guesses of A, mu_max
+            or lam for models where they are a poor starting point
+        truncate: Drop the readings after the growth phase (`prepare_curve`); False
+            for models that describe the phase after growth themselves
+        min_fold: Minimum fold increase of the smoothed OD for growth (`prepare_curve`)
 
     Returns:
-        Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
-        fitting fails.
+        Dict with 'params' (A, mu_max, lam, *extra, N0, fit_t_min, fit_t_max) and
+        'model_type', or None for no growth or too few points.
+    """
+    t, N = prepare_curve(t, N, min_fold=min_fold, truncate=truncate)
+    if t is None:
+        return None
+
+    # Estimate initial parameters
+    N0_init = max(float(np.min(N)), 0.01)  # ensure that N0 is positive
+    N_max = max(float(np.max(N)), N0_init + 0.02)  # ensure that N_max > N0
+    A_init = max(np.log(N_max / N0_init), 0.01)  # ensure that the log-ratio > 0
+    gradient_ln_N = np.gradient(np.log(N), t)
+    mu_max_init = np.max(gradient_ln_N)
+    lam_init = _estimate_lag_time(t, gradient_ln_N)
+
+    # Initial parameter guess and bounds for A, mu_max, lam, then extra parameters
+    param_names = ["A", "mu_max", "lam"]
+    p0 = [A_init, mu_max_init, lam_init]
+    if p0_overrides:
+        overrides = p0_overrides(t, N)
+        p0 = [overrides.get(name, init) for name, init in zip(param_names, p0)]
+    lower = [0.01, 0.0001, 0]
+    upper = [20, 10, t.max()]
+    for name, (init, lo, hi) in (extra_params(t) if extra_params else {}).items():
+        param_names.append(name)
+        p0.append(init)
+        lower.append(lo)
+        upper.append(hi)
+    p0 = np.clip(p0, lower, upper)
+
+    def ln_model(tt, *p):
+        return model_func(tt, *p[:-1]) + p[-1]
+
+    # Fit the model directly on ln(N), with ln_N0 as the last free parameter
+    params, _ = curve_fit(
+        ln_model,
+        t,
+        np.log(N),
+        p0=[*p0, np.log(N0_init)],
+        bounds=([*lower, -np.inf], [*upper, np.inf]),
+        maxfev=20000,
+    )
+
+    return {
+        "params": {
+            **dict(zip(param_names, (float(p) for p in params[:-1]))),
+            "N0": float(np.exp(params[-1])),
+            "fit_t_min": float(t[0]),
+            "fit_t_max": float(t[-1]),
+        },
+        "model_type": model_type,
+    }
+
+
+# -----------------------------------------------------------------------------
+# Phenomenological Model Fitting Functions (ln-space)
+# -----------------------------------------------------------------------------
+def fit_fct(t: np.ndarray, N: np.ndarray, fct):
+    """
+    Fit an arbitrary model function fct(t, *params) directly to N(t).
+
+    No transformation is applied: fct must return values on the same scale as N.
+    A fitted parameter named 'ln_N0' is returned as 'N0' = exp(ln_N0).
+
+    Parameters:
+        t: Time array (hours)
+        N: Observed values
+        fct: Model function whose first argument is t
+
+    Returns:
+        Dict with 'params' (named after fct's arguments) and 'model_type', or None
+        if fitting fails.
     """
 
     t, N = validate_data(t, N)
     if t is None:
         return None
 
-    # Fit the model directly on ln(N), with ln_N0 as a free parameter
+    # Fit the model directly on N, using scipy's default initial guess
     params, _ = curve_fit(fct, t, N)
 
     # skip the first parameter (t) to get the fitted parameter names in order
@@ -345,17 +414,12 @@ def fit_fct(t, N, fct):
     }
 
 
-def fit_phenom_logistic(t, N):
+def fit_phenom_logistic(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit non-standard phenomenological logistic model to OD data
     N(t) = N0 * exp(ln_ratio(t)).
 
     ln_ratio(t) = ln(Nt/N0) = A / (1 + exp(4 * μ_max * (λ - t) / A + 2))
-
-    N0 is fit jointly with A, mu_max, lam rather than estimated as min(N):
-    the ln-ratio term is not zero at t=0 (it equals A/(1+exp(4*mu_max*lam/A+2))
-    for the smallest sampled time), so using min(N) systematically overestimates the
-    true baseline, biasing the other fitted parameters.
 
     Parameters:
         t: Time array (hours)
@@ -365,50 +429,14 @@ def fit_phenom_logistic(t, N):
         Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
         fitting fails.
     """
-
-    t, N = validate_data(t, N)
-    if t is None:
-        return None
-
-    # Estimate initial parameters
-    N_init = max(float(np.min(N)), 0.01)  # ensure that N0 is positive
-    N_max = max(float(np.max(N)), N_init + 0.02)  # ensure that N_max is greater than N0
-    A_init = max(np.log(N_max / N_init), 0.01)  # ensure that the log-ratio is positive
-    # ! not devided by N_init, because N_init is fitted as a free parameter
-    ln_N = np.log(N)  #  / N_init
-    gradient_ln_N = np.gradient(ln_N, t)
-    mu_max_init = np.max(gradient_ln_N)
-    # estimates lag time initialization using the gradient of N with respect to t
-    lam_init = _estimate_lag_time(t, gradient_ln_N)
-
-    # Initial parameter guess and bounds
-    p0 = [A_init, mu_max_init, lam_init, np.log(N_init)]
-    # ! hard-coded bounds  for A, mu_max, lam. Could be improved.
-    # bounds = ([-np.inf, 0.0001, -np.inf, -np.inf], [np.inf, np.inf, np.inf, np.inf])
-
-    # Fit the model directly on ln(N), with ln_N0 as a free parameter
-    params, _ = curve_fit(
-        phenom_logistic_model_ln,
-        t,
-        ln_N,
-        p0=p0,
+    return _fit_phenom_model(
+        t, N, phenom_logistic_model_ln, "phenom_logistic", min_fold=min_fold
     )
-    A, mu_max, lam, ln_N_init = (float(p) for p in params)
-
-    return {
-        "params": {
-            "A": A,
-            "mu_max": mu_max,
-            "lam": lam,
-            "N_init": float(np.exp(ln_N_init)),
-        },
-        "model_type": "phenom_logistic",
-    }
 
 
-def fit_phenom_gompertz(t, N):
+def fit_phenom_gompertz(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
-    Fit phenomenological Gompertz model to ln(OD/OD0) N.
+    Fit phenomenological Gompertz model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1))
 
@@ -417,36 +445,18 @@ def fit_phenom_gompertz(t, N):
         N: OD values
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
+        Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
+        fitting fails.
     """
-    t, N = validate_data(t, N)
-    if t is None:
-        return None
-
-    # Estimate initial parameters
-    N0 = float(np.min(N))
-    N_max = float(np.max(N))
-    A_init = np.log(N_max / N0)
-    mu_max_init = 0.5
-    lam_init = _estimate_lag_time(t, np.gradient(N, t))
-
-    p0 = [A_init, mu_max_init, lam_init]
-    bounds = ([0.01, 0.0001, 0], [20, 10, t.max()])
-
-    # Fit the model
-    params, _ = curve_fit(
-        phenom_gompertz_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
+    return _fit_phenom_model(
+        t, N, phenom_gompertz_model_ln, "phenom_gompertz", min_fold=min_fold
     )
 
-    return {
-        "params": dict(zip(["A", "mu_max", "lam"], params)),
-        "model_type": "phenom_gompertz",
-    }
 
-
-def fit_phenom_gompertz_modified(t, N):
+def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
-    Fit phenomenological modified Gompertz model with decay term.
+    Fit phenomenological modified Gompertz model with decay term to OD data
+    N(t) = N0 * exp(ln_ratio(t)).
 
     ln(Nt/N0) = A * exp(-exp(μ_max * e * (λ - t) / A + 1)) + A * exp(α * (t - t_shift))
 
@@ -455,40 +465,31 @@ def fit_phenom_gompertz_modified(t, N):
         N: OD values
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
+        Dict with 'params' (A, mu_max, lam, alpha, t_shift, N0) and 'model_type',
+        or None if fitting fails.
     """
-    t, N = validate_data(t, N)
-    if t is None:
-        return None
-
-    # Estimate initial parameters
-    N0 = float(np.min(N))
-    A_init = max(float(np.log(N[len(t) // 3] / N0)), 0.1)
-    mu_max_init = 0.5
-    lam_init = t.max() * 0.1
-    alpha_init = 0.05
-    t_shift_init = t.max() * 0.8
-
-    p0 = [A_init, mu_max_init, lam_init, alpha_init, t_shift_init]
-    bounds = (
-        [0.01, 0.0001, 0, -1, 0],
-        [20, 10, t.max(), 1, t.max()],
+    return _fit_phenom_model(
+        t,
+        N,
+        phenom_gompertz_modified_model_ln,
+        "phenom_gompertz_modified",
+        extra_params=lambda t: {
+            "alpha": (0.05, -1, 1),
+            "t_shift": (t.max() * 0.8, 0, t.max()),
+        },
+        # The shared A guess, ln(max(N) / N0), includes the second phase, which
+        # traps the fit in a local minimum. The second term equals A at t_shift,
+        # so ln(N/N0) ~ 2A there: halve the observed amplitude instead.
+        p0_overrides=lambda _, N: {"A": np.log(np.max(N) / np.min(N)) / 2},
+        # the second term models the phase after growth: keep it in the data
+        truncate=False,
+        min_fold=min_fold,
     )
 
-    # Fit the model
-    params, _ = curve_fit(
-        phenom_gompertz_modified_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
-    )
 
-    return {
-        "params": dict(zip(["A", "mu_max", "lam", "alpha", "t_shift"], params)),
-        "model_type": "phenom_gompertz_modified",
-    }
-
-
-def fit_phenom_richards(t, N):
+def fit_phenom_richards(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
-    Fit phenomenological Richards model to ln(OD/OD0) N.
+    Fit phenomenological Richards model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
     ln(Nt/N0)= A * (1 + ν * exp(1 + ν + μ_max * (1 + ν)^(1 + 1/ν) * (λ - t) / A))^(-1/ν)
 
@@ -497,32 +498,17 @@ def fit_phenom_richards(t, N):
         N: OD values
 
     Returns:
-        Dict with 'params' and 'model_type', or None if fitting fails.
+        Dict with 'params' (A, mu_max, lam, nu, N0) and 'model_type', or None if
+        fitting fails.
     """
-    t, N = validate_data(t, N)
-    if t is None:
-        return None
-
-    # Estimate initial parameters
-    N0 = float(np.min(N))
-    N_max = float(np.max(N))
-    A_init = np.log(N_max / N0)
-    mu_max_init = 0.5
-    lam_init = _estimate_lag_time(t, np.gradient(N, t))
-    nu_init = 1.0
-
-    p0 = [A_init, mu_max_init, lam_init, nu_init]
-    bounds = ([0.01, 0.0001, 0, 0.01], [20, 10, t.max(), 100])
-
-    # Fit the model
-    params, _ = curve_fit(
-        phenom_richards_model_ln, t, N, p0=p0, bounds=bounds, maxfev=20000
+    return _fit_phenom_model(
+        t,
+        N,
+        phenom_richards_model_ln,
+        "phenom_richards",
+        extra_params=lambda _: {"nu": (1.0, 0.01, 100)},
+        min_fold=min_fold,
     )
-
-    return {
-        "params": dict(zip(["A", "mu_max", "lam", "nu"], params)),
-        "model_type": "phenom_richards",
-    }
 
 
 # -----------------------------------------------------------------------------
@@ -535,14 +521,18 @@ FITTING_FUNCTIONS = {
     "mech_richards": fit_mech_richards,
     "mech_baranyi": fit_mech_baranyi,
     "phenom_logistic": fit_phenom_logistic,
-    "phenom_gompertz": fit_phenom_gompertz,  # Todo: still operates on linear space
-    # Todo: still operates on linear space:
+    "phenom_gompertz": fit_phenom_gompertz,
     "phenom_gompertz_modified": fit_phenom_gompertz_modified,
-    "phenom_richards": fit_phenom_richards,  # Todo: still operates on linear space
+    "phenom_richards": fit_phenom_richards,
 }
 
 
-def fit_parametric(t, N, method="mech_logistic", **kwargs):
+def fit_parametric(
+    t: np.ndarray,
+    N: np.ndarray,
+    method: str = "mech_logistic",
+    min_fold: float = 1.5,
+):
     """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
 
 
@@ -561,6 +551,9 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
         Phenomenological (ln-space):
             - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified",\
  "phenom_richards"
+    min_fold : float, optional
+        Minimum fold increase of the smoothed OD for growth (default: 1.5; see
+        `preprocessing.prepare_curve`)
 
     Returns
     -------
@@ -580,13 +573,4 @@ def fit_parametric(t, N, method="mech_logistic", **kwargs):
             f"Unknown method '{method}'. Must be one of {list(get_all_models())}."
         )
 
-    result = fit_func(t, N)
-    if result is not None:
-        # ? validate_data is called in fitting functions. recomputation could be
-        # ? avoided by returning time_valid from validate_data in fitting functions.
-        time_valid, _ = validate_data(t, N)
-        if time_valid is None:
-            return None
-        result["params"]["fit_t_min"] = float(np.min(time_valid))
-        result["params"]["fit_t_max"] = float(np.max(time_valid))
-    return result
+    return fit_func(t, N, min_fold=min_fold)

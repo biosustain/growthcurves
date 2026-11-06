@@ -4,14 +4,18 @@ Plotting functions for growth curve analysis using Plotly.
 This module provides modular functions for creating and annotating growth curve plots.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import plotly.graph_objects as go
 
 from .models import (
+    MODEL_REGISTRY,
     evaluate_parametric_model,
     get_all_parametric_models,
+    log_to_linear,
     spline_from_params,
 )
 
@@ -21,7 +25,7 @@ def create_base_plot(
     N: np.ndarray,
     scale: str = "linear",
     xlabel: str = "Time (hours)",
-    ylabel: Optional[str] = None,
+    ylabel: str | None = None,
     marker_size: int = 5,
     marker_opacity: float = 0.3,
     marker_color: str = "gray",
@@ -82,14 +86,18 @@ def create_base_plot(
             y=y_data,
             mode="markers",
             name="Data",
-            marker=dict(size=marker_size, opacity=marker_opacity, color=marker_color),
+            marker={
+                "size": marker_size,
+                "opacity": marker_opacity,
+                "color": marker_color,
+            },
             showlegend=False,
         )
     )
 
     # Update layout
     # For linear scale, set y-axis to start at 0; for log scale, auto-range
-    yaxis_config = dict(visible=True, showline=True)
+    yaxis_config = {"visible": True, "showline": True}
     if scale == "linear":
         yaxis_config["range"] = [0, None]
 
@@ -99,7 +107,7 @@ def create_base_plot(
         hovermode="closest",
         template="plotly_white",
         showlegend=False,
-        xaxis=dict(range=[0, None]),  # Start x-axis at 0 to remove gap
+        xaxis={"range": [0, None]},  # Start x-axis at 0 to remove gap
         yaxis=yaxis_config,
     )
 
@@ -113,8 +121,8 @@ def add_exponential_phase(
     color: str = "lightgreen",
     opacity: float = 0.25,
     name: str = "Exponential phase",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add shaded region for exponential growth phase.
@@ -171,11 +179,11 @@ def add_fitted_curve(
     name: str = "Fitted curve",
     color: str = "blue",
     line_width: int = 5,
-    window_start: Optional[float] = None,
-    window_end: Optional[float] = None,
-    scale: Optional[str] = "linear",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    window_start: float | None = None,
+    window_end: float | None = None,
+    scale: str | None = "linear",
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add fitted curve to the plot, optionally constrained to a window.
@@ -234,7 +242,7 @@ def add_fitted_curve(
             y=N_fit,
             mode="lines",
             name=name,
-            line=dict(color=color, width=line_width),
+            line={"color": color, "width": line_width},
             showlegend=False,
         ),
         row=row,
@@ -253,8 +261,8 @@ def add_od_max_line(
     line_width: float = 2,
     line_opacity: float = 0.5,
     name: str = "ODmax",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add horizontal line at maximum OD value.
@@ -319,8 +327,8 @@ def add_N0_line(
     line_width: float = 2,
     line_opacity: float = 0.5,
     name: str = "N0",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add horizontal line at initial OD value (N0).
@@ -377,8 +385,8 @@ def add_N0_line(
 
 
 def prepare_fitted_curve(
-    fitted_model: Dict[str, Any], n_points: int = 200
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    fitted_model: dict[str, Any], n_points: int = 200
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Convert a fitted model dictionary to curve data for plotting.
 
@@ -420,6 +428,9 @@ def prepare_fitted_curve(
     # Evaluate model
     if model_type in get_all_parametric_models():
         od_fit = evaluate_parametric_model(time_fit, model_type, params)
+        # Phenomenological models return ln(N/N0), so convert to OD
+        if model_type in MODEL_REGISTRY["phenomenological"]:
+            od_fit = log_to_linear(od_fit, params["N0"])
     elif model_type == "spline":
         spline = spline_from_params(params)
         od_fit = np.exp(spline(time_fit))
@@ -438,9 +449,11 @@ def prepare_tangent_line(
     time_umax: float,
     od_umax: float,
     fig: go.Figure,
-    scale: Optional[str] = "linear",
-    n_points: Optional[int] = 100,
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    scale: str | None = "linear",
+    n_points: int | None = 100,
+    n0: float | None = None,
+    max_od: float | None = None,
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Calculate tangent line at maximum growth rate point.
 
@@ -485,6 +498,12 @@ def prepare_tangent_line(
         baseline_od = min(all_y_values)
         plateau_od = max(all_y_values)
 
+    # Run between the N0 and max OD lines when given, as the phase boundaries do
+    if n0 is not None and np.isfinite(n0):
+        baseline_od = n0
+    if max_od is not None and np.isfinite(max_od):
+        plateau_od = max_od
+
     # Ensure baseline < od_umax < plateau (with safety margins)
     baseline_od = min(baseline_od, od_umax * 0.95)
     plateau_od = max(plateau_od, od_umax * 1.05)
@@ -506,8 +525,8 @@ def prepare_tangent_line(
 
 def annotate_plot(
     fig: go.Figure,
-    fit_result: Optional[Dict[str, Any]] = None,
-    stats: Optional[Dict[str, Any]] = None,
+    fit_result: dict[str, Any] | None = None,
+    stats: dict[str, Any] | None = None,
     show_fitted_curve: bool = True,
     show_phase_boundaries: bool = True,
     show_crosshairs: bool = True,
@@ -518,8 +537,8 @@ def annotate_plot(
     scale: str = "linear",
     fitted_curve_color: str = "#8dcde0",
     fitted_curve_width: int = 5,
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add annotations to a growth curve plot.
@@ -590,47 +609,51 @@ def annotate_plot(
     if show_crosshairs and stats is not None:
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
-        if time_umax is not None and od_umax is not None:
-            if np.isfinite(time_umax) and np.isfinite(od_umax):
-                y_val = np.log(od_umax) if scale == "log" else od_umax
+        if (
+            time_umax is not None
+            and od_umax is not None
+            and np.isfinite(time_umax)
+            and np.isfinite(od_umax)
+        ):
+            y_val = np.log(od_umax) if scale == "log" else od_umax
 
-                # Determine bottom of vertical line
-                if scale == "log":
-                    y_min_vals = []
-                    for trace in fig.data:
-                        if trace.y is not None and len(trace.y) > 0:
-                            valid_y = [y for y in trace.y if np.isfinite(y)]
-                            if valid_y:
-                                y_min_vals.append(min(valid_y))
-                    y_bottom = min(y_min_vals) if y_min_vals else y_val
-                else:
-                    y_bottom = 0
+            # Determine bottom of vertical line
+            if scale == "log":
+                y_min_vals = []
+                for trace in fig.data:
+                    if trace.y is not None and len(trace.y) > 0:
+                        valid_y = [y for y in trace.y if np.isfinite(y)]
+                        if valid_y:
+                            y_min_vals.append(min(valid_y))
+                y_bottom = min(y_min_vals) if y_min_vals else y_val
+            else:
+                y_bottom = 0
 
-                # Vertical line
-                fig.add_shape(
-                    type="line",
-                    x0=time_umax,
-                    y0=y_bottom,
-                    x1=time_umax,
-                    y1=y_val,
-                    line=dict(color="black", dash="dot", width=2),
-                    opacity=0.5,
-                    row=row,
-                    col=col,
-                )
+            # Vertical line
+            fig.add_shape(
+                type="line",
+                x0=time_umax,
+                y0=y_bottom,
+                x1=time_umax,
+                y1=y_val,
+                line={"color": "black", "dash": "dot", "width": 2},
+                opacity=0.5,
+                row=row,
+                col=col,
+            )
 
-                # Horizontal line
-                fig.add_shape(
-                    type="line",
-                    x0=0,
-                    y0=y_val,
-                    x1=time_umax,
-                    y1=y_val,
-                    line=dict(color="black", dash="dot", width=2),
-                    opacity=0.5,
-                    row=row,
-                    col=col,
-                )
+            # Horizontal line
+            fig.add_shape(
+                type="line",
+                x0=0,
+                y0=y_val,
+                x1=time_umax,
+                y1=y_val,
+                line={"color": "black", "dash": "dot", "width": 2},
+                opacity=0.5,
+                row=row,
+                col=col,
+            )
 
     # Add od_max horizontal line
     if show_od_max_line and stats is not None:
@@ -648,20 +671,24 @@ def annotate_plot(
     if show_umax_marker and stats is not None:
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
-        if time_umax is not None and od_umax is not None:
-            if np.isfinite(time_umax) and np.isfinite(od_umax):
-                y_val = np.log(od_umax) if scale == "log" else od_umax
-                fig.add_trace(
-                    go.Scatter(
-                        x=[time_umax],
-                        y=[y_val],
-                        mode="markers",
-                        marker=dict(size=15, color="#66BB6A", symbol="circle"),
-                        showlegend=False,
-                    ),
-                    row=row,
-                    col=col,
-                )
+        if (
+            time_umax is not None
+            and od_umax is not None
+            and np.isfinite(time_umax)
+            and np.isfinite(od_umax)
+        ):
+            y_val = np.log(od_umax) if scale == "log" else od_umax
+            fig.add_trace(
+                go.Scatter(
+                    x=[time_umax],
+                    y=[y_val],
+                    mode="markers",
+                    marker={"size": 15, "color": "#66BB6A", "symbol": "circle"},
+                    showlegend=False,
+                ),
+                row=row,
+                col=col,
+            )
 
     # Add tangent line at umax
     if show_tangent and stats is not None:
@@ -669,7 +696,15 @@ def annotate_plot(
         time_umax = stats.get("time_at_umax")
         od_umax = stats.get("od_at_umax")
         if umax is not None and time_umax is not None and od_umax is not None:
-            tangent_data = prepare_tangent_line(umax, time_umax, od_umax, fig, scale)
+            tangent_data = prepare_tangent_line(
+                umax,
+                time_umax,
+                od_umax,
+                fig,
+                scale,
+                n0=stats.get("N0"),
+                max_od=stats.get("max_od"),
+            )
             if tangent_data is not None:
                 time_vals, od_vals = tangent_data
                 y_vals = np.log(od_vals) if scale == "log" else od_vals
@@ -678,7 +713,7 @@ def annotate_plot(
                         x=time_vals,
                         y=y_vals,
                         mode="lines",
-                        line=dict(color="green", width=2, dash="dash"),
+                        line={"color": "green", "width": 2, "dash": "dash"},
                         name="umax tangent",
                         showlegend=False,
                         hovertemplate="Tangent line at μmax<extra></extra>",
@@ -694,11 +729,11 @@ def plot_derivative_metric(
     t: np.ndarray,
     N: np.ndarray,
     metric: str = "mu",
-    fit_result: Optional[Dict[str, Any]] = None,
+    fit_result: dict[str, Any] | None = None,
     sg_window: int = 11,
     sg_poly: int = 2,
-    phase_boundaries: Optional[Tuple[float, float]] = None,
-    title: Optional[str] = None,
+    phase_boundaries: tuple[float, float] | None = None,
+    title: str | None = None,
     raw_line_width: int = 1,
     smoothed_line_width: int = 2,
     fitted_line_width: int = 2,
@@ -768,7 +803,6 @@ def plot_derivative_metric(
     from .inference import (
         compute_first_derivative,
         compute_instantaneous_mu,
-        compute_sliding_window_growth_rate,
         smooth,
     )
 
@@ -822,7 +856,7 @@ def plot_derivative_metric(
             x=t_metric_raw,
             y=metric_raw,
             mode="lines",
-            line=dict(width=raw_line_width, color="lightgrey"),
+            line={"width": raw_line_width, "color": "lightgrey"},
             hovertemplate=template,
             showlegend=False,
             name="Raw",
@@ -838,7 +872,7 @@ def plot_derivative_metric(
             x=t_metric_smooth,
             y=metric_smooth,
             mode="lines",
-            line=dict(width=smoothed_line_width, color="#FF6692"),
+            line={"width": smoothed_line_width, "color": "#FF6692"},
             hovertemplate=template,
             showlegend=False,
             name="Smoothed",
@@ -858,33 +892,28 @@ def plot_derivative_metric(
 
         # Filter to fitted range if available
         if fit_t_min is not None and fit_t_max is not None:
-            fit_mask = (t >= fit_t_min) & (t <= fit_t_max)
-            t_model = t[fit_mask]
-            y_model_raw = N[fit_mask]
-            y_model_smooth = y_smooth[fit_mask]
+            t_model = t[(t >= fit_t_min) & (t <= fit_t_max)]
         else:
             # Use full range if fit bounds not available
             t_model = t
-            y_model_raw = N
-            y_model_smooth = y_smooth
 
         if len(t_model) >= 2:
             if model_type == "sliding_window":
-                # For sliding window, calculate from raw N (as growthcurves does)
-                window_points = params.get("window_points", 15)
+                # The fit is one line in log space over the window: ln N = slope*t + b,
+                # so μ is the slope and dN/dt is slope * N
+                slope = params["slope"]
                 if metric == "dndt":
-                    # For dN/dt, we need to smooth first then compute derivative
-                    _, metric_model = compute_first_derivative(t_model, y_model_smooth)
+                    metric_model = slope * np.exp(slope * t_model + params["intercept"])
                 else:  # mu
-                    # For μ, use sliding window on raw N
-                    _, metric_model = compute_sliding_window_growth_rate(
-                        t_model, y_model_raw, window_points=window_points
-                    )
+                    metric_model = np.full_like(t_model, slope)
 
             elif model_type in get_all_parametric_models():
                 # For parametric models, compute metric from the model
                 # Evaluate the model on fitted range
                 y_model = evaluate_parametric_model(t_model, model_type, params)
+                # Phenomenological models return ln(N/N0), so convert to OD
+                if model_type in MODEL_REGISTRY["phenomenological"]:
+                    y_model = log_to_linear(y_model, params["N0"])
 
                 # Compute metric from model
                 if metric == "dndt":
@@ -905,9 +934,9 @@ def plot_derivative_metric(
                     else:  # mu
                         # μ = d(ln(y))/dt, which is the derivative of the spline
                         metric_model = spline.derivative()(t_model)
-                except Exception:
+                except (KeyError, ValueError, TypeError):
                     # If spline reconstruction fails, skip model trace
-                    pass
+                    metric_model = None
 
         # Plot model metric if available
         if (
@@ -923,7 +952,7 @@ def plot_derivative_metric(
                     x=t_model,
                     y=metric_model,
                     mode="lines",
-                    line=dict(width=fitted_line_width, color="#8dcde0"),
+                    line={"width": fitted_line_width, "color": "#8dcde0"},
                     hovertemplate=template,
                     showlegend=False,
                     name="Fitted",
@@ -933,9 +962,13 @@ def plot_derivative_metric(
     # Add phase boundary annotations if provided
     if phase_boundaries is not None and len(phase_boundaries) == 2:
         exp_start, exp_end = phase_boundaries
-        if exp_start is not None and exp_end is not None:
-            if np.isfinite(exp_start) and np.isfinite(exp_end):
-                fig = add_exponential_phase(fig, exp_start, exp_end)
+        if (
+            exp_start is not None
+            and exp_end is not None
+            and np.isfinite(exp_start)
+            and np.isfinite(exp_end)
+        ):
+            fig = add_exponential_phase(fig, exp_start, exp_end)
 
     # Update layout
     fig.update_layout(
@@ -944,7 +977,7 @@ def plot_derivative_metric(
         showlegend=False,
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=40, r=20, t=60, b=40),
+        margin={"l": 40, "r": 20, "t": 60, "b": 40},
         template="plotly_white",
     )
     fig.update_xaxes(showgrid=False, title="Time (hours)", range=x_range)
@@ -954,9 +987,9 @@ def plot_derivative_metric(
 
 
 def plot_growth_stats_comparison(
-    stats_dict: Dict[str, Dict[str, Any]],
+    stats_dict: dict[str, dict[str, Any]],
     title: str = "Growth Statistics Comparison",
-    metric_order: Optional[list] = None,
+    metric_order: list | None = None,
 ) -> go.Figure:
     """
     Create a multi-panel bar chart comparing growth statistics across methods.
@@ -1031,7 +1064,7 @@ def plot_growth_stats_comparison(
                 x=method_names,
                 y=numeric_df[metric].tolist(),
                 showlegend=False,
-                marker=dict(line=dict(color="black", width=1)),
+                marker={"line": {"color": "black", "width": 1}},
             ),
             row=row,
             col=col,

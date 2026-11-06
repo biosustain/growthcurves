@@ -9,6 +9,7 @@ from growthcurves.preprocessing import (
     detect_outliers_iqr,
     out_of_iqr_window,
     path_correct,
+    prepare_curve,
 )
 
 # =============================================================================
@@ -202,6 +203,21 @@ def test_detect_outliers_ecod_output_shape():
     assert mask.shape == N.shape
 
 
+@pytest.mark.parametrize("index_kind", ["string", "integer"])
+@pytest.mark.filterwarnings("error::FutureWarning")
+def test_detect_outliers_ecod_series_uses_positions(index_kind):
+    pd = pytest.importorskip("pandas")
+    _, N, _ = _sigmoid_with_spike()
+    index = (
+        [str(i) for i in range(len(N))]
+        if index_kind == "string"
+        else range(100, 100 + len(N))
+    )
+    series = pd.Series(N, index=index)
+
+    np.testing.assert_array_equal(detect_outliers_ecod(series), detect_outliers_ecod(N))
+
+
 def test_detect_outliers_ecod_no_false_positives_on_smooth():
     _, N = _smooth_sigmoid()
     mask = detect_outliers_ecod(
@@ -237,3 +253,106 @@ def test_detect_outliers_unknown_method_raises():
     _, N = _smooth_sigmoid()
     with pytest.raises(ValueError):
         detect_outliers(N, method="unknown_method")
+
+
+# =============================================================================
+# prepare_curve (standard preprocessing before every growth model fit)
+# =============================================================================
+
+
+def _growth_then_decline(n=300):
+    """Logistic growth in ln N to ~20 h, then a death phase from 30 h."""
+    t = np.linspace(0, 72, n)
+    N = 0.01 * np.exp(4 / (1 + np.exp(0.5 * (10 - t) + 2)))
+    return t, N * np.exp(-0.05 * np.clip(t - 30, 0, None))
+
+
+def test_prepare_curve_truncates_after_growth():
+    t, N = _growth_then_decline()
+    tp, Np = prepare_curve(t, N)
+    assert tp[-1] <= t[np.argmax(N)] + 1e-9
+    assert len(tp) >= 20
+    assert np.array_equal(Np, N[: len(tp)])
+
+
+def test_prepare_curve_crops_long_stationary_phase():
+    t = np.linspace(0, 200, 1000)
+    N = 0.05 * np.exp(2.5 / (1 + np.exp(0.6 * (8 - t))))
+    tp, _ = prepare_curve(t, N)
+    assert tp[-1] < 50
+
+
+def test_prepare_curve_without_truncation_only_validates():
+    t, N = _growth_then_decline()
+    tp, Np = prepare_curve(t, N, truncate=False)
+    assert np.array_equal(tp, t) and np.array_equal(Np, N)
+
+
+def test_prepare_curve_keeps_min_keep_readings():
+    t = np.linspace(0, 24, 60)
+    N = 0.05 * np.exp(2 / (1 + np.exp(2 * (2 - t))))  # plateau from ~5 h (reading 12)
+    assert len(prepare_curve(t, N, min_keep=10)[0]) < 20
+    assert len(prepare_curve(t, N, min_keep=20)[0]) == 20
+
+
+@pytest.mark.parametrize(
+    "N",
+    [
+        np.full(50, 0.1),  # constant
+        0.1 * (1 + 0.3 / (1 + np.exp(-(np.linspace(0, 24, 50) - 12)))),  # 1.3-fold
+        0.5 * np.exp(-0.05 * np.linspace(0, 24, 50)),  # declining
+    ],
+)
+def test_prepare_curve_no_growth(N):
+    assert prepare_curve(np.linspace(0, 24, 50), N) == (None, None)
+
+
+def test_prepare_curve_min_fold():
+    t = np.linspace(0, 24, 50)
+    N = 0.1 * (1 + 0.3 / (1 + np.exp(-(t - 12))))
+    assert prepare_curve(t, N, min_fold=1.2)[0] is not None
+    with pytest.raises(ValueError):
+        prepare_curve(t, N, min_fold=0.5)
+
+
+def test_prepare_curve_too_few_points():
+    assert prepare_curve(np.arange(5.0), np.linspace(0.1, 1, 5)) == (None, None)
+
+
+@pytest.mark.parametrize(
+    "model", ["phenom_logistic", "phenom_gompertz", "phenom_richards", "mech_logistic"]
+)
+def test_parametric_fits_use_prepare_curve(model):
+    from growthcurves.parametric import fit_parametric
+
+    t, N = _growth_then_decline()
+    tp, _ = prepare_curve(t, N)
+    p = fit_parametric(t, N, model)["params"]
+    assert (p["fit_t_min"], p["fit_t_max"]) == (tp[0], tp[-1])
+    assert fit_parametric(t, np.full_like(t, 0.1), model) is None
+
+
+@pytest.mark.parametrize("model", ["mech_logistic", "phenom_logistic"])
+def test_parametric_stats_use_fitted_window_for_rmse(model):
+    from growthcurves.inference import extract_stats
+    from growthcurves.parametric import fit_parametric
+
+    t, N = _growth_then_decline()
+    fit = fit_parametric(t, N, model)
+    params = fit["params"]
+    fit_mask = (t >= params["fit_t_min"]) & (t <= params["fit_t_max"])
+
+    stats_full = extract_stats(fit, t, N)
+    stats_fit_window = extract_stats(fit, t[fit_mask], N[fit_mask])
+
+    assert stats_full["fit_t_min"] == params["fit_t_min"]
+    assert stats_full["fit_t_max"] == params["fit_t_max"]
+    assert stats_full["model_rmse"] == pytest.approx(stats_fit_window["model_rmse"])
+
+
+def test_gompertz_modified_is_not_truncated():
+    from growthcurves.parametric import fit_parametric
+
+    t, N = _growth_then_decline()
+    fit = fit_parametric(t, N, "phenom_gompertz_modified")
+    assert fit["params"]["fit_t_max"] == t[-1]
