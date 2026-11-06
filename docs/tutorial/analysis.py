@@ -453,7 +453,7 @@ fit_spline = gc.non_parametric.fit_non_parametric(
     t,
     N,
     method="spline",
-    smooth="fast",
+    smooth="auto",
 )
 
 # Example manual smoothing value:
