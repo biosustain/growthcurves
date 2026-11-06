@@ -81,7 +81,7 @@ phenom_fits, phenom_stats = compare_methods(
     N,
     model_family="all",  # Include mechanistic, phenomenological, and non-parametric
     phase_boundary_method="tangent",  # tangent or threshold
-    spline=0.2,
+    smooth=0.2,
     window_points=7,
 )
 
@@ -190,7 +190,7 @@ phenom_fits, phenom_stats = compare_methods(
     N,
     model_family="all",  # Include mechanistic, phenomenological, and non-parametric
     phase_boundary_method="tangent",  # tangent or threshold
-    spline=0.2,
+    smooth=0.2,
     window_points=7,
 )
 
@@ -252,7 +252,7 @@ phenom_df
 # %% tags=["hide-input"]
 # Phase boundary comparison on spline fit
 fit_spline = gc.non_parametric.fit_non_parametric(
-    t, N, method="spline", spline=0.2, window_points=7
+    t, N, method="spline", smooth=0.2, window_points=7
 )
 
 phase_boundary_rows = []

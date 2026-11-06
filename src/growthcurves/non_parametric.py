@@ -276,6 +276,8 @@ def fit_non_parametric(
     method: str = "sliding_window",
     window_points: int = 5,
     smooth="auto",
+    min_rise: float = 0.10,
+    min_fold: float = 1.5,
     **kwargs,
 ):
     """
@@ -294,6 +296,10 @@ def fit_non_parametric(
         Minimum number of readings in a window (sliding_window method), by default 5
     smooth : "auto" or float, optional
         Spline smoothing: "auto" (default, chosen by REML) or a fixed positive value
+    min_rise : float, optional
+        Minimum rise of ln(N) for a window (sliding_window method), by default 0.10
+    min_fold : float, optional
+        Minimum fold increase of the curve for growth (both methods), by default 1.5
     **kwargs
         Ignored. Accepted so that `fit_model` can pass the same keyword arguments
         to the fit and to `extract_stats`.
@@ -312,7 +318,7 @@ method-specific values)
         Method must be "sliding_window" or "spline".
     """
     if method == "sliding_window":
-        return fit_sliding_window(t, N, window_points)
+        return fit_sliding_window(t, N, window_points, min_rise, min_fold)
     if method == "spline":
-        return fit_spline(t, N, smooth)
+        return fit_spline(t, N, smooth, min_fold)
     raise ValueError(f"Unknown umax_method: {method}")

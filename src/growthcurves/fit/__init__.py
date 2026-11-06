@@ -1,5 +1,6 @@
 """Entry point of growthcurves package"""
 
+import inspect
 import warnings
 
 import numpy as np
@@ -16,6 +17,37 @@ __all__ = [
 ]
 
 
+def _named_params(func) -> set[str]:
+    """Names of the parameters `func` explicitly declares (no *args/**kwargs)."""
+    return {
+        name
+        for name, p in inspect.signature(func).parameters.items()
+        if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    }
+
+
+def _accepted_kwargs(func, kwargs: dict) -> dict:
+    """Keep only the keyword arguments that `func` explicitly names."""
+    names = _named_params(func)
+    return {k: v for k, v in kwargs.items() if k in names}
+
+
+def _check_known_kwargs(kwargs: dict) -> None:
+    """Raise if a keyword is not used by any fit function or by `extract_stats`."""
+    known = (
+        _named_params(fit_parametric)
+        | _named_params(fit_non_parametric)
+        | _named_params(inference.extract_stats)
+        | {"lag_frac", "exp_frac"}  # aliases read from extract_stats' **kwargs
+    )
+    unknown = sorted(set(kwargs) - known)
+    if unknown:
+        raise TypeError(
+            f"fit_model() got unknown keyword argument(s) {unknown}; "
+            f"no model accepts them. Known options: {sorted(known)}"
+        )
+
+
 def fit_model(
     t: np.ndarray,
     N: np.ndarray,
@@ -25,10 +57,17 @@ def fit_model(
     phase_boundary_method=None,
     **kwargs,
 ) -> tuple[dict, dict]:
+    if kwargs:
+        _check_known_kwargs(kwargs)
     if model_name in models.MODEL_REGISTRY["non_parametric"]:
-        fit_res = fit_non_parametric(t, N, method=model_name, **kwargs)
+        fit_func = fit_non_parametric
     else:
-        fit_res = fit_parametric(t, N, method=model_name, **kwargs)
+        fit_func = fit_parametric
+    # model-specific options (e.g. smooth, window_points) are only passed on to
+    # the fit functions that accept them, so one set of kwargs works for all models
+    fit_res = fit_func(
+        t, N, method=model_name, **_accepted_kwargs(fit_func, kwargs)
+    )
     # return None if fit fails, along with bad fit stats
     if fit_res is None:
         warnings.warn(
@@ -71,7 +110,9 @@ fit_model.__doc__ = f"""Fit a growth model to the provided t and N.
         Method to determine phase boundaries ("tangent", "threshold",
         or None for default for model class).
     **kwargs
-        Additiona keyword arguments to be passed to fitting and inference functions.
+        Additional keyword arguments (e.g. ``smooth``, ``window_points``,
+        ``min_fold``). Each fit function only receives the ones it accepts, so
+        options meant for other model families are ignored.
 
     Returns
     -------
