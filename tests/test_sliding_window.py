@@ -159,7 +159,9 @@ def test_invalid_window_points_raises(window_points):
         fit_sliding_window(*_logistic(50), window_points=window_points)
 
 
-@pytest.mark.parametrize("kw", [dict(min_rise=-0.1), dict(min_rise=1), dict(min_fold=0.5)])
+@pytest.mark.parametrize(
+    "kw", [dict(min_rise=-0.1), dict(min_rise=1), dict(min_fold=0.5)]
+)
 def test_invalid_window_rules_raise(kw):
     with pytest.raises(ValueError):
         fit_sliding_window(*_logistic(50), **kw)

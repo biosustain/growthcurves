@@ -1,7 +1,11 @@
-import pytest
 import numpy as np
+import pytest
 
-from growthcurves.models import log_to_linear, phenom_gompertz_model_ln, spline_from_params
+from growthcurves.models import (
+    log_to_linear,
+    phenom_gompertz_model_ln,
+    spline_from_params,
+)
 from growthcurves.non_parametric import fit_non_parametric, fit_spline
 
 # =============================================================================
@@ -64,7 +68,9 @@ def test_spline_from_params_reproduces_fit():
     t, N, _ = _gompertz_curve()
     params = fit_spline(t, N)["params"]
     spline = spline_from_params(params)
-    assert np.isclose(spline.derivative()(params["time_at_umax"]), params["mu_max"], rtol=1e-3)
+    assert np.isclose(
+        spline.derivative()(params["time_at_umax"]), params["mu_max"], rtol=1e-3
+    )
 
 
 def test_fixed_smooth():
@@ -89,7 +95,9 @@ def test_invalid_smooth_raises():
 def test_noisy_curve_recovers_mu_max():
     t, N, mu_max = _gompertz_curve(mu_max=0.4)
     rng = np.random.default_rng(0)
-    N = N * np.exp(0.03 * rng.standard_normal(len(N))) + 0.002 * rng.standard_normal(len(N))
+    N = N * np.exp(0.03 * rng.standard_normal(len(N))) + 0.002 * rng.standard_normal(
+        len(N)
+    )
     result = fit_spline(t, N)
     assert np.isclose(result["params"]["mu_max"], mu_max, rtol=0.1)
 
@@ -138,7 +146,9 @@ def test_flat_correlated_noise_returns_none(seed):
 def test_small_rise_returns_none():
     # OD rises 1.3-fold: below min_fold
     t = np.linspace(0, 48, 200)
-    N = log_to_linear(phenom_gompertz_model_ln(t, A=np.log(1.3), mu_max=0.1, lam=5.0), N0=0.05)
+    N = log_to_linear(
+        phenom_gompertz_model_ln(t, A=np.log(1.3), mu_max=0.1, lam=5.0), N0=0.05
+    )
     assert fit_spline(t, N) is None
     assert fit_spline(t, N, min_fold=1.2) is not None
 
