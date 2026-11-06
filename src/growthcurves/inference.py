@@ -178,6 +178,9 @@ def compute_analytical_mu_max(model_type, params, t_min, t_max):
     """
     mu, K = float(params["mu"]), float(params["K"])
     if model_type == "mech_baranyi":
+        if float(params["h0"]) == 0:
+            N1 = float(evaluate_parametric_model(t_min, "mech_logistic", params))
+            return mu * (1 - N1 / K)
         v, q0, c, D = _baranyi_peak(params, t_min, t_max)
         return float(mu * c * (1 + q0) * v / ((1 + v) * (v + D)))
     if model_type not in ("mech_logistic", "mech_gompertz", "mech_richards"):
@@ -209,6 +212,8 @@ def compute_analytical_time_at_umax(model_type, params, t_min, t_max):
     if model_type in ("mech_logistic", "mech_gompertz", "mech_richards"):
         return float(t_min)
     if model_type == "mech_baranyi":
+        if float(params["h0"]) == 0:
+            return float(t_min)
         v, q0, _, _ = _baranyi_peak(params, t_min, t_max)
         # clip: exp/log round-off can land 1 ulp outside the span
         return float(np.clip(np.log(v / q0) / float(params["mu"]), t_min, t_max))

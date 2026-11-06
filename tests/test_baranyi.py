@@ -74,3 +74,20 @@ def test_compute_analytical_mu_max_mech_baranyi():
     assert np.isclose(
         mu_max, true_mu_max, rtol=1e-2
     ), f"mu_max {mu_max:.3f} does not match true value {true_mu_max:.3f}"
+
+
+def test_analytical_baranyi_statistics_with_zero_lag():
+    params = {"mu": 0.5, "K": 1.0, "N0": 0.05, "h0": 0.0}
+    t_min, t_max = 2.0, 24.0
+    N_at_t_min = evaluate_parametric_model(t_min, "mech_logistic", params)
+    expected_mu_max = params["mu"] * (1 - N_at_t_min / params["K"])
+
+    mu_max = gc.inference.compute_analytical_mu_max(
+        "mech_baranyi", params, t_min, t_max
+    )
+    time_at_umax = gc.inference.compute_analytical_time_at_umax(
+        "mech_baranyi", params, t_min, t_max
+    )
+
+    assert np.isclose(mu_max, expected_mu_max)
+    assert time_at_umax == t_min
