@@ -5,6 +5,8 @@ subtraction and path length correction, and `prepare_curve`, the standard
 preprocessing every growth model fit applies to its data.
 """
 
+from __future__ import annotations
+
 from functools import partial
 
 import numpy as np

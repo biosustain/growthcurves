@@ -4,6 +4,8 @@ This module provides utility functions for data validation, smoothing,
 derivative calculations, and RMSE computation.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from scipy.signal import savgol_filter
 
@@ -1899,7 +1901,7 @@ def compare_methods(
     t: np.ndarray,
     N: np.ndarray,
     model_family: str = "all",
-    phase_boundary_method: str = None,
+    phase_boundary_method: str | None = None,
     **fit_kwargs,
 ) -> tuple:
     """

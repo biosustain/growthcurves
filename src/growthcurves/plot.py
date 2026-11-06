@@ -4,7 +4,9 @@ Plotting functions for growth curve analysis using Plotly.
 This module provides modular functions for creating and annotating growth curve plots.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 import plotly.graph_objects as go
@@ -23,7 +25,7 @@ def create_base_plot(
     N: np.ndarray,
     scale: str = "linear",
     xlabel: str = "Time (hours)",
-    ylabel: Optional[str] = None,
+    ylabel: str | None = None,
     marker_size: int = 5,
     marker_opacity: float = 0.3,
     marker_color: str = "gray",
@@ -84,14 +86,18 @@ def create_base_plot(
             y=y_data,
             mode="markers",
             name="Data",
-            marker=dict(size=marker_size, opacity=marker_opacity, color=marker_color),
+            marker={
+                "size": marker_size,
+                "opacity": marker_opacity,
+                "color": marker_color,
+            },
             showlegend=False,
         )
     )
 
     # Update layout
     # For linear scale, set y-axis to start at 0; for log scale, auto-range
-    yaxis_config = dict(visible=True, showline=True)
+    yaxis_config = {"visible": True, "showline": True}
     if scale == "linear":
         yaxis_config["range"] = [0, None]
 
@@ -101,7 +107,7 @@ def create_base_plot(
         hovermode="closest",
         template="plotly_white",
         showlegend=False,
-        xaxis=dict(range=[0, None]),  # Start x-axis at 0 to remove gap
+        xaxis={"range": [0, None]},  # Start x-axis at 0 to remove gap
         yaxis=yaxis_config,
     )
 
@@ -115,8 +121,8 @@ def add_exponential_phase(
     color: str = "lightgreen",
     opacity: float = 0.25,
     name: str = "Exponential phase",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add shaded region for exponential growth phase.
@@ -173,11 +179,11 @@ def add_fitted_curve(
     name: str = "Fitted curve",
     color: str = "blue",
     line_width: int = 5,
-    window_start: Optional[float] = None,
-    window_end: Optional[float] = None,
-    scale: Optional[str] = "linear",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    window_start: float | None = None,
+    window_end: float | None = None,
+    scale: str | None = "linear",
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add fitted curve to the plot, optionally constrained to a window.
@@ -236,7 +242,7 @@ def add_fitted_curve(
             y=N_fit,
             mode="lines",
             name=name,
-            line=dict(color=color, width=line_width),
+            line={"color": color, "width": line_width},
             showlegend=False,
         ),
         row=row,
@@ -255,8 +261,8 @@ def add_od_max_line(
     line_width: float = 2,
     line_opacity: float = 0.5,
     name: str = "ODmax",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add horizontal line at maximum OD value.
@@ -321,8 +327,8 @@ def add_N0_line(
     line_width: float = 2,
     line_opacity: float = 0.5,
     name: str = "N0",
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add horizontal line at initial OD value (N0).
@@ -379,8 +385,8 @@ def add_N0_line(
 
 
 def prepare_fitted_curve(
-    fitted_model: Dict[str, Any], n_points: int = 200
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    fitted_model: dict[str, Any], n_points: int = 200
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Convert a fitted model dictionary to curve data for plotting.
 
@@ -443,11 +449,11 @@ def prepare_tangent_line(
     time_umax: float,
     od_umax: float,
     fig: go.Figure,
-    scale: Optional[str] = "linear",
-    n_points: Optional[int] = 100,
-    n0: Optional[float] = None,
-    max_od: Optional[float] = None,
-) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    scale: str | None = "linear",
+    n_points: int | None = 100,
+    n0: float | None = None,
+    max_od: float | None = None,
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Calculate tangent line at maximum growth rate point.
 
@@ -519,8 +525,8 @@ def prepare_tangent_line(
 
 def annotate_plot(
     fig: go.Figure,
-    fit_result: Optional[Dict[str, Any]] = None,
-    stats: Optional[Dict[str, Any]] = None,
+    fit_result: dict[str, Any] | None = None,
+    stats: dict[str, Any] | None = None,
     show_fitted_curve: bool = True,
     show_phase_boundaries: bool = True,
     show_crosshairs: bool = True,
@@ -531,8 +537,8 @@ def annotate_plot(
     scale: str = "linear",
     fitted_curve_color: str = "#8dcde0",
     fitted_curve_width: int = 5,
-    row: Optional[int] = None,
-    col: Optional[int] = None,
+    row: int | None = None,
+    col: int | None = None,
 ) -> go.Figure:
     """
     Add annotations to a growth curve plot.
@@ -626,7 +632,7 @@ def annotate_plot(
                     y0=y_bottom,
                     x1=time_umax,
                     y1=y_val,
-                    line=dict(color="black", dash="dot", width=2),
+                    line={"color": "black", "dash": "dot", "width": 2},
                     opacity=0.5,
                     row=row,
                     col=col,
@@ -639,7 +645,7 @@ def annotate_plot(
                     y0=y_val,
                     x1=time_umax,
                     y1=y_val,
-                    line=dict(color="black", dash="dot", width=2),
+                    line={"color": "black", "dash": "dot", "width": 2},
                     opacity=0.5,
                     row=row,
                     col=col,
@@ -669,7 +675,7 @@ def annotate_plot(
                         x=[time_umax],
                         y=[y_val],
                         mode="markers",
-                        marker=dict(size=15, color="#66BB6A", symbol="circle"),
+                        marker={"size": 15, "color": "#66BB6A", "symbol": "circle"},
                         showlegend=False,
                     ),
                     row=row,
@@ -699,7 +705,7 @@ def annotate_plot(
                         x=time_vals,
                         y=y_vals,
                         mode="lines",
-                        line=dict(color="green", width=2, dash="dash"),
+                        line={"color": "green", "width": 2, "dash": "dash"},
                         name="umax tangent",
                         showlegend=False,
                         hovertemplate="Tangent line at μmax<extra></extra>",
@@ -715,11 +721,11 @@ def plot_derivative_metric(
     t: np.ndarray,
     N: np.ndarray,
     metric: str = "mu",
-    fit_result: Optional[Dict[str, Any]] = None,
+    fit_result: dict[str, Any] | None = None,
     sg_window: int = 11,
     sg_poly: int = 2,
-    phase_boundaries: Optional[Tuple[float, float]] = None,
-    title: Optional[str] = None,
+    phase_boundaries: tuple[float, float] | None = None,
+    title: str | None = None,
     raw_line_width: int = 1,
     smoothed_line_width: int = 2,
     fitted_line_width: int = 2,
@@ -842,7 +848,7 @@ def plot_derivative_metric(
             x=t_metric_raw,
             y=metric_raw,
             mode="lines",
-            line=dict(width=raw_line_width, color="lightgrey"),
+            line={"width": raw_line_width, "color": "lightgrey"},
             hovertemplate=template,
             showlegend=False,
             name="Raw",
@@ -858,7 +864,7 @@ def plot_derivative_metric(
             x=t_metric_smooth,
             y=metric_smooth,
             mode="lines",
-            line=dict(width=smoothed_line_width, color="#FF6692"),
+            line={"width": smoothed_line_width, "color": "#FF6692"},
             hovertemplate=template,
             showlegend=False,
             name="Smoothed",
@@ -938,7 +944,7 @@ def plot_derivative_metric(
                     x=t_model,
                     y=metric_model,
                     mode="lines",
-                    line=dict(width=fitted_line_width, color="#8dcde0"),
+                    line={"width": fitted_line_width, "color": "#8dcde0"},
                     hovertemplate=template,
                     showlegend=False,
                     name="Fitted",
@@ -959,7 +965,7 @@ def plot_derivative_metric(
         showlegend=False,
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=40, r=20, t=60, b=40),
+        margin={"l": 40, "r": 20, "t": 60, "b": 40},
         template="plotly_white",
     )
     fig.update_xaxes(showgrid=False, title="Time (hours)", range=x_range)
@@ -969,9 +975,9 @@ def plot_derivative_metric(
 
 
 def plot_growth_stats_comparison(
-    stats_dict: Dict[str, Dict[str, Any]],
+    stats_dict: dict[str, dict[str, Any]],
     title: str = "Growth Statistics Comparison",
-    metric_order: Optional[list] = None,
+    metric_order: list | None = None,
 ) -> go.Figure:
     """
     Create a multi-panel bar chart comparing growth statistics across methods.
@@ -1046,7 +1052,7 @@ def plot_growth_stats_comparison(
                 x=method_names,
                 y=numeric_df[metric].tolist(),
                 showlegend=False,
-                marker=dict(line=dict(color="black", width=1)),
+                marker={"line": {"color": "black", "width": 1}},
             ),
             row=row,
             col=col,
