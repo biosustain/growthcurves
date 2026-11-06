@@ -65,9 +65,7 @@ def fit_model(
         fit_func = fit_parametric
     # model-specific options (e.g. smooth, window_points) are only passed on to
     # the fit functions that accept them, so one set of kwargs works for all models
-    fit_res = fit_func(
-        t, N, method=model_name, **_accepted_kwargs(fit_func, kwargs)
-    )
+    fit_res = fit_func(t, N, method=model_name, **_accepted_kwargs(fit_func, kwargs))
     # return None if fit fails, along with bad fit stats
     if fit_res is None:
         warnings.warn(
