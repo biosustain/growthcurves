@@ -48,6 +48,7 @@ def _fit_model_generic(
     bounds_func,
     model_type: str,
     log_space: bool = False,
+    min_fold: float = 1.5,
 ):
     """
     Generic wrapper for fitting parametric growth models.
@@ -63,13 +64,14 @@ def _fit_model_generic(
         p0_func: Function that takes K_init and returns p0
         bounds_func: Function that takes (K_init, t) and returns bounds
         model_type: String identifier for the model
+        min_fold: Minimum fold increase of the smoothed OD for growth (`prepare_curve`)
 
     Returns:
         Dict with 'params' (incl. fit_t_min, fit_t_max) and 'model_type', or None
         for no growth or too few points
 
     """
-    t, N = prepare_curve(t, N)
+    t, N = prepare_curve(t, N, min_fold=min_fold)
     if t is None:
         return None
 
@@ -106,7 +108,7 @@ def _fit_model_generic(
 # -----------------------------------------------------------------------------
 
 
-def fit_mech_logistic(t: np.ndarray, N: np.ndarray):
+def fit_mech_logistic(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic logistic model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -127,6 +129,7 @@ def fit_mech_logistic(t: np.ndarray, N: np.ndarray):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_logistic_model,
         param_names=["mu", "K", "N0"],
         p0_func=lambda K: [0.5, K, 0.001],
@@ -139,7 +142,7 @@ def fit_mech_logistic(t: np.ndarray, N: np.ndarray):
     )
 
 
-def fit_mech_gompertz(t: np.ndarray, N: np.ndarray):
+def fit_mech_gompertz(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Gompertz model (ODE) to growth data N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -165,6 +168,7 @@ def fit_mech_gompertz(t: np.ndarray, N: np.ndarray):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_gompertz_model,
         param_names=["mu", "K", "N0"],
         p0_func=lambda K: [0.05, K, 0.01],
@@ -178,7 +182,7 @@ def fit_mech_gompertz(t: np.ndarray, N: np.ndarray):
     )
 
 
-def fit_mech_richards(t: np.ndarray, N: np.ndarray):
+def fit_mech_richards(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Richards model (ODE) to growth N(t). N(t) could be Optical Density
     (OD) or any other measurement depending on variable t (which is time).
@@ -197,6 +201,7 @@ def fit_mech_richards(t: np.ndarray, N: np.ndarray):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_richards_model,
         param_names=["mu", "K", "N0", "beta"],
         p0_func=lambda K: [0.5, K, 0.001, 1.0],
@@ -209,7 +214,7 @@ def fit_mech_richards(t: np.ndarray, N: np.ndarray):
     )
 
 
-def fit_mech_baranyi(t: np.ndarray, N: np.ndarray):
+def fit_mech_baranyi(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit mechanistic Baranyi-Roberts model (ODE) to growth N(t). N(t) could be Optical
     Density (OD) or any other measurement depending on variable t (which is time).
@@ -244,6 +249,7 @@ def fit_mech_baranyi(t: np.ndarray, N: np.ndarray):
     return _fit_model_generic(
         t,
         N,
+        min_fold=min_fold,
         model_func=mech_baranyi_model,
         param_names=["mu", "K", "N0", "h0"],
         p0_func=p0_baranyi,
@@ -285,6 +291,7 @@ def _fit_phenom_model(
     extra_params=None,
     p0_overrides=None,
     truncate=True,
+    min_fold: float = 1.5,
 ):
     """
     Generic wrapper for fitting phenomenological growth models.
@@ -308,12 +315,13 @@ def _fit_phenom_model(
             or lam for models where they are a poor starting point
         truncate: Drop the readings after the growth phase (`prepare_curve`); False
             for models that describe the phase after growth themselves
+        min_fold: Minimum fold increase of the smoothed OD for growth (`prepare_curve`)
 
     Returns:
         Dict with 'params' (A, mu_max, lam, *extra, N0, fit_t_min, fit_t_max) and
         'model_type', or None for no growth or too few points.
     """
-    t, N = prepare_curve(t, N, truncate=truncate)
+    t, N = prepare_curve(t, N, min_fold=min_fold, truncate=truncate)
     if t is None:
         return None
 
@@ -406,7 +414,7 @@ def fit_fct(t: np.ndarray, N: np.ndarray, fct):
     }
 
 
-def fit_phenom_logistic(t: np.ndarray, N: np.ndarray):
+def fit_phenom_logistic(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit non-standard phenomenological logistic model to OD data
     N(t) = N0 * exp(ln_ratio(t)).
@@ -421,10 +429,12 @@ def fit_phenom_logistic(t: np.ndarray, N: np.ndarray):
         Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
         fitting fails.
     """
-    return _fit_phenom_model(t, N, phenom_logistic_model_ln, "phenom_logistic")
+    return _fit_phenom_model(
+        t, N, phenom_logistic_model_ln, "phenom_logistic", min_fold=min_fold
+    )
 
 
-def fit_phenom_gompertz(t: np.ndarray, N: np.ndarray):
+def fit_phenom_gompertz(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit phenomenological Gompertz model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
@@ -438,10 +448,12 @@ def fit_phenom_gompertz(t: np.ndarray, N: np.ndarray):
         Dict with 'params' (A, mu_max, lam, N0) and 'model_type', or None if
         fitting fails.
     """
-    return _fit_phenom_model(t, N, phenom_gompertz_model_ln, "phenom_gompertz")
+    return _fit_phenom_model(
+        t, N, phenom_gompertz_model_ln, "phenom_gompertz", min_fold=min_fold
+    )
 
 
-def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray):
+def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit phenomenological modified Gompertz model with decay term to OD data
     N(t) = N0 * exp(ln_ratio(t)).
@@ -471,10 +483,11 @@ def fit_phenom_gompertz_modified(t: np.ndarray, N: np.ndarray):
         p0_overrides=lambda _, N: {"A": np.log(np.max(N) / np.min(N)) / 2},
         # the second term models the phase after growth: keep it in the data
         truncate=False,
+        min_fold=min_fold,
     )
 
 
-def fit_phenom_richards(t: np.ndarray, N: np.ndarray):
+def fit_phenom_richards(t: np.ndarray, N: np.ndarray, min_fold: float = 1.5):
     """
     Fit phenomenological Richards model to OD data N(t) = N0 * exp(ln_ratio(t)).
 
@@ -494,6 +507,7 @@ def fit_phenom_richards(t: np.ndarray, N: np.ndarray):
         phenom_richards_model_ln,
         "phenom_richards",
         extra_params=lambda _: {"nu": (1.0, 0.01, 100)},
+        min_fold=min_fold,
     )
 
 
@@ -514,7 +528,10 @@ FITTING_FUNCTIONS = {
 
 
 def fit_parametric(
-    t: np.ndarray, N: np.ndarray, method: str = "mech_logistic", **kwargs
+    t: np.ndarray,
+    N: np.ndarray,
+    method: str = "mech_logistic",
+    min_fold: float = 1.5,
 ):
     """Fit a growth model to N (mechanistic) or ln(N/N0) (phenomenological).
 
@@ -534,6 +551,9 @@ def fit_parametric(
         Phenomenological (ln-space):
             - "phenom_logistic", "phenom_gompertz", "phenom_gompertz_modified",\
  "phenom_richards"
+    min_fold : float, optional
+        Minimum fold increase of the smoothed OD for growth (default: 1.5; see
+        `preprocessing.prepare_curve`)
 
     Returns
     -------
@@ -553,4 +573,4 @@ def fit_parametric(
             f"Unknown method '{method}'. Must be one of {list(get_all_models())}."
         )
 
-    return fit_func(t, N)
+    return fit_func(t, N, min_fold=min_fold)
